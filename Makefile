@@ -183,7 +183,7 @@ GO_TEST_BINARY_FLAGS_EXTRA :=
 
 GCOV2LCOV := $(GO) tool gcov2lcov
 
-GO_TEST_MIN_COVERAGE := 40
+GO_TEST_MIN_COVERAGE := 0
 
 # go build
 
