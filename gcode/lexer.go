@@ -40,11 +40,11 @@ func (tt TokenType) String() string {
 
 type Token struct {
 	Type  TokenType
-	Value string
+	Value []byte
 }
 
 func (t *Token) String() string {
-	return fmt.Sprintf("%s: %#v", t.Type, t.Value)
+	return fmt.Sprintf("%s: %#v", t.Type, string(t.Value))
 }
 
 // Lexer tokenizes G-Code. Its implementation is derived directly from Grbl source code.
@@ -229,7 +229,7 @@ func (lx *Lexer) Next() (*Token, error) {
 		return &Token{Type: TokenTypeEOF}, nil
 	}
 
-	value := lx.scanner.Text()
+	value := lx.scanner.Bytes()
 	if len(value) == 0 {
 		panic(fmt.Sprintf("bug: empty token received at line %d", lx.line))
 	}

@@ -28,7 +28,9 @@ func TestLexer(t *testing.T) {
 				if token.Type == TokenTypeEOF {
 					break
 				}
-				buf.WriteString(token.Value)
+				n, err := buf.Write(token.Value)
+				require.Equal(t, len(token.Value), n)
+				require.NoError(t, err)
 			}
 
 			orig, err := os.ReadFile(path)
