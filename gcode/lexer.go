@@ -39,13 +39,17 @@ func (tt TokenType) String() string {
 }
 
 type Token struct {
-	Value string
 	Type  TokenType
+	Value string
+}
+
+func (t *Token) String() string {
+	return fmt.Sprintf("%s: %#v", t.Type, t.Value)
 }
 
 // Lexer tokenizes G-Code. Its implementation is derived directly from Grbl source code.
 type Lexer struct {
-	lines   uint
+	line    uint
 	scanner *bufio.Scanner
 }
 
@@ -53,11 +57,11 @@ type Lexer struct {
 func NewLexer(rd io.Reader) *Lexer {
 	scanner := bufio.NewScanner(bufio.NewReader(rd))
 	scanner.Split(split)
-	return &Lexer{scanner: scanner}
+	return &Lexer{line: 1, scanner: scanner}
 }
 
 func isSpace(c byte) bool {
-	return c == ' '
+	return c == ' ' || c == '\t'
 }
 
 func isParenthesisCommentStart(c byte) bool {
@@ -185,9 +189,17 @@ func split(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		}
 		if ndigit == 0 {
 			return 0, nil, fmt.Errorf("Invalid number: %s", data[:i])
-		} else {
+		}
+		if i < len(data) {
+			if isSpace(data[i]) || isCommentStart(data[i]) || isLetterStart(data[i]) || isNewLineStart(data[i]) {
+				return i, data[:i], nil
+			}
+			return 0, nil, nil
+		}
+		if atEOF {
 			return i, data[:i], nil
 		}
+		return 0, nil, nil
 	}
 
 	// NewLine
@@ -206,20 +218,20 @@ func split(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		}
 	}
 
-	return 0, nil, fmt.Errorf("unexpected char: %v", data[0])
+	return 0, nil, fmt.Errorf("unexpected char: %#v", string(data[0]))
 }
 
 func (lx *Lexer) Next() (*Token, error) {
 	if !lx.scanner.Scan() {
 		if err := lx.scanner.Err(); err != nil {
-			return nil, fmt.Errorf("Line %d: %w", lx.lines, err)
+			return nil, fmt.Errorf("Line %d: %w", lx.line, err)
 		}
 		return &Token{Type: TokenTypeEOF}, nil
 	}
 
 	value := lx.scanner.Text()
 	if len(value) == 0 {
-		panic(fmt.Sprintf("bug: empty token received at line %d", lx.lines))
+		panic(fmt.Sprintf("bug: empty token received at line %d", lx.line))
 	}
 
 	if isSpace(value[0]) {
@@ -243,9 +255,9 @@ func (lx *Lexer) Next() (*Token, error) {
 	}
 
 	if isNewLineStart(value[0]) {
-		lx.lines++
+		lx.line++
 		return &Token{Value: value, Type: TokenTypeNewLine}, nil
 	}
 
-	panic(fmt.Sprintf("bug: unexpected value at line %d: %v", lx.lines, value))
+	panic(fmt.Sprintf("bug: unexpected value at line %d: %#v", lx.line, value))
 }
