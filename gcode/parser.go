@@ -91,7 +91,7 @@ func (p *Parser) Next() (*Block, error) {
 
 		if token.Type == TokenTypeWordLetter {
 			if currentLetter != nil {
-				return nil, fmt.Errorf("Line %d: unexpected word letter %q after previous letter", p.lexer.Line, string(token.Value))
+				return nil, fmt.Errorf("line %d: unexpected word letter %q after previous letter", p.lexer.Line, string(token.Value))
 			}
 			r := rune(token.Value[0])
 			currentLetter = &r
@@ -100,7 +100,7 @@ func (p *Parser) Next() (*Block, error) {
 
 		if token.Type == TokenTypeWordNumber {
 			if currentLetter == nil {
-				return nil, fmt.Errorf("Line %d: unexpected word number %q without preceding letter", p.lexer.Line, string(token.Value))
+				return nil, fmt.Errorf("line %d: unexpected word number %q without preceding letter", p.lexer.Line, string(token.Value))
 			}
 			word := Word{Letter: *currentLetter, Number: string(token.Value)}
 			if block.Command == nil {
@@ -114,7 +114,7 @@ func (p *Parser) Next() (*Block, error) {
 
 		if token.Type == TokenTypeNewLine {
 			if currentLetter != nil {
-				return nil, fmt.Errorf("Line %d: unexpected word letter at end of line", p.lexer.Line-1)
+				return nil, fmt.Errorf("line %d: unexpected word letter at end of line", p.lexer.Line-1)
 			}
 			if !block.Empty() {
 				return block, nil

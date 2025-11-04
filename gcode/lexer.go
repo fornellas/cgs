@@ -7,8 +7,6 @@ import (
 	"io"
 )
 
-const grblMaxIntDigits = 8 // Grbl's MAX_INT_DIGITS is 8
-
 type TokenType int
 
 const (
@@ -93,114 +91,128 @@ func isNewLineStart(c byte) bool {
 	return c == '\n' || c == '\r'
 }
 
+func splitSpace(data []byte) (advance int, token []byte, err error) {
+	i := 0
+	for i < len(data) && isSpace(data[i]) {
+		i++
+	}
+	return i, data[:i], nil
+}
+
+func splitParenthesisComment(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	i := 1
+	for i < len(data) {
+		if data[i] == ')' {
+			i++
+			return i, data[:i], nil
+		}
+		if data[i] == '\n' {
+			return 0, nil, errors.New("end of line reached without closing parenthesis")
+		}
+		i++
+	}
+	if atEOF {
+		return 0, nil, errors.New("end of file reached without closing parenthesis")
+	}
+	return 0, nil, nil
+}
+
+func splitSemicolonComment(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	i := 1
+	for i < len(data) {
+		if data[i] == '\n' {
+			if i > 1 && data[i-1] == '\r' {
+				i--
+				return i, data[:i], nil
+			}
+			return i, data[:i], nil
+		}
+		i++
+	}
+	if atEOF {
+		return len(data), data, nil
+	}
+	return 0, nil, nil
+}
+
+func splitSystem(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	i := 1
+	for i < len(data) {
+		if data[i] == '\n' {
+			if i > 1 && data[i-1] == '\r' {
+				i--
+				return i, data[:i], nil
+			}
+			return i, data[:i], nil
+		}
+		i++
+	}
+	if atEOF {
+		return len(data), data, nil
+	}
+	return 0, nil, nil
+}
+
+func splitNumber(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	i := 0
+	if data[i] == '-' || data[i] == '+' {
+		i++
+	}
+	ndigit := 0
+	isdecimal := false
+	for i < len(data) {
+		c := data[i]
+		if c >= '0' && c <= '9' {
+			ndigit++
+			i++
+		} else if c == '.' && !isdecimal {
+			isdecimal = true
+			i++
+		} else {
+			break
+		}
+	}
+	if ndigit == 0 {
+		return 0, nil, fmt.Errorf("invalid number: %s", data[:i])
+	}
+	if i < len(data) {
+		if isSpace(data[i]) || isCommentStart(data[i]) || isLetterStart(data[i]) || isNewLineStart(data[i]) {
+			return i, data[:i], nil
+		}
+		return 0, nil, nil
+	}
+	if atEOF {
+		return i, data[:i], nil
+	}
+	return 0, nil, nil
+}
+
 func split(data []byte, atEOF bool) (advance int, token []byte, err error) {
-	// EOF
 	if atEOF && len(data) == 0 {
 		return 0, nil, nil
 	}
 
-	// Space
 	if isSpace(data[0]) {
-		i := 0
-		for i < len(data) && isSpace(data[i]) {
-			i++
-		}
-		return i, data[:i], nil
+		return splitSpace(data)
 	}
 
-	// Comment
 	if isParenthesisCommentStart(data[0]) {
-		i := 1
-		for i < len(data) {
-			if data[i] == ')' {
-				i++
-				return i, data[:i], nil
-			}
-			if data[i] == '\n' {
-				return 0, nil, errors.New("end of line reached without closing parenthesis")
-			}
-			i++
-		}
-		if atEOF {
-			return 0, nil, errors.New("end of file reached without closing parenthesis")
-		}
-		return 0, nil, nil
+		return splitParenthesisComment(data, atEOF)
 	}
 	if isSemicolonCommentStart(data[0]) {
-		i := 1
-		for i < len(data) {
-			if data[i] == '\n' {
-				if i > 1 && data[i-1] == '\r' {
-					i--
-					return i, data[:i], nil
-				}
-				return i, data[:i], nil
-			}
-			i++
-		}
-		if atEOF {
-			return len(data), data, nil
-		}
-		return 0, nil, nil
+		return splitSemicolonComment(data, atEOF)
 	}
 
-	// System
 	if isSystemStart(data[0]) {
-		i := 1
-		for i < len(data) {
-			if data[i] == '\n' {
-				if i > 1 && data[i-1] == '\r' {
-					i--
-					return i, data[:i], nil
-				}
-				return i, data[:i], nil
-			}
-			i++
-		}
-		if atEOF {
-			return len(data), data, nil
-		}
-		return 0, nil, nil
+		return splitSystem(data, atEOF)
 	}
 
-	// WordLetter
 	if isLetterStart(data[0]) {
 		return 1, data[:1], nil
 	}
 
-	// WordNumber
 	if isNumberStart(data[0]) {
-		i := 0
-		if data[i] == '-' || data[i] == '+' {
-			i++
-		}
-		ndigit := 0
-		isdecimal := false
-		for i < len(data) {
-			c := data[i]
-			if c >= '0' && c <= '9' {
-				ndigit++
-				i++
-			} else if c == '.' && !isdecimal {
-				isdecimal = true
-				i++
-			} else {
-				break
-			}
-		}
-		if ndigit == 0 {
-			return 0, nil, fmt.Errorf("Invalid number: %s", data[:i])
-		}
-		if i < len(data) {
-			if isSpace(data[i]) || isCommentStart(data[i]) || isLetterStart(data[i]) || isNewLineStart(data[i]) {
-				return i, data[:i], nil
-			}
-			return 0, nil, nil
-		}
-		if atEOF {
-			return i, data[:i], nil
-		}
-		return 0, nil, nil
+		return splitNumber(data, atEOF)
 	}
 
 	// NewLine
@@ -225,7 +237,7 @@ func split(data []byte, atEOF bool) (advance int, token []byte, err error) {
 func (lx *Lexer) Next() (*Token, error) {
 	if !lx.scanner.Scan() {
 		if err := lx.scanner.Err(); err != nil {
-			return nil, fmt.Errorf("Line %d: %w", lx.Line, err)
+			return nil, fmt.Errorf("line %d: %w", lx.Line, err)
 		}
 		return &Token{Type: TokenTypeEOF}, nil
 	}
