@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"unicode"
 )
 
 // A Grbl system command (ie: $*)
@@ -11,20 +12,20 @@ type System string
 
 // Word may either give a command or provide an argument to a command.
 type Word struct {
-	// A letter other than N
-	letter rune
-	// A real value.
-	number float64
-	// The raw string value for the number.
+	letter    rune
+	rawLetter rune
+	number    float64
 	rawNumber string
 }
 
-func NewWord(letter rune, rawNumber string) (*Word, error) {
+// NewWord creates a Word from given letter other than N and a raw number string.
+func NewWord(rawLetter rune, rawNumber string) (*Word, error) {
 	number, err := strconv.ParseFloat(rawNumber, 64)
 	if err != nil {
 		return nil, err
 	}
-	return &Word{letter: letter, number: number, rawNumber: rawNumber}, nil
+	letter := unicode.ToUpper(rawLetter)
+	return &Word{letter: letter, rawLetter: rawLetter, number: number, rawNumber: rawNumber}, nil
 }
 
 func (w *Word) Letter() rune {
@@ -39,7 +40,7 @@ func (w *Word) String() string {
 	if len(w.rawNumber) > 0 {
 		return string(w.letter) + w.rawNumber
 	}
-	return fmt.Sprintf("%c%.3f", w.letter, w.number)
+	return fmt.Sprintf("%c%.4f", w.letter, w.number)
 }
 
 // Block is a line which may include commands to do several different things.
