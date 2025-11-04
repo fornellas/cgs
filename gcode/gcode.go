@@ -64,16 +64,40 @@ func (w *Word) IsCommand() bool {
 
 // Block is a line which may include commands to do several different things.
 type Block struct {
-	System *string
-	Words  []*Word
+	system *System
+	words  []*Word
+}
+
+func NewBlockSystem(system string) *Block {
+	s := System(system)
+	return &Block{system: &s}
+}
+
+func NewBlockCommand(words ...*Word) *Block {
+	return &Block{words: words}
+}
+
+func (b *Block) IsSystem() bool {
+	return b.system != nil
+}
+
+func (b *Block) IsCommand() bool {
+	return len(b.words) > 0
+}
+
+func (b *Block) AppendCommandWords(words ...*Word) {
+	if !b.IsCommand() {
+		panic("bug: attempting to add word to a block that's not command")
+	}
+	b.words = append(b.words, words...)
 }
 
 func (b *Block) String() string {
 	var buff bytes.Buffer
-	if b.System != nil {
-		buff.WriteString(*b.System)
+	if b.system != nil {
+		buff.WriteString(string(*b.system))
 	}
-	for _, w := range b.Words {
+	for _, w := range b.words {
 		buff.WriteString(w.String())
 	}
 	return buff.String()
@@ -82,7 +106,7 @@ func (b *Block) String() string {
 // Commands returns all G/M words in the block.
 func (b *Block) Commands() []*Word {
 	var cmds []*Word
-	for _, w := range b.Words {
+	for _, w := range b.words {
 		if w.IsCommand() {
 			cmds = append(cmds, w)
 		}
@@ -93,7 +117,7 @@ func (b *Block) Commands() []*Word {
 // Arguments returns all non-command words in the block.
 func (b *Block) Arguments() []*Word {
 	var args []*Word
-	for _, w := range b.Words {
+	for _, w := range b.words {
 		if !w.IsCommand() {
 			args = append(args, w)
 		}
@@ -103,7 +127,44 @@ func (b *Block) Arguments() []*Word {
 
 // Empty returns true if no system or command is defined.
 func (b *Block) Empty() bool {
-	return b.System == nil && len(b.Words) == 0
+	return b.system == nil && len(b.words) == 0
 }
 
-type Program []Block
+// var rotateXYCommands = map[string]bool{}
+
+// var rotateXYIgnoreCommands = map[string]bool{}
+
+// // RotateXY apply a rotation transformation to X/Y arguments for commands.
+// // Does nothing for commands that don't make use of X/Y coordinates.
+// // Fails on System blocks and unknown / unsupported commands.
+// func (b *Block) RotateXY(cx, cy, angleDegrees float64) error {
+// 	if b.system != nil {
+// 		return fmt.Errorf("%#v: rotation not supported", b)
+// 	}
+// 	var doRotation bool
+// 	for _, w := range b.Commands() {
+// 		commandStr := w.NormalizedString()
+// 		if _, ok := rotateXYCommands[commandStr]; ok {
+// 			doRotation = true
+// 			continue
+// 		}
+// 		if _, ok := rotateXYIgnoreCommands[commandStr]; ok {
+// 			continue
+// 		}
+// 		return fmt.Errorf("%s: rotation unsupported for command: %s", w, commandStr)
+// 	}
+// 	if !doRotation {
+// 		return nil
+// 	}
+
+// 	// TODO get X/Y from block
+// 	// angleRadian := angleDegrees * math.Pi / 180.0
+// 	// sin, cos := math.Sin(angleRadian), math.Cos(angleRadian)
+// 	// dx, dy := x-cx, y-cy
+// 	// rx := dx*cos - dy*sin
+// 	// ry := dx*sin + dy*cos
+// 	// x, y = rx+cx, ry+cy
+// 	// TODO update X/Y at Block
+// }
+
+// type Program []Block
