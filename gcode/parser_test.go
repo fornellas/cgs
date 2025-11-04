@@ -37,7 +37,30 @@ func filterGcodeLines(t *testing.T, path string) []string {
 				if !inComment {
 					trimmed := string(bytes.TrimSpace(lineBuf))
 					if trimmed != "" && !bytes.HasPrefix(bytes.TrimSpace(lineBuf), []byte(";")) {
-						filteredLines = append(filteredLines, string(bytes.ReplaceAll([]byte(trimmed), []byte(" "), nil)))
+						// Remove comments after ';'
+						if idx := bytes.IndexByte(lineBuf, ';'); idx != -1 {
+							trimmed = string(bytes.TrimSpace(lineBuf[:idx]))
+						}
+						// Remove parentheses comments
+						withoutParens := []byte{}
+						inParens := false
+						for _, c := range []byte(trimmed) {
+							if c == '(' {
+								inParens = true
+								continue
+							}
+							if c == ')' {
+								inParens = false
+								continue
+							}
+							if !inParens {
+								withoutParens = append(withoutParens, c)
+							}
+						}
+						trimmed = string(bytes.ReplaceAll(bytes.TrimSpace(withoutParens), []byte(" "), nil))
+						if trimmed != "" {
+							filteredLines = append(filteredLines, trimmed)
+						}
 					}
 				}
 				lineBuf = lineBuf[:0]
@@ -54,7 +77,30 @@ func filterGcodeLines(t *testing.T, path string) []string {
 	if len(lineBuf) > 0 && !inComment {
 		trimmed := string(bytes.TrimSpace(lineBuf))
 		if trimmed != "" && !bytes.HasPrefix(bytes.TrimSpace(lineBuf), []byte(";")) {
-			filteredLines = append(filteredLines, string(bytes.ReplaceAll([]byte(trimmed), []byte(" "), nil)))
+			// Remove comments after ';'
+			if idx := bytes.IndexByte(lineBuf, ';'); idx != -1 {
+				trimmed = string(bytes.TrimSpace(lineBuf[:idx]))
+			}
+			// Remove parentheses comments
+			withoutParens := []byte{}
+			inParens := false
+			for _, c := range []byte(trimmed) {
+				if c == '(' {
+					inParens = true
+					continue
+				}
+				if c == ')' {
+					inParens = false
+					continue
+				}
+				if !inParens {
+					withoutParens = append(withoutParens, c)
+				}
+			}
+			trimmed = string(bytes.ReplaceAll(bytes.TrimSpace(withoutParens), []byte(" "), nil))
+			if trimmed != "" {
+				filteredLines = append(filteredLines, trimmed)
+			}
 		}
 	}
 	return filteredLines
