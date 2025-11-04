@@ -12,20 +12,22 @@ type System string
 
 // Word may either give a command or provide an argument to a command.
 type Word struct {
-	letter    rune
-	rawLetter rune
-	number    float64
-	rawNumber string
+	letter rune
+	number float64
+	// The original string that declared this word. This is used to avoid parsing / serializing
+	// upper/lowercase letters or float poont representation differences, for consistency on output.
+	originalStr *string
 }
 
 // NewWord creates a Word from given letter other than N and a raw number string.
-func NewWord(rawLetter rune, rawNumber string) (*Word, error) {
-	number, err := strconv.ParseFloat(rawNumber, 64)
+func NewWord(letter rune, number string) (*Word, error) {
+	parsedNumber, err := strconv.ParseFloat(number, 64)
 	if err != nil {
 		return nil, err
 	}
-	letter := unicode.ToUpper(rawLetter)
-	return &Word{letter: letter, rawLetter: rawLetter, number: number, rawNumber: rawNumber}, nil
+	normalizeLetter := unicode.ToUpper(letter)
+	originalStr := string(letter) + number
+	return &Word{letter: normalizeLetter, number: parsedNumber, originalStr: &originalStr}, nil
 }
 
 func (w *Word) Letter() rune {
@@ -36,9 +38,21 @@ func (w *Word) Number() float64 {
 	return w.number
 }
 
+// String gives the representation of the word. If it has not been mutated, then it returns the
+// exact original string (thus preserving letter casing and float point representation), otherwise
+// it creates a new representation after the mutation.
 func (w *Word) String() string {
-	if len(w.rawNumber) > 0 {
-		return string(w.letter) + w.rawNumber
+	if w.originalStr != nil {
+		return *w.originalStr
+	}
+	return w.NormalizedString()
+}
+
+// NormalizedString is similar to String(), but always return a consistent representation using
+// uppercase letters, single point float precision for commands and 4 ponts precision for arguments.
+func (w *Word) NormalizedString() string {
+	if w.IsCommand() {
+		return fmt.Sprintf("%c%.1f", w.letter, w.number)
 	}
 	return fmt.Sprintf("%c%.4f", w.letter, w.number)
 }
