@@ -16,81 +16,79 @@ func NewParser(r io.Reader) *Parser {
 	}
 }
 
-func (p *Parser) handleSystemToken(block *Block, token *Token) (*Block, error) {
-	valueStr := string(token.Value)
-	block.System = &valueStr
-	return block, nil
-}
-
-func (p *Parser) handleWordLetterToken(currentLetter *rune, token *Token) (*rune, error) {
-	if currentLetter != nil {
-		return nil, fmt.Errorf("line %d: unexpected word letter %q after previous letter", p.lexer.Line, string(token.Value))
+func (p *Parser) handleToken(
+	token *Token,
+	block *Block,
+	words *[]*Word,
+	currentRawLetter *rune,
+) (bool, error) {
+	switch token.Type {
+	case TokenTypeEOF:
+		if *currentRawLetter != 0 {
+			return false, fmt.Errorf("line %d: unexpected word letter at end of file", p.lexer.Line)
+		}
+		if len(*words) == 0 {
+			return true, nil
+		}
+		block.Words = *words
+		return true, nil
+	case TokenTypeSpace, TokenTypeComment:
+		return false, nil
+	case TokenTypeSystem:
+		valueStr := string(token.Value)
+		block.System = &valueStr
+		return false, nil
+	case TokenTypeWordLetter:
+		if *currentRawLetter != 0 {
+			return false, fmt.Errorf("line %d: unexpected word letter %q after previous letter %q", p.lexer.Line, string(token.Value), string(*currentRawLetter))
+		}
+		*currentRawLetter = rune(token.Value[0])
+		return false, nil
+	case TokenTypeWordNumber:
+		currentRawNumber := string(token.Value)
+		if *currentRawLetter == 0 {
+			return false, fmt.Errorf("line %d: unexpected word number %q without preceding letter", p.lexer.Line, string(token.Value))
+		}
+		word, err := NewWord(*currentRawLetter, currentRawNumber)
+		if err != nil {
+			return false, fmt.Errorf("line %d: bad number: %#v: %w", p.lexer.Line, string(token.Value), err)
+		}
+		*words = append(*words, word)
+		*currentRawLetter = 0
+		return false, nil
+	case TokenTypeNewLine:
+		if *currentRawLetter != 0 {
+			return false, fmt.Errorf("line %d: unexpected word letter at end of line", p.lexer.Line-1)
+		}
+		if len(*words) > 0 || block.System != nil {
+			block.Words = *words
+			return true, nil
+		}
+		return false, nil
 	}
-	r := rune(token.Value[0])
-	return &r, nil
-}
-
-func (p *Parser) handleWordNumberToken(block *Block, currentLetter *rune, token *Token) (*Block, *rune, error) {
-	if currentLetter == nil {
-		return nil, nil, fmt.Errorf("line %d: unexpected word number %q without preceding letter", p.lexer.Line, string(token.Value))
-	}
-	word, err := NewWord(*currentLetter, string(token.Value))
-	if err != nil {
-		return nil, nil, fmt.Errorf("line %d: bad number: %#v: %w", p.lexer.Line, string(token.Value), err)
-	}
-	if block.Command == nil {
-		block.Command = word
-	} else {
-		block.Arguments = append(block.Arguments, word)
-	}
-	return block, nil, nil
-}
-
-func (p *Parser) handleNewLineToken(currentLetter *rune) error {
-	if currentLetter != nil {
-		return fmt.Errorf("line %d: unexpected word letter at end of line", p.lexer.Line-1)
-	}
-	return nil
+	return false, nil
 }
 
 // Next returns each parsed Block. When no more blocks are available, nil is returned.
 func (p *Parser) Next() (*Block, error) {
 	block := &Block{}
-	var currentLetter *rune
+	var words []*Word
+	var currentRawLetter rune
 
 	for {
 		token, err := p.lexer.Next()
 		if err != nil {
 			return nil, err
 		}
-		switch token.Type {
-		case TokenTypeEOF:
-			return nil, nil
-		case TokenTypeSpace, TokenTypeComment:
-			continue
-		case TokenTypeSystem:
-			return p.handleSystemToken(block, token)
-		case TokenTypeWordLetter:
-			var err error
-			currentLetter, err = p.handleWordLetterToken(currentLetter, token)
-			if err != nil {
-				return nil, err
+		done, err := p.handleToken(token, block, &words, &currentRawLetter)
+		if err != nil {
+			return nil, err
+		}
+		if done {
+			if block.Empty() {
+				return nil, nil
 			}
-			continue
-		case TokenTypeWordNumber:
-			var err error
-			block, currentLetter, err = p.handleWordNumberToken(block, currentLetter, token)
-			if err != nil {
-				return nil, err
-			}
-			continue
-		case TokenTypeNewLine:
-			if err := p.handleNewLineToken(currentLetter); err != nil {
-				return nil, err
-			}
-			if !block.Empty() {
-				return block, nil
-			}
+			return block, nil
 		}
 	}
 }

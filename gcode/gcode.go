@@ -43,31 +43,53 @@ func (w *Word) String() string {
 	return fmt.Sprintf("%c%.4f", w.letter, w.number)
 }
 
+// IsCommand returns true if the word is a command (letter G or M).
+func (w *Word) IsCommand() bool {
+	return w.letter == 'G' || w.letter == 'M'
+}
+
 // Block is a line which may include commands to do several different things.
 type Block struct {
-	System    *string
-	Command   *Word
-	Arguments []*Word
+	System *string
+	Words  []*Word
 }
 
 func (b *Block) String() string {
 	var buff bytes.Buffer
-
 	if b.System != nil {
 		buff.WriteString(*b.System)
 	}
-	if b.Command != nil {
-		buff.WriteString(b.Command.String())
-	}
-	for _, arg := range b.Arguments {
-		buff.WriteString(arg.String())
+	for _, w := range b.Words {
+		buff.WriteString(w.String())
 	}
 	return buff.String()
 }
 
+// Commands returns all G/M words in the block.
+func (b *Block) Commands() []*Word {
+	var cmds []*Word
+	for _, w := range b.Words {
+		if w.IsCommand() {
+			cmds = append(cmds, w)
+		}
+	}
+	return cmds
+}
+
+// Arguments returns all non-command words in the block.
+func (b *Block) Arguments() []*Word {
+	var args []*Word
+	for _, w := range b.Words {
+		if !w.IsCommand() {
+			args = append(args, w)
+		}
+	}
+	return args
+}
+
 // Empty returns true if no system or command is defined.
 func (b *Block) Empty() bool {
-	return b.System == nil && b.Command == nil
+	return b.System == nil && len(b.Words) == 0
 }
 
 type Program []Block
