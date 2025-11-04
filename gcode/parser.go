@@ -19,56 +19,69 @@ func NewParser(r io.Reader) *Parser {
 	}
 }
 
-//gocyclo:ignore
-func (p *Parser) handleToken(
-	token *Token,
-) (bool, error) {
+func (p *Parser) handleTokenTypeEOF() (bool, error) {
+	if p.currentRawLetter != 0 {
+		return false, fmt.Errorf("line %d: unexpected word letter at end of file", p.lexer.Line)
+	}
+	if len(p.words) == 0 {
+		return true, nil
+	}
+	p.block = NewBlockCommand(p.words...)
+	return true, nil
+}
+
+func (p *Parser) handleTokenTypeLetter(token *Token) (bool, error) {
+	if p.currentRawLetter != 0 {
+		return false, fmt.Errorf("line %d: unexpected word letter %q after previous letter %q", p.lexer.Line, string(token.Value), string(p.currentRawLetter))
+	}
+	p.currentRawLetter = rune(token.Value[0])
+	return false, nil
+}
+
+func (p *Parser) handleTokenTypeNumber(token *Token) (bool, error) {
+	currentRawNumber := string(token.Value)
+	if p.currentRawLetter == 0 {
+		return false, fmt.Errorf("line %d: unexpected word number %q without preceding letter", p.lexer.Line, string(token.Value))
+	}
+	word, err := NewWord(p.currentRawLetter, currentRawNumber)
+	if err != nil {
+		return false, fmt.Errorf("line %d: bad number: %#v: %w", p.lexer.Line, string(token.Value), err)
+	}
+	p.words = append(p.words, word)
+	p.currentRawLetter = 0
+	return false, nil
+}
+
+func (p *Parser) handleTokenTypeNewLine() (bool, error) {
+	if p.currentRawLetter != 0 {
+		return false, fmt.Errorf("line %d: unexpected word letter at end of line", p.lexer.Line-1)
+	}
+	if len(p.words) > 0 || p.block != nil {
+		if p.block == nil {
+			p.block = NewBlockCommand(p.words...)
+		} else {
+			p.block.AppendCommandWords(p.words...)
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+func (p *Parser) handleToken(token *Token) (bool, error) {
 	switch token.Type {
 	case TokenTypeEOF:
-		if p.currentRawLetter != 0 {
-			return false, fmt.Errorf("line %d: unexpected word letter at end of file", p.lexer.Line)
-		}
-		if len(p.words) == 0 {
-			return true, nil
-		}
-		p.block = NewBlockCommand(p.words...)
-		return true, nil
+		return p.handleTokenTypeEOF()
 	case TokenTypeSpace, TokenTypeComment:
 		return false, nil
 	case TokenTypeSystem:
 		p.block = NewBlockSystem(string(token.Value))
 		return true, nil
 	case TokenTypeWordLetter:
-		if p.currentRawLetter != 0 {
-			return false, fmt.Errorf("line %d: unexpected word letter %q after previous letter %q", p.lexer.Line, string(token.Value), string(p.currentRawLetter))
-		}
-		p.currentRawLetter = rune(token.Value[0])
-		return false, nil
+		return p.handleTokenTypeLetter(token)
 	case TokenTypeWordNumber:
-		currentRawNumber := string(token.Value)
-		if p.currentRawLetter == 0 {
-			return false, fmt.Errorf("line %d: unexpected word number %q without preceding letter", p.lexer.Line, string(token.Value))
-		}
-		word, err := NewWord(p.currentRawLetter, currentRawNumber)
-		if err != nil {
-			return false, fmt.Errorf("line %d: bad number: %#v: %w", p.lexer.Line, string(token.Value), err)
-		}
-		p.words = append(p.words, word)
-		p.currentRawLetter = 0
-		return false, nil
+		return p.handleTokenTypeNumber(token)
 	case TokenTypeNewLine:
-		if p.currentRawLetter != 0 {
-			return false, fmt.Errorf("line %d: unexpected word letter at end of line", p.lexer.Line-1)
-		}
-		if len(p.words) > 0 || p.block != nil {
-			if p.block == nil {
-				p.block = NewBlockCommand(p.words...)
-			} else {
-				p.block.AppendCommandWords(p.words...)
-			}
-			return true, nil
-		}
-		return false, nil
+		return p.handleTokenTypeNewLine()
 	}
 	return false, nil
 }
