@@ -3,6 +3,7 @@ package gcode
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"strconv"
 	"unicode"
 )
@@ -36,6 +37,11 @@ func (w *Word) Letter() rune {
 
 func (w *Word) Number() float64 {
 	return w.number
+}
+
+func (w *Word) SetNumber(number float64) {
+	w.number = number
+	w.originalStr = nil
 }
 
 // String gives the representation of the word. If it has not been mutated, then it returns the
@@ -125,46 +131,120 @@ func (b *Block) Arguments() []*Word {
 	return args
 }
 
+func (b *Block) GetArgumentNumber(letter rune) (*float64, error) {
+	if !b.IsCommand() {
+		panic("bug: can't fetch argument for system block")
+	}
+	var number *float64
+	for _, w := range b.Arguments() {
+		if w.Letter() == letter {
+			if number != nil {
+				return nil, fmt.Errorf("%s: multiple arguments for letter %c", b, letter)
+			}
+			n := w.Number()
+			number = &n
+		}
+	}
+	return number, nil
+}
+
+func (b *Block) SetArgumentNumber(letter rune, number float64) error {
+	if !b.IsCommand() {
+		return fmt.Errorf("%s: can't set argument for system block", b)
+	}
+	var set bool
+	for _, w := range b.Arguments() {
+		if w.Letter() == letter {
+			if set {
+				return fmt.Errorf("%s: duplicated letter %c", b, letter)
+			}
+			w.SetNumber(number)
+			set = true
+		}
+	}
+	return nil
+}
+
 // Empty returns true if no system or command is defined.
 func (b *Block) Empty() bool {
 	return b.system == nil && len(b.words) == 0
 }
 
-// var rotateXYCommands = map[string]bool{}
+var rotateXYCommands = map[string]bool{}
 
-// var rotateXYIgnoreCommands = map[string]bool{}
+var rotateXYIgnoreCommands = map[string]bool{}
 
-// // RotateXY apply a rotation transformation to X/Y arguments for commands.
-// // Does nothing for commands that don't make use of X/Y coordinates.
-// // Fails on System blocks and unknown / unsupported commands.
-// func (b *Block) RotateXY(cx, cy, angleDegrees float64) error {
-// 	if b.system != nil {
-// 		return fmt.Errorf("%#v: rotation not supported", b)
-// 	}
-// 	var doRotation bool
-// 	for _, w := range b.Commands() {
-// 		commandStr := w.NormalizedString()
-// 		if _, ok := rotateXYCommands[commandStr]; ok {
-// 			doRotation = true
-// 			continue
-// 		}
-// 		if _, ok := rotateXYIgnoreCommands[commandStr]; ok {
-// 			continue
-// 		}
-// 		return fmt.Errorf("%s: rotation unsupported for command: %s", w, commandStr)
-// 	}
-// 	if !doRotation {
-// 		return nil
-// 	}
+func (b *Block) rotate(x, y *float64, cx, cy, angleDegrees float64) (float64, float64) {
+	angleRadians := angleDegrees * math.Pi / 180.0
+	sin, cos := math.Sin(angleRadians), math.Cos(angleRadians)
 
-// 	// TODO get X/Y from block
-// 	// angleRadian := angleDegrees * math.Pi / 180.0
-// 	// sin, cos := math.Sin(angleRadian), math.Cos(angleRadian)
-// 	// dx, dy := x-cx, y-cy
-// 	// rx := dx*cos - dy*sin
-// 	// ry := dx*sin + dy*cos
-// 	// x, y = rx+cx, ry+cy
-// 	// TODO update X/Y at Block
-// }
+	var px, py float64
+	if x == nil && y == nil {
+		return cx, cy
+	}
+	if x == nil {
+		px = cx
+	} else {
+		px = *x
+	}
+	if y == nil {
+		py = cy
+	} else {
+		py = *y
+	}
+
+	dx, dy := px-cx, py-cy
+	rx := dx*cos - dy*sin
+	ry := dx*sin + dy*cos
+	return rx + cx, ry + cy
+}
+
+// RotateXY apply a rotation transformation to X/Y arguments for commands.
+// Does nothing for commands that don't make use of X/Y coordinates.
+// Fails on System blocks and unknown / unsupported commands.
+func (b *Block) RotateXY(cx, cy, angleDegrees float64) error {
+	if b.system != nil {
+		return fmt.Errorf("%#v: rotation not supported", b)
+	}
+	var doRotation bool
+	for _, w := range b.Commands() {
+		commandStr := w.NormalizedString()
+		if _, ok := rotateXYCommands[commandStr]; ok {
+			doRotation = true
+			continue
+		}
+		if _, ok := rotateXYIgnoreCommands[commandStr]; ok {
+			continue
+		}
+		return fmt.Errorf("%s: rotation unsupported for command: %s", w, commandStr)
+	}
+	if !doRotation {
+		return nil
+	}
+
+	x, err := b.GetArgumentNumber('X')
+	if err != nil {
+		return err
+	}
+	y, err := b.GetArgumentNumber('Y')
+	if err != nil {
+		return err
+	}
+
+	rx, ry := b.rotate(x, y, cx, cy, angleDegrees)
+
+	if x != nil {
+		if err := b.SetArgumentNumber('X', rx); err != nil {
+			return err
+		}
+	}
+	if y != nil {
+		if err := b.SetArgumentNumber('Y', ry); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 
 // type Program []Block
