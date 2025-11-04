@@ -31,6 +31,9 @@ var RootCmd = &cobra.Command{
 				cmd.Flags().Set(f.Name, fmt.Sprintf("%v", v.Get(f.Name)))
 			}
 		})
+
+		ctx := log.WithLogger(cmd.Context(), slogxtCobra.GetLogger(cmd.OutOrStderr()))
+		cmd.SetContext(ctx)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		logger := log.MustLogger(cmd.Context())
