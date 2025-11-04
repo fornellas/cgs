@@ -12,12 +12,12 @@ import (
 func TestLexer(t *testing.T) {
 	matches, err := filepath.Glob("testdata/*.nc")
 	require.NoError(t, err)
-	require.NotEmpty(t, matches, "no .nc files found in gcode/testdata")
+	require.NotEmpty(t, matches)
 
 	for _, path := range matches {
 		t.Run(path, func(t *testing.T) {
 			f, err := os.Open(path)
-			require.NoError(t, err, "failed to open %s", path)
+			require.NoError(t, err)
 			defer func() { require.NoError(t, f.Close()) }()
 
 			var buf bytes.Buffer

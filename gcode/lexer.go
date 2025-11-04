@@ -47,17 +47,18 @@ func (t *Token) String() string {
 	return fmt.Sprintf("%s: %#v", t.Type, string(t.Value))
 }
 
-// Lexer tokenizes G-Code. Its implementation is derived directly from Grbl source code.
+// Lexer tokenizes G-Code in Grbl flavour.
 type Lexer struct {
-	line    uint
+	// Line the lexer is in
+	Line    uint
 	scanner *bufio.Scanner
 }
 
 // NewLexer creates a new Lexer.
-func NewLexer(rd io.Reader) *Lexer {
-	scanner := bufio.NewScanner(bufio.NewReader(rd))
+func NewLexer(r io.Reader) *Lexer {
+	scanner := bufio.NewScanner(bufio.NewReader(r))
 	scanner.Split(split)
-	return &Lexer{line: 1, scanner: scanner}
+	return &Lexer{Line: 1, scanner: scanner}
 }
 
 func isSpace(c byte) bool {
@@ -224,14 +225,14 @@ func split(data []byte, atEOF bool) (advance int, token []byte, err error) {
 func (lx *Lexer) Next() (*Token, error) {
 	if !lx.scanner.Scan() {
 		if err := lx.scanner.Err(); err != nil {
-			return nil, fmt.Errorf("Line %d: %w", lx.line, err)
+			return nil, fmt.Errorf("Line %d: %w", lx.Line, err)
 		}
 		return &Token{Type: TokenTypeEOF}, nil
 	}
 
 	value := lx.scanner.Bytes()
 	if len(value) == 0 {
-		panic(fmt.Sprintf("bug: empty token received at line %d", lx.line))
+		panic(fmt.Sprintf("bug: empty token received at line %d", lx.Line))
 	}
 
 	if isSpace(value[0]) {
@@ -255,9 +256,9 @@ func (lx *Lexer) Next() (*Token, error) {
 	}
 
 	if isNewLineStart(value[0]) {
-		lx.line++
+		lx.Line++
 		return &Token{Value: value, Type: TokenTypeNewLine}, nil
 	}
 
-	panic(fmt.Sprintf("bug: unexpected value at line %d: %#v", lx.line, value))
+	panic(fmt.Sprintf("bug: unexpected value at line %d: %#v", lx.Line, value))
 }
