@@ -58,7 +58,12 @@ func (w *Word) String() string {
 // uppercase letters, single point float precision for commands and 4 ponts precision for arguments.
 func (w *Word) NormalizedString() string {
 	if w.IsCommand() {
-		return fmt.Sprintf("%c%.1f", w.letter, w.number)
+		int, frac := math.Modf(w.number)
+		if frac == 0 {
+			return fmt.Sprintf("%c%.0f", w.letter, int)
+		} else {
+			return fmt.Sprintf("%c%.1f", w.letter, w.number)
+		}
 	}
 	return fmt.Sprintf("%c%.4f", w.letter, w.number)
 }
