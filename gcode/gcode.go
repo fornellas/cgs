@@ -175,9 +175,23 @@ func (b *Block) Empty() bool {
 	return b.system == nil && len(b.words) == 0
 }
 
-var rotateXYCommands = map[string]bool{}
+var rotateXYCommands = map[string]bool{
+	"G1": true,
+	"G0": true,
+}
 
-var rotateXYIgnoreCommands = map[string]bool{}
+var rotateXYIgnoreCommands = map[string]bool{
+	"G20": true,
+	"G21": true,
+	"G90": true,
+	"G17": true,
+	"G94": true,
+	"M0":  true,
+	"M3":  true,
+	"G4":  true,
+	"M5":  true,
+	"G53": true, // FIXME must ensure rotation never happens for machine coordinates
+}
 
 func (b *Block) rotate(x, y *float64, cx, cy, angleDegrees float64) (float64, float64) {
 	angleRadians := angleDegrees * math.Pi / 180.0
@@ -221,7 +235,7 @@ func (b *Block) RotateXY(cx, cy, angleDegrees float64) error {
 		if _, ok := rotateXYIgnoreCommands[commandStr]; ok {
 			continue
 		}
-		return fmt.Errorf("%s: rotation unsupported for command: %s", w, commandStr)
+		return fmt.Errorf("%s: rotation unsupported for command", w)
 	}
 	if !doRotation {
 		return nil
