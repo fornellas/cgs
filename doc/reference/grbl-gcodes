@@ -1,0 +1,104 @@
+TODO review if this matches grbl code
+
+G Commands
+    Modal Commands
+        Motion Mode
+            G0 Coordinated Motion at Rapid Rate
+                X, Y, Z: coordinates
+            G1 Coordinated Motion at Feed Rate
+                X, Y, Z: coordinates
+                F: feed rate
+            G2 Coordinated Helical Motion at Feed Rate (Clockwise arc)
+                X, Y, Z: end coordinates
+                I, J, K: arc center offsets (plane-dependent)
+                R: arc radius
+                F: feed rate
+            G3 Coordinated Helical Motion at Feed Rate (Counter-clockwise arc)
+                X, Y, Z: end coordinates
+                I, J, K: arc center offsets (plane-dependent)
+                R: arc radius
+                F: feed rate
+            G38.2 Probe toward workpiece, stop on contact, signal error if failure
+                X, Y, Z: coordinates
+                F: feed rate
+            G38.3 Probe toward workpiece, stop on contact
+                X, Y, Z: coordinates
+                F: feed rate
+            G38.4 Probe away from workpiece, stop on loss of contact, signal error if failure
+                X, Y, Z: coordinates
+                F: feed rate
+            G38.5 Probe away from workpiece, stop on loss of contact
+                X, Y, Z: coordinates
+                F: feed rate
+            G80 Cancel Motion Modes
+        Coordinate System Select
+            G54 Select coordinate system 1 (EEPROM)
+            G55 Select coordinate system 2 (EEPROM)
+            G56 Select coordinate system 3 (EEPROM)
+            G57 Select coordinate system 4 (EEPROM)
+            G58 Select coordinate system 5 (EEPROM)
+            G59 Select coordinate system 6 (EEPROM)
+            G59.1 Select coordinate system 7
+            G59.2 Select coordinate system 8
+            G59.3 Select coordinate system 9
+        Plane Select
+            G17 Plane Select XY
+            G18 Plane Select ZX
+            G19 Plane Select YZ
+        Distance Mode
+            G90 Distance Mode Absolute
+            G91 Distance Mode Incremental
+        Arc IJK Distance Mode
+            G91.1 Arc Distance Mode Absolute
+        Feed Rate Mode
+            G93 Feed Rate Mode Inverse Time
+                F: feed rate
+            G94 Feed Rate Mode Units per Minute
+                F: feed rate
+        Units Mode
+            G20 Units Inches
+            G21 Units Millimeters
+        Cutter Radius Compensation
+            G40 Compensation Off
+        Tool Length Offset
+            G43.1 Dynamic Tool Length Offset
+                Z: offset value
+            G49 Cancel Tool Length Compensation
+    Non-Modal Commands
+        G4 Dwell
+            P: dwell time (seconds)
+        G10 Set Tool Table Entry
+            L: method (2 or 20)
+            P: coordinate system (0-6)
+            X, Y, Z: offset values
+        G28 Go to pre-defined position (EEPROM)
+            X, Y, Z: intermediate coordinates (optional)
+        G28.1 Set pre-defined position (home)
+            X, Y, Z: coordinates (optional)
+        G30 Go to secondary pre-defined position (EEPROM)
+            X, Y, Z: intermediate coordinates (optional)
+        G30.1 Set secondary pre-defined position
+            X, Y, Z: coordinates (optional)
+        G53 Move in machine coordinates
+            X, Y, Z: coordinates
+        G92 Set coordinate offset
+            X, Y, Z: offset values
+        G92.1 Cancel coordinate offset
+        L2
+        L20
+    Unknown
+        G61 Exact path mode
+M Commands
+    Modal Commands
+        Program Mode
+            M0 Program pause
+            M1 Optional stop (ignored)
+            M2 Program end
+            M30
+        Spindle State
+            M3 Spindle on (clockwise)
+            M4 Spindle on (counter-clockwise)
+            M5 Spindle stop
+        Coolant State
+            M8 Coolant on
+            M9 Coolant off

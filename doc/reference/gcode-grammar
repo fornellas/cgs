@@ -1,0 +1,27 @@
+grbl g-code parser
+    read lines
+        ignore chars
+            c <= ' '
+            c == '/'
+        ignore range
+            c == '('
+                until next ')'
+            c == ';'
+                until end of line / eof
+        char count >= 79 == overflow
+    line
+        ignore empty line
+        line[0] == '$'
+            system_execute_line
+                TODO
+        else
+            zero or more:
+                {A-Z}{float}
+https://linuxcnc.org/docs/html/gcode/overview.html#cha:g-code-overview
+    each line is called a block
+    each block may contain commands
+    file containing lines/blocks is called a program
+    a line of code
+        one or more words
+        a word is a letter followed by a number
+        a word may either be a command or argument to a command

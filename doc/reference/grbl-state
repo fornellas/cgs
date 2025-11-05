@@ -1,0 +1,95 @@
+$G (Prints gcode parser state)
+    Motion Mode
+       	G0 oordinated Motion at Rapid Rate
+        G1 Coordinated Motion at Feed Rate
+        G2 Coordinated Helical Motion at Feed Rate (Clockwise arc)
+        G3 Coordinated Helical Motion at Feed Rate (Counter-clockwise arc)
+        G33 (not in grbr?)
+        G38.2 Probe toward workpiece, stop on contact, signal error if failure
+            X, Y, Z: coordinates
+            F: feed rate
+        G38.3 Probe toward workpiece, stop on contact
+            X, Y, Z: coordinates
+            F: feed rate
+        G38.4 Probe away from workpiece, stop on loss of contact, signal error if failure
+            X, Y, Z: coordinates
+            F: feed rate
+        G38.5 Probe away from workpiece, stop on loss of contact
+            X, Y, Z: coordinates
+            F: feed rate
+        G73 (not in grbr?)
+        G76 (not in grbr?)
+        G80 Cancel Motion Modes
+        G81 (not in grbr?)
+        G82 (not in grbr?)
+        G83 (not in grbr?)
+        G84 (not in grbr?)
+        G85 (not in grbr?)
+        G86 (not in grbr?)
+        G87 (not in grbr?)
+        G88 (not in grbr?)
+        G89 (not in grbr?)
+    Coordinate System Selection
+        G54 Select coordinate system 1
+        G55 Select coordinate system 2
+        G56 Select coordinate system 3
+        G57 Select coordinate system 4
+        G58 Select coordinate system 5
+        G59 Select coordinate system 6
+        G59.1 Select coordinate system 7
+        G59.2 Select coordinate system 8
+        G59.3 Select coordinate system 9
+    Plane selection
+        G17 Plane Select XY
+        G18 Plane Select ZX
+        G19 Plane Select YZ
+    Units
+        G20 Units Inches
+        G21 Units Millimeters
+    Distance Mode
+        G90 Distance Mode Absolute
+        G91 Distance Mode Incremental
+    Feed Rate Mode
+        G93 Feed Rate Mode Inverse Time
+            F: feed rate
+        G94 Feed Rate Mode Units per Minute
+            F: feed rate
+    Spindle Turning
+        M3 Spindle on (clockwise)
+        M4 Spindle on (counter-clockwise)
+        M5 Spindle stop
+    Coolant
+        M7 (not in grbl?)
+        M8 Coolant on
+        M9 Coolant off
+        Special case: M7 and M8 may be active at the same time
+    Active Tool
+        T0
+    Feed Rate
+        F0
+    Spindle Speed
+        S0
+$# (View Gcode Parameters)
+    Persistent (EEPROM)
+        Work Coordinates
+            Can be changed via the G10 L2 Px or G10 L20 Px
+            [G54:0.000,0.000,0.000]
+            [G55:0.000,0.000,0.000]
+            [G56:0.000,0.000,0.000]
+            [G57:0.000,0.000,0.000]
+            [G58:0.000,0.000,0.000]
+            [G59:0.000,0.000,0.000]
+        Pre defined positions
+            Can be changed via the G28.1 and the G30.1
+            [G28:0.000,0.000,0.000]
+            [G30:0.000,0.000,0.000]
+    Non-Persistent
+        Coordinate offset
+            [G92:0.000,0.000,0.000]
+        Tool Length Offset
+            [TLO:0.000]
+        Probing
+            Coordinates of the last probing cycle, where the suffix :1 denotes if the last probe was successful and :0 as not successful.
+            [PRB:0.000,0.000,0.000:0]
+$$ (Prints Grbl settings)
+    Misc
