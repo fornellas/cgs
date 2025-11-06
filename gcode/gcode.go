@@ -8,9 +8,6 @@ import (
 	"unicode"
 )
 
-// A Grbl system command (ie: $*)
-type System string
-
 // Word may either give a command or provide an argument to a command.
 type Word struct {
 	letter rune
@@ -20,8 +17,17 @@ type Word struct {
 	originalStr *string
 }
 
-// NewWord creates a Word from given letter other than N and a raw number string.
-func NewWord(letter rune, number string) (*Word, error) {
+// NewWord creates a Word from given letter and number.
+// letter must be capitalised, or it'll panic.
+func NewWord(letter rune, number float64) *Word {
+	if letter < 'A' || letter > 'Z' {
+		panic(fmt.Sprintf("bug: attempting to create word with letter not between A-Z: %c", letter))
+	}
+	return &Word{letter: letter, number: number}
+}
+
+// NewWordParse creates a Word from given letter other than N and a raw number string.
+func NewWordParse(letter rune, number string) (*Word, error) {
 	parsedNumber, err := strconv.ParseFloat(number, 64)
 	if err != nil {
 		return nil, err
@@ -75,13 +81,12 @@ func (w *Word) IsCommand() bool {
 
 // Block is a line which may include commands to do several different things.
 type Block struct {
-	system *System
+	system *string
 	words  []*Word
 }
 
 func NewBlockSystem(system string) *Block {
-	s := System(system)
-	return &Block{system: &s}
+	return &Block{system: &system}
 }
 
 func NewBlockCommand(words ...*Word) *Block {

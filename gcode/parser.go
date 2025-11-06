@@ -43,7 +43,7 @@ func (p *Parser) handleTokenTypeNumber(token *Token) (bool, error) {
 	if p.currentRawLetter == 0 {
 		return false, fmt.Errorf("line %d: unexpected word number %q without preceding letter", p.lexer.Line, string(token.Value))
 	}
-	word, err := NewWord(p.currentRawLetter, currentRawNumber)
+	word, err := NewWordParse(p.currentRawLetter, currentRawNumber)
 	if err != nil {
 		return false, fmt.Errorf("line %d: bad number: %#v: %w", p.lexer.Line, string(token.Value), err)
 	}
