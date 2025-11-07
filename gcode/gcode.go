@@ -50,6 +50,10 @@ func (w *Word) SetNumber(number float64) {
 	w.originalStr = nil
 }
 
+func (w *Word) Equal(ow *Word) bool {
+	return w.NormalizedString() == ow.NormalizedString()
+}
+
 // String gives the representation of the word. If it has not been mutated, then it returns the
 // exact original string (thus preserving letter casing and float point representation), otherwise
 // it creates a new representation after the mutation.
@@ -181,21 +185,21 @@ func (b *Block) Empty() bool {
 }
 
 var rotateXYCommands = map[string]bool{
-	"G1": true,
-	"G0": true,
+	// "G1": true,
+	// "G0": true,
 }
 
 var rotateXYIgnoreCommands = map[string]bool{
-	"G20": true,
+	// "G20": true,
 	"G21": true,
-	"G90": true,
-	"G17": true,
-	"G94": true,
-	"M0":  true,
-	"M3":  true,
-	"G4":  true,
-	"M5":  true,
-	"G53": true, // FIXME must ensure rotation never happens for machine coordinates
+	// "G90": true,
+	// "G17": true,
+	// "G94": true,
+	// "M0":  true,
+	// "M3":  true,
+	// "G4":  true,
+	// "M5":  true,
+	// "G53": true, // FIXME must ensure rotation never happens for machine coordinates
 }
 
 func (b *Block) rotate(x, y *float64, cx, cy, angleDegrees float64) (float64, float64) {

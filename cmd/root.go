@@ -1,9 +1,7 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -14,14 +12,17 @@ import (
 	"github.com/fornellas/slogxt/log"
 )
 
-// This is to be used in place of os.Exit() to aid writing test assertions on exit code.
-var Exit func(int) = func(code int) { os.Exit(code) }
-
-// ExitError logs the given error and exits.
-func ExitError(ctx context.Context, err error) {
-	logger := log.MustLogger(ctx)
-	logger.Error("Exiting with error", "err", err)
-	Exit(1)
+func getCmdChainStr(cmd *cobra.Command) string {
+	cmdChain := []string{cmd.Name()}
+	for {
+		parentCmd := cmd.Parent()
+		if parentCmd == nil {
+			break
+		}
+		cmdChain = append([]string{parentCmd.Name()}, cmdChain...)
+		cmd = parentCmd
+	}
+	return "⚙️ " + strings.Join(cmdChain, " ")
 }
 
 var RootCmd = &cobra.Command{
@@ -40,15 +41,17 @@ var RootCmd = &cobra.Command{
 			}
 		})
 
-		ctx := log.WithLogger(cmd.Context(), slogxtCobra.GetLogger(cmd.OutOrStderr()))
+		logger := slogxtCobra.GetLogger(cmd.OutOrStderr()).
+			WithGroup(getCmdChainStr(cmd))
+		ctx := log.WithLogger(cmd.Context(), logger)
 		cmd.SetContext(ctx)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		logger := log.MustLogger(cmd.Context())
 		if err := cmd.Help(); err != nil {
-			logger.Error("failed to display help", "error", err)
-			Exit(1)
+			logger := log.MustLogger(cmd.Context())
+			logger.Error("Failed to display help", "err", err)
 		}
+		Exit(1)
 	},
 }
 

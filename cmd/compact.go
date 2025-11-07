@@ -16,26 +16,26 @@ var CompactCmd = &cobra.Command{
 	Use:   "compact [path]",
 	Short: "Read g-code from given path and compact it by stripping spaces and comments.",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: GetRunFn(func(cmd *cobra.Command, args []string) (err error) {
 		path := args[0]
 
-		ctx := cmd.Context()
-		ctx, logger := log.MustWithGroupAttrs(
-			ctx, "compact",
+		ctx, logger := log.MustWithAttrs(
+			cmd.Context(),
 			"path", path,
 			"output", outputValue,
 		)
+		cmd.SetContext(ctx)
 		logger.Info("Running")
 
 		f, err := os.Open(path)
 		if err != nil {
-			ExitError(ctx, err)
+			return err
 		}
 		defer func() { err = errors.Join(err, f.Close()) }()
 
 		w, err := outputValue.WriterCloser()
 		if err != nil {
-			ExitError(ctx, err)
+			return err
 		}
 		defer func() { err = errors.Join(err, w.Close()) }()
 
@@ -43,21 +43,21 @@ var CompactCmd = &cobra.Command{
 		for {
 			block, err := parser.Next()
 			if err != nil {
-				ExitError(ctx, err)
+				return err
 			}
 			if block == nil {
-				Exit(0)
+				return nil
 			}
 			str := block.String()
 			n, err := fmt.Fprintln(w, str)
 			if err != nil {
-				ExitError(ctx, err)
+				return err
 			}
 			if n != len(str)+1 {
-				ExitError(ctx, fmt.Errorf("short write"))
+				return fmt.Errorf("short write")
 			}
 		}
-	},
+	}),
 }
 
 func init() {

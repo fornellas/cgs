@@ -3,11 +3,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 
-	"github.com/spf13/cobra"
-
 	"github.com/fornellas/slogxt/log"
+	"github.com/spf13/cobra"
 
 	"github.com/fornellas/cgs/gcode"
 )
@@ -16,57 +16,73 @@ var RotateCmd = &cobra.Command{
 	Use:   "rotate [path]",
 	Short: "Read g-code from given path and rotate X/Y coordinates.",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: GetRunFn(func(cmd *cobra.Command, args []string) (err error) {
 		path := args[0]
 
-		ctx := cmd.Context()
-		ctx, logger := log.MustWithGroupAttrs(
-			ctx, "rotate",
+		ctx, logger := log.MustWithAttrs(
+			cmd.Context(),
 			"path", path,
 			"x-center", rotateX,
 			"y-center", rotateY,
 			"degrees", rotateDegrees,
 			"output", outputValue,
 		)
+		cmd.SetContext(ctx)
 		logger.Info("Running")
 
-		f, err := os.Open(path)
+		var f *os.File
+		f, err = os.Open(path)
 		if err != nil {
-			ExitError(ctx, err)
+			return err
 		}
-		defer func() { err = errors.Join(err, f.Close()) }()
+		defer func() {
+			logger.Error("defer r")
+			err = errors.Join(err, f.Close())
+		}()
 
-		w, err := outputValue.WriterCloser()
+		var w io.WriteCloser
+		w, err = outputValue.WriterCloser()
 		if err != nil {
-			ExitError(ctx, err)
+			return err
 		}
-		defer func() { err = errors.Join(err, w.Close()) }()
+		defer func() {
+			logger.Error("defer w")
+			err = errors.Join(err, w.Close())
+		}()
 
 		parser := gcode.NewParser(f)
+		initialModalGroup := parser.ModalGroup.Copy()
 		for {
-			block, err := parser.Next()
+			var block *gcode.Block
+			block, err = parser.Next()
 			if err != nil {
-				ExitError(ctx, err)
+				return err
 			}
 			if block == nil {
-				Exit(0)
+				logger.Info("Completed")
+				return
 			}
-			fmt.Printf("<= %s\n", block.String())
-			// FIXME G20 / G21 may change units half-way
-			if err := block.RotateXY(rotateX, rotateY, rotateDegrees); err != nil {
-				ExitError(ctx, err)
+			if !parser.ModalGroup.Units.Equal(initialModalGroup.Units) {
+				return fmt.Errorf("line %d: unit change not supported", parser.Lexer.Line)
 			}
-			fmt.Printf("=> %s\n", block.String())
+
+			oldBlockStr := block.String()
+			// FIXME if in relative mode, if X or Y is missing, it must be set to the current value
+			if err = block.RotateXY(rotateX, rotateY, rotateDegrees); err != nil {
+				return err
+			}
+			fmt.Printf("%s => %s\n", oldBlockStr, block.String())
 			str := block.String()
-			n, err := fmt.Fprintln(w, str)
+			var n int
+			n, err = fmt.Fprintln(w, str)
 			if err != nil {
-				ExitError(ctx, err)
+				return err
 			}
 			if n != len(str)+1 {
-				ExitError(ctx, fmt.Errorf("short write"))
+				return fmt.Errorf("short write")
 			}
 		}
-	},
+	}),
 }
 
 var rotateX float64

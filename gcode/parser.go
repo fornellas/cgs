@@ -58,6 +58,12 @@ type ModalGroup struct {
 	// FlowControl *Word
 }
 
+func (m *ModalGroup) Copy() *ModalGroup {
+	nm := *m
+	copy(nm.Coolant, m.Coolant)
+	return &nm
+}
+
 // DefaultModalGroup holds Grbl default modal group states.
 // See: https://github.com/gnea/grbl/wiki/Grbl-v1.1-Commands.
 var DefaultModalGroup ModalGroup = ModalGroup{
@@ -115,7 +121,7 @@ type Parser struct {
 	// ModalGroup holds the state of each modal group as parsing progresses by caling Parser.Next().
 	// DefaultModalGroup is used for the initial state.
 	ModalGroup       ModalGroup
-	lexer            *Lexer
+	Lexer            *Lexer
 	block            *Block
 	words            []*Word
 	currentRawLetter rune
@@ -124,13 +130,13 @@ type Parser struct {
 func NewParser(r io.Reader) *Parser {
 	return &Parser{
 		ModalGroup: DefaultModalGroup,
-		lexer:      NewLexer(r),
+		Lexer:      NewLexer(r),
 	}
 }
 
 func (p *Parser) handleTokenTypeEOF() (bool, error) {
 	if p.currentRawLetter != 0 {
-		return false, fmt.Errorf("line %d: unexpected word letter at end of file", p.lexer.Line)
+		return false, fmt.Errorf("line %d: unexpected word letter at end of file", p.Lexer.Line)
 	}
 	if len(p.words) == 0 {
 		return true, nil
@@ -141,7 +147,7 @@ func (p *Parser) handleTokenTypeEOF() (bool, error) {
 
 func (p *Parser) handleTokenTypeLetter(token *Token) (bool, error) {
 	if p.currentRawLetter != 0 {
-		return false, fmt.Errorf("line %d: unexpected word letter %q after previous letter %q", p.lexer.Line, string(token.Value), string(p.currentRawLetter))
+		return false, fmt.Errorf("line %d: unexpected word letter %q after previous letter %q", p.Lexer.Line, string(token.Value), string(p.currentRawLetter))
 	}
 	p.currentRawLetter = rune(token.Value[0])
 	return false, nil
@@ -150,11 +156,11 @@ func (p *Parser) handleTokenTypeLetter(token *Token) (bool, error) {
 func (p *Parser) handleTokenTypeNumber(token *Token) (bool, error) {
 	currentRawNumber := string(token.Value)
 	if p.currentRawLetter == 0 {
-		return false, fmt.Errorf("line %d: unexpected word number %q without preceding letter", p.lexer.Line, string(token.Value))
+		return false, fmt.Errorf("line %d: unexpected word number %q without preceding letter", p.Lexer.Line, string(token.Value))
 	}
 	word, err := NewWordParse(p.currentRawLetter, currentRawNumber)
 	if err != nil {
-		return false, fmt.Errorf("line %d: bad number: %#v: %w", p.lexer.Line, string(token.Value), err)
+		return false, fmt.Errorf("line %d: bad number: %#v: %w", p.Lexer.Line, string(token.Value), err)
 	}
 	p.words = append(p.words, word)
 	p.currentRawLetter = 0
@@ -163,7 +169,7 @@ func (p *Parser) handleTokenTypeNumber(token *Token) (bool, error) {
 
 func (p *Parser) handleTokenTypeNewLine() (bool, error) {
 	if p.currentRawLetter != 0 {
-		return false, fmt.Errorf("line %d: unexpected word letter at end of line", p.lexer.Line-1)
+		return false, fmt.Errorf("line %d: unexpected word letter at end of line", p.Lexer.Line-1)
 	}
 	if len(p.words) > 0 || p.block != nil {
 		if p.block == nil {
@@ -253,7 +259,7 @@ func (p *Parser) Next() (*Block, error) {
 	p.words = nil
 	p.currentRawLetter = 0
 	for {
-		token, err := p.lexer.Next()
+		token, err := p.Lexer.Next()
 		if err != nil {
 			return nil, err
 		}
