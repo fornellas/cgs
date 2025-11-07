@@ -185,66 +185,40 @@ func (b *Block) Empty() bool {
 }
 
 var rotateXYCommands = map[string]bool{
-	// "G1": true,
-	// "G0": true,
+	"G0": true, // Coordinated Motion at Rapid Rate
+	"G1": true, // Coordinated Motion at Feed Rate
 }
 
 var rotateXYIgnoreCommands = map[string]bool{
-	// "G20": true,
-	"G21": true,
-	// "G90": true,
-	// "G17": true,
-	// "G94": true,
-	// "M0":  true,
-	// "M3":  true,
-	// "G4":  true,
-	// "M5":  true,
-	// "G53": true, // FIXME must ensure rotation never happens for machine coordinates
+	"G4":  true, // Dwell
+	"G17": true, // Plane Select XY
+	"G21": true, // Units Millimeters
+	"G53": true, // Move in machine coordinates
+	"G90": true, // Distance Mode Absolute
+	"G94": true, // Feed Rate Mode Units per Minute
+	"M0":  true, // Program pause
+	"M3":  true, // Spindle on (clockwise)
+	"M5":  true, // Spindle stop
 }
 
-func (b *Block) rotate(x, y *float64, cx, cy, angleDegrees float64) (float64, float64) {
-	angleRadians := angleDegrees * math.Pi / 180.0
-	sin, cos := math.Sin(angleRadians), math.Cos(angleRadians)
-
-	var px, py float64
-	if x == nil && y == nil {
-		return cx, cy
-	}
-	if x == nil {
-		px = cx
-	} else {
-		px = *x
-	}
-	if y == nil {
-		py = cy
-	} else {
-		py = *y
-	}
-
-	dx, dy := px-cx, py-cy
-	rx := dx*cos - dy*sin
-	ry := dx*sin + dy*cos
-	return rx + cx, ry + cy
-}
-
-// RotateXY apply a rotation transformation to X/Y arguments for commands.
-// Does nothing for commands that don't make use of X/Y coordinates.
-// Fails on System blocks and unknown / unsupported commands.
-func (b *Block) RotateXY(cx, cy, angleDegrees float64) error {
+// RotateXY rotates work coordinates at the XY plane. Machine coordinates are not affected.
+// cx and cy are the center coordinates for the rotation, radians is the angle (looking down at XY
+// from Z positive to Z negative).
+func (b *Block) RotateXY(cx, cy, radians float64) error {
 	if b.system != nil {
-		return fmt.Errorf("%#v: rotation not supported", b)
+		return fmt.Errorf("%s: can't rotate system commands", b)
 	}
 	var doRotation bool
 	for _, w := range b.Commands() {
 		commandStr := w.NormalizedString()
+		if _, ok := rotateXYIgnoreCommands[commandStr]; ok {
+			continue
+		}
 		if _, ok := rotateXYCommands[commandStr]; ok {
 			doRotation = true
 			continue
 		}
-		if _, ok := rotateXYIgnoreCommands[commandStr]; ok {
-			continue
-		}
-		return fmt.Errorf("%s: rotation unsupported for command", w)
+		return fmt.Errorf("%s: rotation unsupported for command: %s", b, w)
 	}
 	if !doRotation {
 		return nil
@@ -258,18 +232,26 @@ func (b *Block) RotateXY(cx, cy, angleDegrees float64) error {
 	if err != nil {
 		return err
 	}
-
-	rx, ry := b.rotate(x, y, cx, cy, angleDegrees)
-
-	if x != nil {
-		if err := b.SetArgumentNumber('X', rx); err != nil {
-			return err
-		}
+	if x == nil && y == nil {
+		return nil
 	}
-	if y != nil {
-		if err := b.SetArgumentNumber('Y', ry); err != nil {
-			return err
-		}
+	if x == nil {
+		return fmt.Errorf("%s: rotation unsupported for X without Y", b)
+	}
+	if y == nil {
+		return fmt.Errorf("%s: rotation unsupported for Y without X", b)
+	}
+
+	sin, cos := math.Sin(radians), math.Cos(radians)
+	dx, dy := *x-cx, *y-cy
+	rx := dx*cos - dy*sin + cx
+	ry := dx*sin + dy*cos + cy
+
+	if err := b.SetArgumentNumber('X', rx); err != nil {
+		return err
+	}
+	if err := b.SetArgumentNumber('Y', ry); err != nil {
+		return err
 	}
 
 	return nil

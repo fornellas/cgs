@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 
 	"github.com/fornellas/slogxt/log"
@@ -35,43 +36,27 @@ var RotateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		defer func() {
-			logger.Error("defer r")
-			err = errors.Join(err, f.Close())
-		}()
+		defer func() { err = errors.Join(err, f.Close()) }()
 
 		var w io.WriteCloser
 		w, err = outputValue.WriterCloser()
 		if err != nil {
 			return err
 		}
-		defer func() {
-			logger.Error("defer w")
-			err = errors.Join(err, w.Close())
-		}()
+		defer func() { err = errors.Join(err, w.Close()) }()
 
 		parser := gcode.NewParser(f)
-		initialModalGroup := parser.ModalGroup.Copy()
+		radians := rotateDegrees * math.Pi / 180.0
+		rotateXY := gcode.NewRotateXY(parser, rotateX, rotateY, radians)
 		for {
-			var block *gcode.Block
-			block, err = parser.Next()
+			block, err := rotateXY.Next()
 			if err != nil {
 				return err
 			}
 			if block == nil {
-				logger.Info("Completed")
-				return
+				logger.Info("Complete")
+				return nil
 			}
-			if !parser.ModalGroup.Units.Equal(initialModalGroup.Units) {
-				return fmt.Errorf("line %d: unit change not supported", parser.Lexer.Line)
-			}
-
-			oldBlockStr := block.String()
-			// FIXME if in relative mode, if X or Y is missing, it must be set to the current value
-			if err = block.RotateXY(rotateX, rotateY, rotateDegrees); err != nil {
-				return err
-			}
-			fmt.Printf("%s => %s\n", oldBlockStr, block.String())
 			str := block.String()
 			var n int
 			n, err = fmt.Fprintln(w, str)
@@ -79,7 +64,7 @@ var RotateCmd = &cobra.Command{
 				return err
 			}
 			if n != len(str)+1 {
-				return fmt.Errorf("short write")
+				return fmt.Errorf("%s: short write", outputValue)
 			}
 		}
 	}),
