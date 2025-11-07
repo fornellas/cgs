@@ -263,11 +263,11 @@ func (p *Parser) Next() (*Block, error) {
 		if err != nil {
 			return nil, err
 		}
-		done, err := p.handleToken(token)
+		eol, err := p.handleToken(token)
 		if err != nil {
 			return nil, err
 		}
-		if done {
+		if eol {
 			if p.block != nil {
 				p.updateModalGroups(p.block)
 			}
