@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -15,6 +16,13 @@ import (
 
 // This is to be used in place of os.Exit() to aid writing test assertions on exit code.
 var Exit func(int) = func(code int) { os.Exit(code) }
+
+// ExitError logs the given error and exits.
+func ExitError(ctx context.Context, err error) {
+	logger := log.MustLogger(ctx)
+	logger.Error("Exiting with error", "err", err)
+	Exit(1)
+}
 
 var RootCmd = &cobra.Command{
 	Use:   "cgs",
