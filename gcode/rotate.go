@@ -11,8 +11,9 @@ type RotateXY struct {
 	initialModalGroup *ModalGroup
 }
 
-// NewRotateXY creates a new RotateXY. cx and cy are the center coordinates for the rotation,
-// radians is the angle (looking down at XY from Z positive to Z negative).
+// NewRotateXY creates a new RotateXY.
+// cx and cy are the center coordinates for the rotation, radians is the angle (looking down at XY
+// from Z positive to Z negative).
 func NewRotateXY(parser *Parser, cx, cy, radians float64) *RotateXY {
 	return &RotateXY{
 		parser:            parser,
@@ -38,6 +39,10 @@ func (r *RotateXY) Next() (*Block, error) {
 
 	if !r.parser.ModalGroup.DistanceMode.Equal(r.initialModalGroup.DistanceMode) {
 		return nil, fmt.Errorf("line %d: %s: distance mode incremental unsupported", r.parser.Lexer.Line, block)
+	}
+
+	if block.IsSystem() {
+		return block, nil
 	}
 
 	if err = block.RotateXY(r.cx, r.cy, r.radians); err != nil {
