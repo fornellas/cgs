@@ -94,6 +94,7 @@ func (p *PromptView) GetManagerFn(gui *gocui.Gui, x0, y0, x1, y1 int) func(gui *
 			if err != gocui.ErrUnknownView {
 				return err
 			}
+			view.Title = "Prompt"
 			view.Editable = true
 			view.Editor = gocui.EditorFunc(p.editorFn)
 			view.Wrap = false
@@ -108,16 +109,16 @@ func (p *PromptView) GetManagerFn(gui *gocui.Gui, x0, y0, x1, y1 int) func(gui *
 func (p *PromptView) handleKeyBindEnter(gui *gocui.Gui, view *gocui.View) (err error) {
 	buff := view.Buffer()
 
-	command := ""
+	block := ""
 	if len(buff) > len(p.prompt) {
-		command = strings.TrimSuffix(buff[len(p.prompt):], "\n")
+		block = strings.TrimSuffix(buff[len(p.prompt):], "\n")
 	}
 
-	if len(command) == 0 {
+	if len(block) == 0 {
 		return nil
 	}
 
-	if enterFnErr := p.enterFn(gui, command); enterFnErr != nil {
+	if enterFnErr := p.enterFn(gui, block); enterFnErr != nil {
 		err = errors.Join(err, enterFnErr)
 	}
 

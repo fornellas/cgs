@@ -1,8 +1,8 @@
 package grbl
 
 import (
+	"errors"
 	"fmt"
-	"io"
 
 	"github.com/jroimartin/gocui"
 )
@@ -13,18 +13,18 @@ type ViewManager interface {
 }
 
 type Shell struct {
-	port           io.ReadWriter
-	gui            *gocui.Gui
-	grblViewName   string
-	grblView       ViewManager
-	promptViewName string
-	promptView     ViewManager
+	grbl              *Grbl
+	gui               *gocui.Gui
+	grblViewName      string
+	grblViewManager   ViewManager
+	promptViewName    string
+	promptViewManoger ViewManager
 }
 
-func NewShell(port io.ReadWriter) (*Shell, error) {
+func NewShell(grbl *Grbl) (*Shell, error) {
 	s := &Shell{}
 
-	s.port = port
+	s.grbl = grbl
 
 	var err error
 	s.gui, err = gocui.NewGui(gocui.OutputNormal)
@@ -36,14 +36,14 @@ func NewShell(port io.ReadWriter) (*Shell, error) {
 	s.gui.SetManagerFunc(s.manager)
 
 	s.grblViewName = "grbl"
-	s.grblView = NewGrblView(s.grblViewName)
-	if err := s.grblView.InitKeybindings(s.gui); err != nil {
+	s.grblViewManager = NewGrblView(s.grblViewName)
+	if err := s.grblViewManager.InitKeybindings(s.gui); err != nil {
 		return nil, err
 	}
 
 	s.promptViewName = "prompt"
-	s.promptView = NewPromptView(s.promptViewName, "> ", s.handleCommand)
-	if err := s.promptView.InitKeybindings(s.gui); err != nil {
+	s.promptViewManoger = NewPromptView(s.promptViewName, "> ", s.handleCommand)
+	if err := s.promptViewManoger.InitKeybindings(s.gui); err != nil {
 		return nil, err
 	}
 
@@ -57,12 +57,12 @@ func NewShell(port io.ReadWriter) (*Shell, error) {
 func (s *Shell) manager(gui *gocui.Gui) error {
 	maxX, maxY := gui.Size()
 
-	grblViewManagerFn := s.grblView.GetManagerFn(gui, 0, 0, maxX-1, maxY-4)
+	grblViewManagerFn := s.grblViewManager.GetManagerFn(gui, 0, 0, maxX-1, maxY-4)
 	if err := grblViewManagerFn(gui); err != nil {
 		return err
 	}
 
-	promptViewManagerFn := s.promptView.GetManagerFn(gui, 0, maxY-3, maxX-1, maxY-1)
+	promptViewManagerFn := s.promptViewManoger.GetManagerFn(gui, 0, maxY-3, maxX-1, maxY-1)
 	if err := promptViewManagerFn(gui); err != nil {
 		return err
 	}
@@ -75,11 +75,14 @@ func (s *Shell) manager(gui *gocui.Gui) error {
 }
 
 func (s *Shell) handleCommand(gui *gocui.Gui, command string) error {
+	if err := s.grbl.Send(command); err != nil {
+		return err
+	}
 	grblView, err := gui.View(s.grblViewName)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(grblView, "< %#v\n", command)
+	fmt.Fprintf(grblView, "> %#v\n", command)
 	return nil
 }
 
@@ -92,22 +95,44 @@ func (s *Shell) setKeybindings() error {
 		return err
 	}
 
-	if err := s.grblView.InitKeybindings(s.gui); err != nil {
+	if err := s.grblViewManager.InitKeybindings(s.gui); err != nil {
 		return err
 	}
 
-	if err := s.promptView.InitKeybindings(s.gui); err != nil {
+	if err := s.promptViewManoger.InitKeybindings(s.gui); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (s *Shell) Execute() error {
-	// go simulateGrblReplies(gui)
+func (s *Shell) receiver() error {
+	for {
+		message, err := s.grbl.Receive()
+		if err != nil {
+			return err
+		}
 
-	if err := s.gui.MainLoop(); err != nil && err != gocui.ErrQuit {
+		grblView, err := s.gui.View(s.grblViewName)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(grblView, "< %#v\n", message)
+		s.gui.Update(s.manager)
+	}
+}
+
+func (s *Shell) Execute() (err error) {
+	if err := s.grbl.Connect(); err != nil {
 		return err
+	}
+
+	go func() {
+		err = errors.Join(err, s.receiver())
+	}()
+
+	if mainLoopErr := s.gui.MainLoop(); mainLoopErr != nil && mainLoopErr != gocui.ErrQuit {
+		return errors.Join(err, mainLoopErr)
 	}
 	return nil
 }

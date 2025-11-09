@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.bug.st/serial"
 
-	"github.com/fornellas/cgs/grbl"
+	grblMod "github.com/fornellas/cgs/grbl"
 )
 
 var ShellCmd = &cobra.Command{
@@ -35,7 +35,9 @@ var ShellCmd = &cobra.Command{
 		}
 		defer func() { err = errors.Join(err, port.Close()) }()
 
-		shell, err := grbl.NewShell(port)
+		grbl := grblMod.NewGrbl(port)
+
+		shell, err := grblMod.NewShell(grbl)
 		if err != nil {
 			return err
 		}
