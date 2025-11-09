@@ -2,11 +2,9 @@ package main
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/fornellas/slogxt/log"
 	"github.com/spf13/cobra"
-	"go.bug.st/serial"
 
 	grblMod "github.com/fornellas/cgs/grbl"
 )
@@ -25,27 +23,17 @@ var ShellCmd = &cobra.Command{
 		cmd.SetContext(ctx)
 		logger.Info("Running")
 
-		mode := &serial.Mode{
-			BaudRate: 115200,
-		}
-		var port serial.Port
-		port, err = serial.Open(portName, mode)
-		if err != nil {
-			return fmt.Errorf("%s: %w", portName, err)
-		}
-		defer func() { err = errors.Join(err, port.Close()) }()
-
-		grbl := grblMod.NewGrbl(port)
+		grbl := grblMod.NewGrbl(portName)
 
 		shell, err := grblMod.NewShell(grbl)
 		if err != nil {
 			return err
 		}
-		defer shell.Close()
-
+		defer func() { err = errors.Join(err, shell.Close()) }()
 		if err := shell.Execute(); err != nil {
 			return err
 		}
+
 		return nil
 	}),
 }

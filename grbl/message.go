@@ -168,6 +168,38 @@ func (m *MessagePush) String() string {
 	return m.Message
 }
 
+// Welcome Message
+//   Grbl X.Xx ['$' for help] : Welcome message; indicates initialization.
+// Alarm Message
+//   ALARM:x : Indicates an alarm has been thrown. Grbl is now in an alarm state.
+//     1	Hard limit triggered. Machine position is likely lost due to sudden and immediate halt. Re-homing is highly recommended.
+//     2	G-code motion target exceeds machine travel. Machine position safely retained. Alarm may be unlocked.
+//     3	Reset while in motion. Grbl cannot guarantee position. Lost steps are likely. Re-homing is highly recommended.
+//     4	Probe fail. The probe is not in the expected initial state before starting probe cycle, where G38.2 and G38.3 is not triggered and G38.4 and G38.5 is triggered.
+//     5	Probe fail. Probe did not contact the workpiece within the programmed travel for G38.2 and G38.4.
+//     6	Homing fail. Reset during active homing cycle.
+//     7	Homing fail. Safety door was opened during active homing cycle.
+//     8	Homing fail. Cycle failed to clear limit switch when pulling off. Try increasing pull-off setting or check wiring.
+//     9	Homing fail. Could not find limit switch within search distance. Defined as 1.5 * max_travel on search and 5 * pulloff on locate phases.
+//     10	Homing fail. On dual axis machines, could not find the second limit switch for self-squaring.
+// Grbl $ Settings Message
+//   $x=val and $Nx=line indicate a settings printout from a $ and $N user query, respectively.
+// Feedback Messages
+//   Non-Queried Feedback Messages
+//     [MSG:] : Indicates a non-queried feedback message.
+// Queried Feedback Messages
+//   [GC:] : Indicates a queried $G g-code state message.
+//   [HLP:] : Indicates the help message.
+//   [G54:], [G55:], [G56:], [G57:], [G58:], [G59:], [G28:], [G30:], [G92:], [TLO:], and [PRB:] messages indicate the parameter data printout from a $# user query.
+//   [VER:] : Indicates build info and string from a $I user query.
+//   [OPT:] line follows immediately after and contains character codes for compile-time options that were either enabled or disabled.
+// Startup Line Execution
+//   >G54G20:ok : The open chevron indicates startup line execution. The :ok suffix shows it executed correctly without adding an unmatched ok response on a new line.
+// Real-time Status Reports
+//   < > : Enclosed between chevrons. Contains status report data.
+// Debugging
+//   [echo:] : Indicates an automated line echo from a pre-parsed string prior to g-code parsing. Enabled by config.h option.
+
 func NewMessage(message string) (Message, error) {
 	if message == messageResponseOk {
 		return &MessageResponse{

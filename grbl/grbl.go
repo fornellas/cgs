@@ -8,30 +8,50 @@ import (
 )
 
 type Grbl struct {
-	port serial.Port
+	portName string
+	port     serial.Port
 }
 
-func NewGrbl(port serial.Port) *Grbl {
+func NewGrbl(portName string) *Grbl {
 	g := &Grbl{
-		port: port,
+		portName: portName,
 	}
 	return g
 }
 
-func (g *Grbl) Connect() error {
-	if err := g.port.ResetInputBuffer(); err != nil {
-		return err
+func (g *Grbl) Open() error {
+	mode := &serial.Mode{
+		BaudRate: 115200,
 	}
-	if err := g.port.ResetOutputBuffer(); err != nil {
-		return err
+	port, err := serial.Open(g.portName, mode)
+	if err != nil {
+		return fmt.Errorf("%s: %w", g.portName, err)
 	}
 
-	// TODO wait for reset to complete:
-	// │< "\r"                                                                                      │
+	// TODO there's a small race condition: after open Grbl resets, and the messages MAY be erased here.
+	if err := port.ResetInputBuffer(); err != nil {
+		return errors.Join(err, port.Close())
+	}
+
+	if err := port.ResetOutputBuffer(); err != nil {
+		return errors.Join(err, port.Close())
+	}
+
+	g.port = port
+
+	// TODO wait for reset message
 	// │< "Grbl 1.1f ['$' for help]\r"                                                              │
-	// │< "[MSG:'$H'|'$X' to unlock]\r"
 
 	return nil
+}
+
+func (g *Grbl) Close() (err error) {
+	if g.port != nil {
+		err = g.port.Close()
+		g.port = nil
+		return
+	}
+	return
 }
 
 func (g *Grbl) Send(block string) error {
@@ -51,7 +71,7 @@ func (g *Grbl) Send(block string) error {
 }
 
 func (g *Grbl) Receive() (Message, error) {
-	var line []byte
+	line := []byte{}
 	for {
 		b := make([]byte, 1)
 		n, err := g.port.Read(b)

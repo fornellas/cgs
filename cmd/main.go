@@ -14,11 +14,12 @@ var Exit func(int) = func(code int) { os.Exit(code) }
 // errors, the error is logged then Exit(1) is called.
 func GetRunFn(fn func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
+		logger := log.MustLogger(cmd.Context())
 		if err := fn(cmd, args); err != nil {
-			logger := log.MustLogger(cmd.Context())
 			logger.Error(err.Error())
 			Exit(1)
 		}
+		logger.Info("Success")
 	}
 }
 
