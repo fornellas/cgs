@@ -200,18 +200,18 @@ func (m *MessagePush) String() string {
 // Debugging
 //   [echo:] : Indicates an automated line echo from a pre-parsed string prior to g-code parsing. Enabled by config.h option.
 
-func NewMessage(message string) (Message, error) {
+func NewMessage(message string) Message {
 	if message == messageResponseOk {
 		return &MessageResponse{
 			Message: message,
-		}, nil
+		}
 	}
 	if strings.HasPrefix(message, messageResponseErrorPrefix) {
 		return &MessageResponse{
 			Message: message,
-		}, nil
+		}
 	}
 	return &MessagePush{
 		Message: message,
-	}, nil
+	}
 }

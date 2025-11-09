@@ -27,16 +27,24 @@ func (g *Grbl) Open() error {
 	}
 	port, err := serial.Open(g.portName, mode)
 	if err != nil {
-		return fmt.Errorf("%s: %w", g.portName, err)
+		return fmt.Errorf("grbl: serial port open error: %s: %w", g.portName, err)
 	}
 
 	// TODO there's a small race condition: after open Grbl resets, and the messages MAY be erased here.
 	if err := port.ResetInputBuffer(); err != nil {
-		return errors.Join(err, port.Close())
+		closeErr := port.Close()
+		if closeErr != nil {
+			closeErr = fmt.Errorf("grbl: serial port close error: %s: %w", g.portName, closeErr)
+		}
+		return errors.Join(err, closeErr)
 	}
 
 	if err := port.ResetOutputBuffer(); err != nil {
-		return errors.Join(err, port.Close())
+		closeErr := port.Close()
+		if closeErr != nil {
+			closeErr = fmt.Errorf("grbl: serial port close error: %s: %w", g.portName, closeErr)
+		}
+		return errors.Join(err, closeErr)
 	}
 
 	g.port = port
@@ -60,13 +68,13 @@ func (g *Grbl) Send(block string) error {
 	line := append([]byte(block), '\n')
 	n, err := g.port.Write(line)
 	if err != nil {
-		return err
+		return fmt.Errorf("grbl: write to serial port error: %s: %w", g.portName, err)
 	}
 	if n != len(line) {
-		return fmt.Errorf("sent %d bytes, expected %d", n, len(block))
+		return fmt.Errorf("grbl: write to serial port error: %s: wrote %d bytes, expected %d", g.portName, n, len(block))
 	}
 	if err := g.port.Drain(); err != nil {
-		return err
+		return fmt.Errorf("grbl: serial port drain error: %s: %w", g.portName, err)
 	}
 
 	return nil
@@ -79,13 +87,13 @@ func (g *Grbl) Receive(ctx context.Context) (Message, error) {
 		timeout = time.Until(deadline)
 	}
 	if err := g.port.SetReadTimeout(timeout); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("grbl: error setting serial port read timeout: %s: %w", g.portName, err)
 	}
 
 	line := []byte{}
 	for {
 		if err := ctx.Err(); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("grbl: context error: %s: %w", g.portName, err)
 		}
 		b := make([]byte, 1)
 		n, err := g.port.Read(b)
@@ -93,7 +101,7 @@ func (g *Grbl) Receive(ctx context.Context) (Message, error) {
 			return nil, err
 		}
 		if n == 0 {
-			return nil, errors.New("0 bytes read")
+			return nil, fmt.Errorf("grbl: serial port read error: %s: 0 bytes read", g.portName)
 		}
 		if b[0] == '\n' {
 			break
@@ -105,10 +113,7 @@ func (g *Grbl) Receive(ctx context.Context) (Message, error) {
 		line = line[:len(line)-1]
 	}
 
-	message, err := NewMessage(string(line))
-	if err != nil {
-		return nil, err
-	}
+	message := NewMessage(string(line))
 
 	return message, nil
 }
