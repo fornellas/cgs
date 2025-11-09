@@ -138,5 +138,6 @@ func (s *Shell) Execute() (err error) {
 }
 
 func (s *Shell) Close() {
+	// TODO stop receiver
 	s.gui.Close()
 }

@@ -138,7 +138,6 @@ func (p *PromptView) handleKeyBindEnter(gui *gocui.Gui, view *gocui.View) (err e
 }
 
 func (p *PromptView) InitKeybindings(gui *gocui.Gui) error {
-	// Enter
 	if err := gui.SetKeybinding(p.name, gocui.KeyEnter, gocui.ModNone, p.handleKeyBindEnter); err != nil {
 		return err
 	}
