@@ -30,7 +30,7 @@ var ShellCmd = &cobra.Command{
 			return err
 		}
 		defer func() { err = errors.Join(err, shell.Close()) }()
-		if err := shell.Execute(); err != nil {
+		if err := shell.Execute(ctx); err != nil {
 			return err
 		}
 

@@ -1,8 +1,10 @@
 package grbl
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"go.bug.st/serial"
 )
@@ -70,9 +72,21 @@ func (g *Grbl) Send(block string) error {
 	return nil
 }
 
-func (g *Grbl) Receive() (Message, error) {
+func (g *Grbl) Receive(ctx context.Context) (Message, error) {
+	deadline, ok := ctx.Deadline()
+	var timeout time.Duration = serial.NoTimeout
+	if ok {
+		timeout = time.Until(deadline)
+	}
+	if err := g.port.SetReadTimeout(timeout); err != nil {
+		return nil, err
+	}
+
 	line := []byte{}
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		b := make([]byte, 1)
 		n, err := g.port.Read(b)
 		if err != nil {

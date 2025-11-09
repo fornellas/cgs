@@ -1,6 +1,7 @@
 package grbl
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -113,10 +114,13 @@ func (s *Shell) setKeybindings() error {
 	return nil
 }
 
-func (s *Shell) receiver() error {
+func (s *Shell) receiver(ctx context.Context) error {
 	for {
-		message, err := s.grbl.Receive()
+		message, err := s.grbl.Receive(ctx)
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return nil
+			}
 			return fmt.Errorf("shell: receive error: %w (%#v)", err, err)
 		}
 
@@ -138,7 +142,7 @@ func (s *Shell) receiver() error {
 
 // Execute opens the connection with Grbl and executes the UI main loop; the connection is closed
 // before it returns.
-func (s *Shell) Execute() (err error) {
+func (s *Shell) Execute(ctx context.Context) (err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("shell: execute failed: %w", err)
@@ -150,14 +154,13 @@ func (s *Shell) Execute() (err error) {
 	}
 	defer func() { err = errors.Join(err, s.grbl.Close()) }()
 
-	go func() { err = errors.Join(err, s.receiver()) }()
-	// TODO catch receiver errors and stop gui
-	// TODO defer stop receiver
+	go func() { err = errors.Join(err, s.receiver(ctx)) }()
 
 	if mainLoopErr := s.gui.MainLoop(); mainLoopErr != nil && mainLoopErr != gocui.ErrQuit {
-		return errors.Join(err, mainLoopErr)
+		err = errors.Join(err, mainLoopErr)
 	}
-	return nil
+
+	return
 }
 
 // Close must be called after a successful initialization and when the Shell is not needed anymore.
