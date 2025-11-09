@@ -93,3 +93,6 @@ $# (View Gcode Parameters)
             [PRB:0.000,0.000,0.000:0]
 $$ (Prints Grbl settings)
     Misc
+Real time commands
+    ? Status Report
+    TODO others
