@@ -43,7 +43,7 @@ func NewShell(grbl *Grbl) (*Shell, error) {
 	}
 
 	s.promptViewName = "prompt"
-	s.promptViewManoger = NewPromptView(s.promptViewName, "> ", s.handleSendCommand)
+	s.promptViewManoger = NewPromptView(s.promptViewName, "> ", s.handleSendBlock)
 	if err := s.promptViewManoger.InitKeybindings(s.gui); err != nil {
 		return nil, fmt.Errorf("shell: failed to initialize prompt view key bindings: %w", err)
 	}
@@ -75,15 +75,15 @@ func (s *Shell) manager(gui *gocui.Gui) error {
 	return nil
 }
 
-func (s *Shell) handleSendCommand(gui *gocui.Gui, command string) error {
-	if err := s.grbl.Send(command); err != nil {
+func (s *Shell) handleSendBlock(gui *gocui.Gui, block string) error {
+	if err := s.grbl.SendBlock(block); err != nil {
 		return fmt.Errorf("shell: handleCommand: failed to send command to Grbl: %w", err)
 	}
 	grblView, err := gui.View(s.grblViewName)
 	if err != nil {
 		return fmt.Errorf("shell: handleCommand: failed to get Grbl view: %w", err)
 	}
-	line := fmt.Sprintf("> %#v\n", command)
+	line := fmt.Sprintf("> %#v\n", block)
 	n, err := fmt.Fprint(grblView, line)
 	if err != nil {
 		return fmt.Errorf("shell: handleCommand: failed to write to Grbl view: %w", err)
