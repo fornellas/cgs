@@ -111,6 +111,8 @@ func (g *Grbl) mustLogger(ctx context.Context) (context.Context, *slog.Logger) {
 func (g *Grbl) Open(ctx context.Context) error {
 	ctx, logger := g.mustLogger(ctx)
 
+	logger.Info("Connecting")
+
 	mode := &serial.Mode{
 		BaudRate: 115200,
 	}
