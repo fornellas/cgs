@@ -64,7 +64,7 @@ func (s *Shell) getHandleSendBlockFn(ctx context.Context) func(gui *gocui.Gui, b
 		if err != nil {
 			return fmt.Errorf("shell: handleCommand: failed to get Grbl view: %w", err)
 		}
-		line := fmt.Sprintf("> %#v\n", block)
+		line := fmt.Sprintf("> %s\n", block)
 		n, err := fmt.Fprint(grblView, line)
 		if err != nil {
 			return fmt.Errorf("shell: handleCommand: failed to write to Grbl view: %w", err)
@@ -109,7 +109,7 @@ func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.Ma
 			return fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err)
 		}
 
-		line := fmt.Sprintf("< %#v\n", message)
+		line := fmt.Sprintf("< %s\n", message)
 
 		n, err := fmt.Fprint(grblView, line)
 		if err != nil {
