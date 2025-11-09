@@ -231,25 +231,173 @@ func NewMessagePush(message string) Message {
 	if strings.HasPrefix(message, messagePushAlarmPrefix) {
 		return &MessagePushAlarm{Message: message}
 	}
-	// Grbl $ Settings Message
-	//   $x=val and $Nx=line indicate a settings printout from a $ and $N user query, respectively.
-	// Feedback Messages
-	//   Non-Queried Feedback Messages
-	//     [MSG:] : Indicates a non-queried feedback message.
-	// Queried Feedback Messages
-	//   [GC:] : Indicates a queried $G g-code state message.
-	//   [HLP:] : Indicates the help message.
-	//   [G54:], [G55:], [G56:], [G57:], [G58:], [G59:], [G28:], [G30:], [G92:], [TLO:], and [PRB:] messages indicate the parameter data printout from a $# user query.
-	//   [VER:] : Indicates build info and string from a $I user query.
-	//   [OPT:] line follows immediately after and contains character codes for compile-time options that were either enabled or disabled.
-	// Startup Line Execution
-	//   >G54G20:ok : The open chevron indicates startup line execution. The :ok suffix shows it executed correctly without adding an unmatched ok response on a new line.
-	// Real-time Status Reports
-	//   < > : Enclosed between chevrons. Contains status report data.
-	// Debugging
-	//   [echo:] : Indicates an automated line echo from a pre-parsed string prior to g-code parsing. Enabled by config.h option.
+	if strings.HasPrefix(message, "$") {
+		return &MessagePushSettings{Message: message}
+	}
+	if strings.HasPrefix(message, "[MSG:") {
+		return &MessagePushFeedback{Message: message}
+	}
+	if strings.HasPrefix(message, "[GC:") {
+		return &MessagePushGcodeState{Message: message}
+	}
+	if strings.HasPrefix(message, "[HLP:") {
+		return &MessagePushHelp{Message: message}
+	}
+	gcodeParamPrefixes := []string{
+		"[G54:",
+		"[G55:",
+		"[G56:",
+		"[G57:",
+		"[G58:",
+		"[G59:",
+		"[G28:",
+		"[G30:",
+		"[G92:",
+		"[TLO:",
+		"[PRB:",
+	}
+	for _, prefix := range gcodeParamPrefixes {
+		if strings.HasPrefix(message, prefix) {
+			return &MessagePushGcodeParam{Message: message}
+		}
+	}
+	if strings.HasPrefix(message, "[VER:") {
+		return &MessagePushBuildInfo{Message: message}
+	}
+	if strings.HasPrefix(message, "[OPT:") {
+		return &MessagePushCompileTimeOptions{Message: message}
+	}
+	if strings.HasPrefix(message, ">") {
+		return &MessagePushStartupLineExecution{Message: message}
+	}
+	if strings.HasPrefix(message, "<") {
+		return &MessagePushStatusReport{Message: message}
+	}
+	if strings.HasPrefix(message, "[echo:") {
+		return &MessagePushEcho{Message: message}
+	}
 
 	return &MessagePushUnknown{Message: message}
+}
+
+type MessagePushSettings struct {
+	Message string
+}
+
+func (m *MessagePushSettings) Type() MessageType {
+	return MessageTypePush
+}
+
+func (m *MessagePushSettings) String() string {
+	return m.Message
+}
+
+type MessagePushFeedback struct {
+	Message string
+}
+
+func (m *MessagePushFeedback) Type() MessageType {
+	return MessageTypePush
+}
+
+func (m *MessagePushFeedback) String() string {
+	return m.Message
+}
+
+type MessagePushGcodeState struct {
+	Message string
+}
+
+func (m *MessagePushGcodeState) Type() MessageType {
+	return MessageTypePush
+}
+
+func (m *MessagePushGcodeState) String() string {
+	return m.Message
+}
+
+type MessagePushHelp struct {
+	Message string
+}
+
+func (m *MessagePushHelp) Type() MessageType {
+	return MessageTypePush
+}
+
+func (m *MessagePushHelp) String() string {
+	return m.Message
+}
+
+type MessagePushGcodeParam struct {
+	Message string
+}
+
+func (m *MessagePushGcodeParam) Type() MessageType {
+	return MessageTypePush
+}
+
+func (m *MessagePushGcodeParam) String() string {
+	return m.Message
+}
+
+type MessagePushBuildInfo struct {
+	Message string
+}
+
+func (m *MessagePushBuildInfo) Type() MessageType {
+	return MessageTypePush
+}
+
+func (m *MessagePushBuildInfo) String() string {
+	return m.Message
+}
+
+type MessagePushCompileTimeOptions struct {
+	Message string
+}
+
+func (m *MessagePushCompileTimeOptions) Type() MessageType {
+	return MessageTypePush
+}
+
+func (m *MessagePushCompileTimeOptions) String() string {
+	return m.Message
+}
+
+type MessagePushStartupLineExecution struct {
+	Message string
+}
+
+func (m *MessagePushStartupLineExecution) Type() MessageType {
+	return MessageTypePush
+}
+
+func (m *MessagePushStartupLineExecution) String() string {
+	return m.Message
+}
+
+type MessagePushStatusReport struct {
+	Message string
+}
+
+func (m *MessagePushStatusReport) Type() MessageType {
+	return MessageTypePush
+}
+
+func (m *MessagePushStatusReport) String() string {
+	return m.Message
+}
+
+type MessagePushEcho struct {
+	Message string
+}
+
+func (m *MessagePushEcho) Type() MessageType {
+	return MessageTypePush
+}
+
+func (m *MessagePushEcho) String() string {
+	return m.Message
 }
 
 type MessagePushUnknown struct {
