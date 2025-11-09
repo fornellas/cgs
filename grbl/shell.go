@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
+	"github.com/fornellas/slogxt/log"
 	"github.com/jroimartin/gocui"
 )
 
@@ -159,6 +161,14 @@ func (s *Shell) Execute(ctx context.Context) (err error) {
 		}
 	}()
 
+	// Logger handler
+	var gui *gocui.Gui
+	logger := log.MustLogger(ctx)
+	viewHandler := NewViewHandler(logger.Handler(), &gui, s.grblViewName)
+	logger = slog.New(viewHandler)
+	ctx = log.WithLogger(ctx, logger)
+
+	// Open Grbl
 	if err = s.grbl.Open(ctx); err != nil {
 		return
 	}
@@ -166,7 +176,7 @@ func (s *Shell) Execute(ctx context.Context) (err error) {
 		err = errors.Join(err, s.grbl.Close(ctx))
 	}()
 
-	var gui *gocui.Gui
+	// Gui
 	var managerFn gocui.ManagerFunc
 	gui, managerFn, err = s.newGui(ctx)
 	if err != nil {
@@ -176,6 +186,7 @@ func (s *Shell) Execute(ctx context.Context) (err error) {
 		gui.Close()
 	}()
 
+	// Receiver
 	receiverCtx, receiverCancel := context.WithCancel(ctx)
 	receiverDone := make(chan struct{})
 	defer func() {
@@ -189,6 +200,7 @@ func (s *Shell) Execute(ctx context.Context) (err error) {
 		err = errors.Join(err, s.receiver(receiverCtx, gui, managerFn))
 	}()
 
+	// Main Loop
 	if mainLoopErr := gui.MainLoop(); mainLoopErr != nil && mainLoopErr != gocui.ErrQuit {
 		err = errors.Join(err, mainLoopErr)
 	}
