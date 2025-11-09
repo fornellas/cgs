@@ -154,7 +154,9 @@ func (s *Shell) Execute(ctx context.Context) (err error) {
 	}
 	defer func() { err = errors.Join(err, s.grbl.Close()) }()
 
-	go func() { err = errors.Join(err, s.receiver(ctx)) }()
+	receiverCtx, receiverCancel := context.WithCancel(ctx)
+	defer receiverCancel()
+	go func() { err = errors.Join(err, s.receiver(receiverCtx)) }()
 
 	if mainLoopErr := s.gui.MainLoop(); mainLoopErr != nil && mainLoopErr != gocui.ErrQuit {
 		err = errors.Join(err, mainLoopErr)
