@@ -1,8 +1,6 @@
 package main
 
 import (
-	"errors"
-
 	"github.com/fornellas/slogxt/log"
 	"github.com/spf13/cobra"
 
@@ -25,11 +23,7 @@ var ShellCmd = &cobra.Command{
 
 		grbl := grblMod.NewGrbl(portName)
 
-		shell, err := grblMod.NewShell(grbl)
-		if err != nil {
-			return err
-		}
-		defer func() { err = errors.Join(err, shell.Close()) }()
+		shell := grblMod.NewShell(grbl)
 		if err := shell.Execute(ctx); err != nil {
 			return err
 		}

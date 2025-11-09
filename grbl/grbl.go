@@ -4,12 +4,46 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
+	"github.com/fornellas/slogxt/log"
 	"go.bug.st/serial"
 )
 
 type RealTimeCommand byte
+
+var realTimeCommandStringsMap = map[RealTimeCommand]string{
+	RealTimeCommandSoftReset:                                          "Soft-Reset",
+	RealTimeCommandStatusReportQuery:                                  "Status Report Query",
+	RealTimeCommandCycleStartResume:                                   "Cycle Start / Resume",
+	RealTimeCommandFeedHold:                                           "Feed Hold",
+	RealTimeCommandSafetyDoor:                                         "Safety Door",
+	RealTimeCommandJogCancel:                                          "Jog Cancel",
+	RealTimeCommandFeedOverrideSet100OfProgrammedRate:                 "Feed Override: Set 100% of programmed rate.",
+	RealTimeCommandFeedOverrideIncrease10:                             "Feed Override: Increase 10%",
+	RealTimeCommandFeedOverrideDecrease10:                             "Feed Override: Decrease 10%",
+	RealTimeCommandFeedOverrideIncrease1:                              "Feed Override: Increase 1%",
+	RealTimeCommandFeedOverrideDecrease1:                              "Feed Override: Decrease 1%",
+	RealTimeCommandRapidOverrideSetTo100FullRapidRate:                 "Rapid Override: Set to 100% full rapid rate.",
+	RealTimeCommandRapidOverrideSetTo50OfRapidRate:                    "Rapid Override: Set to 50% of rapid rate.",
+	RealTimeCommandRapidOverrideSetTo25OfRapidRate:                    "Rapid Override: Set to 25% of rapid rate.",
+	RealTimeCommandSpindleSpeedOverrideSet100OfProgrammedSpindleSpeed: "Spindle Speed Override: Set 100% of programmed spindle speed",
+	RealTimeCommandSpindleSpeedOverrideIncrease10:                     "Spindle Speed Override: Increase 10%",
+	RealTimeCommandSpindleSpeedOverrideDecrease10:                     "Spindle Speed Override: Decrease 10%",
+	RealTimeCommandSpindleSpeedOverrideIncrease1:                      "Spindle Speed Override: Increase 1%",
+	RealTimeCommandSpindleSpeedOverrideDecrease1:                      "Spindle Speed Override: Decrease 1%",
+	RealTimeCommandToggleSpindleStop:                                  "Toggle Spindle Stop",
+	RealTimeCommandToggleFloodCoolant:                                 "Toggle Flood Coolant",
+	RealTimeCommandToggleMistCoolant:                                  "Toggle Mist Coolant",
+}
+
+func (c RealTimeCommand) String() string {
+	if str, ok := realTimeCommandStringsMap[c]; ok {
+		return str
+	}
+	return fmt.Sprintf("Unknown (%#v)", c)
+}
 
 var (
 	// Soft-Reset
@@ -70,41 +104,62 @@ func NewGrbl(portName string) *Grbl {
 	return g
 }
 
-func (g *Grbl) Open() error {
+func (g *Grbl) mustLogger(ctx context.Context) (context.Context, *slog.Logger) {
+	return log.MustWithGroupAttrs(ctx, "Grbl", "portName", g.portName)
+}
+
+func (g *Grbl) Open(ctx context.Context) error {
+	ctx, logger := g.mustLogger(ctx)
+
 	mode := &serial.Mode{
 		BaudRate: 115200,
 	}
+	logger.Debug("Opening")
 	port, err := serial.Open(g.portName, mode)
 	if err != nil {
 		return fmt.Errorf("grbl: serial port open error: %s: %w", g.portName, err)
 	}
 
-	// TODO there's a small race condition: after open Grbl resets, and the messages MAY be erased here.
-	if err := port.ResetInputBuffer(); err != nil {
-		closeErr := port.Close()
-		if closeErr != nil {
-			closeErr = fmt.Errorf("grbl: serial port close error: %s: %w", g.portName, closeErr)
-		}
-		return errors.Join(err, closeErr)
-	}
-
-	if err := port.ResetOutputBuffer(); err != nil {
-		closeErr := port.Close()
-		if closeErr != nil {
-			closeErr = fmt.Errorf("grbl: serial port close error: %s: %w", g.portName, closeErr)
-		}
-		return errors.Join(err, closeErr)
-	}
-
 	g.port = port
 
-	// TODO wait for reset message
-	// │< "Grbl 1.1f ['$' for help]\r"                                                              │
+	logger.Debug("Waiting for welcome message")
+	receiveCtx, receiveCancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
+	defer receiveCancel()
+	for {
+		message, err := g.Receive(receiveCtx)
+		if err != nil {
+			g.port = nil
+			closeErr := port.Close()
+			if closeErr != nil {
+				closeErr = fmt.Errorf("grbl: serial port close error: %s: %w", g.portName, closeErr)
+			}
+			return errors.Join(err, closeErr)
+		}
+		_, ok := message.(*MessagePushWelcome)
+		if ok {
+			break
+		}
+		logger.Debug("Ignoring", "message", message)
+	}
+	logger.Debug("Welcome message received")
+
+	// we need to set this to allow context cancellation to work
+	logger.Debug("Setting read timeout")
+	if err := g.port.SetReadTimeout(50 * time.Millisecond); err != nil {
+		g.port = nil
+		closeErr := port.Close()
+		if closeErr != nil {
+			closeErr = fmt.Errorf("grbl: serial port close error: %s: %w", g.portName, closeErr)
+		}
+		return errors.Join(fmt.Errorf("grbl: error setting read timeout: %w", err), closeErr)
+	}
 
 	return nil
 }
 
-func (g *Grbl) Close() (err error) {
+func (g *Grbl) Close(ctx context.Context) (err error) {
+	_, logger := g.mustLogger(ctx)
+	logger.Debug("Closing")
 	if g.port != nil {
 		err = g.port.Close()
 		g.port = nil
@@ -114,7 +169,9 @@ func (g *Grbl) Close() (err error) {
 }
 
 // SendRealTimeCommand issues a real time command to Grbl.
-func (g *Grbl) SendRealTimeCommand(cmd RealTimeCommand) error {
+func (g *Grbl) SendRealTimeCommand(ctx context.Context, cmd RealTimeCommand) error {
+	_, logger := g.mustLogger(ctx)
+	logger.Debug("Sending real time command", "command", cmd)
 	data := []byte{byte(cmd)}
 	n, err := g.port.Write(data)
 	if err != nil {
@@ -133,7 +190,9 @@ func (g *Grbl) SendRealTimeCommand(cmd RealTimeCommand) error {
 
 // TODO Synchronization
 
-func (g *Grbl) SendBlock(block string) error {
+func (g *Grbl) SendBlock(ctx context.Context, block string) error {
+	_, logger := g.mustLogger(ctx)
+	logger.Debug("Sending block", "block", block)
 	line := append([]byte(block), '\n')
 	n, err := g.port.Write(line)
 	if err != nil {
@@ -150,15 +209,8 @@ func (g *Grbl) SendBlock(block string) error {
 }
 
 func (g *Grbl) Receive(ctx context.Context) (Message, error) {
-	deadline, ok := ctx.Deadline()
-	var timeout time.Duration = serial.NoTimeout
-	if ok {
-		timeout = time.Until(deadline)
-	}
-	if err := g.port.SetReadTimeout(timeout); err != nil {
-		return nil, fmt.Errorf("grbl: error setting serial port read timeout: %s: %w", g.portName, err)
-	}
-
+	ctx, logger := g.mustLogger(ctx)
+	logger.Debug("Receiving message")
 	line := []byte{}
 	for {
 		if err := ctx.Err(); err != nil {
@@ -170,7 +222,7 @@ func (g *Grbl) Receive(ctx context.Context) (Message, error) {
 			return nil, err
 		}
 		if n == 0 {
-			return nil, fmt.Errorf("grbl: serial port read error: %s: 0 bytes read", g.portName)
+			continue
 		}
 		if b[0] == '\n' {
 			break

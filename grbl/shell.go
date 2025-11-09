@@ -14,107 +14,85 @@ type ViewManager interface {
 }
 
 type Shell struct {
-	grbl              *Grbl
-	gui               *gocui.Gui
-	grblViewName      string
-	grblViewManager   ViewManager
-	promptViewName    string
-	promptViewManoger ViewManager
+	grbl           *Grbl
+	grblViewName   string
+	promptViewName string
 }
 
-func NewShell(grbl *Grbl) (*Shell, error) {
-	s := &Shell{}
-
-	s.grbl = grbl
-
-	var err error
-	s.gui, err = gocui.NewGui(gocui.OutputNormal)
-	if err != nil {
-		return nil, fmt.Errorf("shell: failed to initialize gui: %w", err)
+func NewShell(grbl *Grbl) *Shell {
+	return &Shell{
+		grbl:           grbl,
+		grblViewName:   "grbl",
+		promptViewName: "prompt",
 	}
-	s.gui.Highlight = true
-	s.gui.Cursor = true
-	s.gui.SetManagerFunc(s.manager)
-
-	s.grblViewName = "grbl"
-	s.grblViewManager = NewGrblView(s.grblViewName)
-	if err := s.grblViewManager.InitKeybindings(s.gui); err != nil {
-		return nil, fmt.Errorf("shell: failed to initialize Grbl view key bindings: %w", err)
-	}
-
-	s.promptViewName = "prompt"
-	s.promptViewManoger = NewPromptView(s.promptViewName, "> ", s.handleSendBlock)
-	if err := s.promptViewManoger.InitKeybindings(s.gui); err != nil {
-		return nil, fmt.Errorf("shell: failed to initialize prompt view key bindings: %w", err)
-	}
-
-	if err := s.setKeybindings(); err != nil {
-		return nil, fmt.Errorf("shell: failed to initialize key bindings: %w", err)
-	}
-
-	return s, nil
 }
 
-func (s *Shell) manager(gui *gocui.Gui) error {
-	maxX, maxY := gui.Size()
+func (s *Shell) getManagerFn(
+	gui *gocui.Gui,
+	grblViewManager *GrblView,
+	promptViewManoger *PromptView,
+) func(*gocui.Gui) error {
+	return func(*gocui.Gui) error {
+		maxX, maxY := gui.Size()
 
-	grblViewManagerFn := s.grblViewManager.GetManagerFn(gui, 0, 0, maxX-1, maxY-4)
-	if err := grblViewManagerFn(gui); err != nil {
-		return fmt.Errorf("shell: manager: Grbl view manager failed: %w", err)
+		grblViewManagerFn := grblViewManager.GetManagerFn(gui, 0, 0, maxX-1, maxY-4)
+		if err := grblViewManagerFn(gui); err != nil {
+			return fmt.Errorf("shell: manager: Grbl view manager failed: %w", err)
+		}
+
+		promptViewManagerFn := promptViewManoger.GetManagerFn(gui, 0, maxY-3, maxX-1, maxY-1)
+		if err := promptViewManagerFn(gui); err != nil {
+			return fmt.Errorf("shell: manager: prompt view manager failed: %w", err)
+		}
+
+		if _, err := gui.SetCurrentView(s.promptViewName); err != nil {
+			return fmt.Errorf("shell: manager: failed to set current view to prompt: %w", err)
+		}
+
+		return nil
 	}
-
-	promptViewManagerFn := s.promptViewManoger.GetManagerFn(gui, 0, maxY-3, maxX-1, maxY-1)
-	if err := promptViewManagerFn(gui); err != nil {
-		return fmt.Errorf("shell: manager: prompt view manager failed: %w", err)
-	}
-
-	if _, err := gui.SetCurrentView(s.promptViewName); err != nil {
-		return fmt.Errorf("shell: manager: failed to set current view to prompt: %w", err)
-	}
-
-	return nil
 }
 
-func (s *Shell) handleSendBlock(gui *gocui.Gui, block string) error {
-	if err := s.grbl.SendBlock(block); err != nil {
-		return fmt.Errorf("shell: handleCommand: failed to send command to Grbl: %w", err)
+func (s *Shell) getHandleSendBlockFn(ctx context.Context) func(gui *gocui.Gui, block string) error {
+	return func(gui *gocui.Gui, block string) error {
+		if err := s.grbl.SendBlock(ctx, block); err != nil {
+			return fmt.Errorf("shell: handleCommand: failed to send command to Grbl: %w", err)
+		}
+		grblView, err := gui.View(s.grblViewName)
+		if err != nil {
+			return fmt.Errorf("shell: handleCommand: failed to get Grbl view: %w", err)
+		}
+		line := fmt.Sprintf("> %#v\n", block)
+		n, err := fmt.Fprint(grblView, line)
+		if err != nil {
+			return fmt.Errorf("shell: handleCommand: failed to write to Grbl view: %w", err)
+		}
+		if n != len(line) {
+			return fmt.Errorf("shell: handleCommand: short write to Grbl view: expected %d, got %d", len(line), n)
+		}
+		return nil
 	}
-	grblView, err := gui.View(s.grblViewName)
-	if err != nil {
-		return fmt.Errorf("shell: handleCommand: failed to get Grbl view: %w", err)
-	}
-	line := fmt.Sprintf("> %#v\n", block)
-	n, err := fmt.Fprint(grblView, line)
-	if err != nil {
-		return fmt.Errorf("shell: handleCommand: failed to write to Grbl view: %w", err)
-	}
-	if n != len(line) {
-		return fmt.Errorf("shell: handleCommand: short write to Grbl view: expected %d, got %d", len(line), n)
-	}
-	return nil
 }
 
 func (s *Shell) handleKeyBindQuit(g *gocui.Gui, v *gocui.View) error {
 	return gocui.ErrQuit
 }
 
-func (s *Shell) setKeybindings() error {
-	if err := s.gui.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, s.handleKeyBindQuit); err != nil {
+func (s *Shell) setKeybindings(gui *gocui.Gui, viewManagers []ViewManager) error {
+	if err := gui.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, s.handleKeyBindQuit); err != nil {
 		return fmt.Errorf("shell: failed so set keybinding: %w", err)
 	}
 
-	if err := s.grblViewManager.InitKeybindings(s.gui); err != nil {
-		return fmt.Errorf("shell: failed so set keybinding: %w", err)
-	}
-
-	if err := s.promptViewManoger.InitKeybindings(s.gui); err != nil {
-		return fmt.Errorf("shell: failed so set keybinding: %w", err)
+	for _, viewManager := range viewManagers {
+		if err := viewManager.InitKeybindings(gui); err != nil {
+			return fmt.Errorf("shell: failed so set keybinding: %w", err)
+		}
 	}
 
 	return nil
 }
 
-func (s *Shell) receiver(ctx context.Context) error {
+func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.ManagerFunc) error {
 	for {
 		message, err := s.grbl.Receive(ctx)
 		if err != nil {
@@ -124,11 +102,13 @@ func (s *Shell) receiver(ctx context.Context) error {
 			return fmt.Errorf("shell: receive error: %w (%#v)", err, err)
 		}
 
-		grblView, err := s.gui.View(s.grblViewName)
+		grblView, err := gui.View(s.grblViewName)
 		if err != nil {
 			return fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err)
 		}
+
 		line := fmt.Sprintf("< %#v\n", message)
+
 		n, err := fmt.Fprint(grblView, line)
 		if err != nil {
 			return fmt.Errorf("shell: receiver: failed to write to Grbl view: %w", err)
@@ -136,8 +116,38 @@ func (s *Shell) receiver(ctx context.Context) error {
 		if n != len(line) {
 			return fmt.Errorf("shell: handleCommand: short write to Grbl view: expected %d, got %d", len(line), n)
 		}
-		s.gui.Update(s.manager)
+		gui.Update(managerFn)
 	}
+}
+
+func (s *Shell) newGui(ctx context.Context) (*gocui.Gui, gocui.ManagerFunc, error) {
+	gui, err := gocui.NewGui(gocui.OutputNormal)
+	if err != nil {
+		return nil, nil, fmt.Errorf("shell: failed to initialize gui: %w", err)
+	}
+	gui.Highlight = true
+	gui.Cursor = true
+
+	viewManagers := []ViewManager{}
+	grblViewManager := NewGrblView(s.grblViewName)
+	viewManagers = append(viewManagers, grblViewManager)
+	promptViewManoger := NewPromptView(s.promptViewName, "> ", s.getHandleSendBlockFn(ctx))
+	viewManagers = append(viewManagers, promptViewManoger)
+
+	managerFn := s.getManagerFn(gui, grblViewManager, promptViewManoger)
+	gui.SetManagerFunc(managerFn)
+
+	for _, viewManager := range viewManagers {
+		if err := viewManager.InitKeybindings(gui); err != nil {
+			return nil, nil, fmt.Errorf("shell: failed to initialize ViewManager key bindings: %w", err)
+		}
+	}
+
+	if err := s.setKeybindings(gui, viewManagers); err != nil {
+		return nil, nil, fmt.Errorf("shell: failed to initialize key bindings: %w", err)
+	}
+
+	return gui, managerFn, nil
 }
 
 // Execute opens the connection with Grbl and executes the UI main loop; the connection is closed
@@ -149,24 +159,39 @@ func (s *Shell) Execute(ctx context.Context) (err error) {
 		}
 	}()
 
-	if err = s.grbl.Open(); err != nil {
+	if err = s.grbl.Open(ctx); err != nil {
 		return
 	}
-	defer func() { err = errors.Join(err, s.grbl.Close()) }()
+	defer func() {
+		err = errors.Join(err, s.grbl.Close(ctx))
+	}()
+
+	var gui *gocui.Gui
+	var managerFn gocui.ManagerFunc
+	gui, managerFn, err = s.newGui(ctx)
+	if err != nil {
+		return
+	}
+	defer func() {
+		gui.Close()
+	}()
 
 	receiverCtx, receiverCancel := context.WithCancel(ctx)
-	defer receiverCancel()
-	go func() { err = errors.Join(err, s.receiver(receiverCtx)) }()
+	receiverDone := make(chan struct{})
+	defer func() {
+		receiverCancel()
+		<-receiverDone
+	}()
+	go func() {
+		defer func() {
+			close(receiverDone)
+		}()
+		err = errors.Join(err, s.receiver(receiverCtx, gui, managerFn))
+	}()
 
-	if mainLoopErr := s.gui.MainLoop(); mainLoopErr != nil && mainLoopErr != gocui.ErrQuit {
+	if mainLoopErr := gui.MainLoop(); mainLoopErr != nil && mainLoopErr != gocui.ErrQuit {
 		err = errors.Join(err, mainLoopErr)
 	}
 
 	return
-}
-
-// Close must be called after a successful initialization and when the Shell is not needed anymore.
-func (s *Shell) Close() (err error) {
-	s.gui.Close()
-	return nil
 }
