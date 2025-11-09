@@ -58,19 +58,21 @@ func (h *ViewHandler) Handle(ctx context.Context, record slog.Record) error {
 }
 
 func (h *ViewHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	gui := (*h.gui)
-	if gui == nil {
-		return h.originalHandler.WithAttrs(attrs)
+	return &ViewHandler{
+		originalHandler: h.originalHandler.WithAttrs(attrs),
+		viewHandler:     h.viewHandler.WithAttrs(attrs),
+		gui:             h.gui,
+		viewName:        h.viewName,
 	}
-	return h.viewHandler.WithAttrs(attrs)
 }
 
 func (h *ViewHandler) WithGroup(name string) slog.Handler {
-	gui := (*h.gui)
-	if gui == nil {
-		return h.originalHandler.WithGroup(name)
+	return &ViewHandler{
+		originalHandler: h.originalHandler.WithGroup(name),
+		viewHandler:     h.viewHandler.WithGroup(name),
+		gui:             h.gui,
+		viewName:        h.viewName,
 	}
-	return h.viewHandler.WithGroup(name)
 }
 
 func (h *ViewHandler) Write(p []byte) (n int, err error) {
