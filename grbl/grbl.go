@@ -95,6 +95,10 @@ var (
 type Grbl struct {
 	portName string
 	port     serial.Port
+	// WorkCoordinateOffset holds the newest value received via a status report.
+	WorkCoordinateOffset *StatusReportWorkCoordinateOffset
+	// OverrideValues holds the newest value received via a status report.
+	OverrideValues *StatusReportOverrideValues
 }
 
 func NewGrbl(portName string) *Grbl {
@@ -123,6 +127,8 @@ func (g *Grbl) Open(ctx context.Context) error {
 	}
 
 	g.port = port
+	g.WorkCoordinateOffset = nil
+	g.OverrideValues = nil
 
 	logger.Debug("Waiting for welcome message")
 	receiveCtx, receiveCancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
@@ -203,6 +209,7 @@ func (g *Grbl) SendBlock(ctx context.Context, block string) error {
 	return nil
 }
 
+// Receive message from Grbl.
 func (g *Grbl) Receive(ctx context.Context) (Message, error) {
 	ctx, logger := g.mustLogger(ctx)
 	logger.Debug("Receiving message")
@@ -232,6 +239,20 @@ func (g *Grbl) Receive(ctx context.Context) (Message, error) {
 	message, err := NewMessage(string(line))
 	if err != nil {
 		return nil, err
+	}
+
+	if _, ok := message.(*MessagePushWelcome); ok {
+		g.WorkCoordinateOffset = nil
+		g.OverrideValues = nil
+	}
+
+	if messagePushStatusReport, ok := message.(*MessagePushStatusReport); ok {
+		if messagePushStatusReport.WorkCoordinateOffset != nil {
+			g.WorkCoordinateOffset = messagePushStatusReport.WorkCoordinateOffset
+		}
+		if messagePushStatusReport.OverrideValues != nil {
+			g.OverrideValues = messagePushStatusReport.OverrideValues
+		}
 	}
 
 	return message, nil
