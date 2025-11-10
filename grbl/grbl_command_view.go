@@ -20,7 +20,7 @@ func (p *GrblCommandViewManager) GetManagerFn(gui *gocui.Gui, x0, y0, x1, y1 int
 			if err != gocui.ErrUnknownView {
 				return err
 			}
-			view.Title = "Grbl"
+			view.Title = "Grbl Commands"
 			view.Wrap = true
 			view.Autoscroll = true
 		}
