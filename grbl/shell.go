@@ -1,6 +1,7 @@
 package grbl
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -124,14 +125,12 @@ func (s *Shell) setKeybindings(gui *gocui.Gui, viewManagers []ViewManager) error
 func (s *Shell) receiverHandleMessagePushFeedback(
 	ctx context.Context,
 	gui *gocui.Gui,
-	managerFn gocui.ManagerFunc,
 	messagePushFeedback *MessagePushFeedback,
 ) bool {
 	logger := log.MustLogger(ctx)
 	feedbackMessageView, err := gui.View(s.feedbackMessageViewName)
 	if err != nil {
 		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err))
-		gui.Update(managerFn)
 		return true
 	}
 	feedbackMessageView.Clear()
@@ -139,12 +138,10 @@ func (s *Shell) receiverHandleMessagePushFeedback(
 	n, err := fmt.Fprint(feedbackMessageView, text)
 	if err != nil {
 		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to write to Grbl view: %w", err))
-		gui.Update(managerFn)
 		return true
 	}
 	if n != len(text) {
 		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: short write to Grbl view: expected %d, got %d", len(text), n))
-		gui.Update(managerFn)
 		return true
 	}
 	return false
@@ -153,28 +150,31 @@ func (s *Shell) receiverHandleMessagePushFeedback(
 func (s *Shell) receiverHandleMessagePushStatusReport(
 	ctx context.Context,
 	gui *gocui.Gui,
-	managerFn gocui.ManagerFunc,
 	messagePushStatusReport *MessagePushStatusReport,
 ) bool {
 	logger := log.MustLogger(ctx)
+
 	statusView, err := gui.View(s.statusViewName)
 	if err != nil {
 		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err))
-		gui.Update(managerFn)
 		return true
 	}
+
+	var buf bytes.Buffer
+
+	fmt.Fprintf(&buf, "%s", messagePushStatusReport.MachineState.State)
+
 	statusView.Clear()
-	n, err := fmt.Fprint(statusView, messagePushStatusReport.MachineState.State)
+	n, err := statusView.Write(buf.Bytes())
 	if err != nil {
 		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to write to Grbl view: %w", err))
-		gui.Update(managerFn)
 		return true
 	}
 	if n != len(messagePushStatusReport.MachineState.State) {
 		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: short write to Grbl view: expected %d, got %d", len(messagePushStatusReport.MachineState.State), n))
-		gui.Update(managerFn)
 		return true
 	}
+
 	return false
 }
 
@@ -198,13 +198,15 @@ func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.Ma
 		}
 
 		if messagePushFeedback, ok := message.(*MessagePushFeedback); ok {
-			if s.receiverHandleMessagePushFeedback(ctx, gui, managerFn, messagePushFeedback) {
+			if s.receiverHandleMessagePushFeedback(ctx, gui, messagePushFeedback) {
+				gui.Update(managerFn)
 				continue
 			}
 		}
 
 		if messagePushStatusReport, ok := message.(*MessagePushStatusReport); ok {
-			if s.receiverHandleMessagePushStatusReport(ctx, gui, managerFn, messagePushStatusReport) {
+			if s.receiverHandleMessagePushStatusReport(ctx, gui, messagePushStatusReport) {
+				gui.Update(managerFn)
 				continue
 			}
 		}
