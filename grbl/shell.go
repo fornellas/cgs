@@ -91,15 +91,15 @@ func (s *Shell) getManagerFn(
 	}
 }
 
-func (s *Shell) grblSendBlock(ctx context.Context, gui *gocui.Gui, block string) error {
-	if err := s.grbl.SendBlock(ctx, block); err != nil {
+func (s *Shell) grblSendCommand(ctx context.Context, gui *gocui.Gui, command string) error {
+	if err := s.grbl.SendCommand(ctx, command); err != nil {
 		return fmt.Errorf("shell: handleCommand: failed to send command to Grbl: %w", err)
 	}
 	grblView, err := gui.View(s.grblViewName)
 	if err != nil {
 		return fmt.Errorf("shell: handleCommand: failed to get Grbl view: %w", err)
 	}
-	line := fmt.Sprintf("> %s\n", block)
+	line := fmt.Sprintf("> %s\n", command)
 	n, err := fmt.Fprint(grblView, line)
 	if err != nil {
 		return fmt.Errorf("shell: handleCommand: failed to write to Grbl view: %w", err)
@@ -129,13 +129,13 @@ func (s *Shell) grblSendRealTimeCommand(ctx context.Context, gui *gocui.Gui, com
 	return nil
 }
 
-func (s *Shell) getHandleSendBlockFn(ctx context.Context) func(gui *gocui.Gui, block string) error {
-	return func(gui *gocui.Gui, block string) error {
-		if err := s.grblSendBlock(ctx, gui, block); err != nil {
+func (s *Shell) getHandleSendCommandFn(ctx context.Context) func(gui *gocui.Gui, command string) error {
+	return func(gui *gocui.Gui, command string) error {
+		if err := s.grblSendCommand(ctx, gui, command); err != nil {
 			return err
 		}
 		// $G after each sent block enables accurate tracking of g-code parser state
-		if err := s.grblSendBlock(ctx, gui, "$G"); err != nil {
+		if err := s.grblSendCommand(ctx, gui, "$G"); err != nil {
 			return err
 		}
 		return nil
@@ -447,7 +447,7 @@ func (s *Shell) newGui(ctx context.Context) (*gocui.Gui, gocui.ManagerFunc, erro
 	viewManagers := []ViewManager{}
 	grblViewManager := NewGrblView(s.grblViewName)
 	viewManagers = append(viewManagers, grblViewManager)
-	promptViewManoger := NewPromptView(s.promptViewName, "> ", s.getHandleSendBlockFn(ctx), s.getHandleResetFn(ctx))
+	promptViewManoger := NewPromptView(s.promptViewName, "> ", s.getHandleSendCommandFn(ctx), s.getHandleResetFn(ctx))
 	viewManagers = append(viewManagers, promptViewManoger)
 
 	managerFn := s.getManagerFn(gui, grblViewManager, promptViewManoger)

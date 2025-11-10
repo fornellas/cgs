@@ -197,16 +197,16 @@ func (g *Grbl) SendRealTimeCommand(ctx context.Context, cmd RealTimeCommand) err
 
 // TODO Synchronization
 
-func (g *Grbl) SendBlock(ctx context.Context, block string) error {
+func (g *Grbl) SendCommand(ctx context.Context, command string) error {
 	_, logger := g.mustLogger(ctx)
-	logger.Debug("Sending block", "block", block)
-	line := append([]byte(block), '\n')
+	logger.Debug("Sending block", "block", command)
+	line := append([]byte(command), '\n')
 	n, err := g.port.Write(line)
 	if err != nil {
 		return fmt.Errorf("grbl: write to serial port error: %s: %w", g.portName, err)
 	}
 	if n != len(line) {
-		return fmt.Errorf("grbl: write to serial port error: %s: wrote %d bytes, expected %d", g.portName, n, len(block))
+		return fmt.Errorf("grbl: write to serial port error: %s: wrote %d bytes, expected %d", g.portName, n, len(command))
 	}
 	return nil
 }
