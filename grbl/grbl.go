@@ -182,9 +182,6 @@ func (g *Grbl) SendRealTimeCommand(ctx context.Context, cmd RealTimeCommand) err
 	if n != len(data) {
 		return fmt.Errorf("grbl: write to serial port error: %s: wrote %d bytes, expected %d", g.portName, n, len(data))
 	}
-	if err := g.port.Drain(); err != nil {
-		return fmt.Errorf("grbl: serial port drain error: %s: %w", g.portName, err)
-	}
 	return nil
 }
 
@@ -203,10 +200,6 @@ func (g *Grbl) SendBlock(ctx context.Context, block string) error {
 	if n != len(line) {
 		return fmt.Errorf("grbl: write to serial port error: %s: wrote %d bytes, expected %d", g.portName, n, len(block))
 	}
-	if err := g.port.Drain(); err != nil {
-		return fmt.Errorf("grbl: serial port drain error: %s: %w", g.portName, err)
-	}
-
 	return nil
 }
 
