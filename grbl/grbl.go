@@ -119,6 +119,9 @@ func (g *Grbl) Open(ctx context.Context) error {
 
 	mode := &serial.Mode{
 		BaudRate: 115200,
+		DataBits: 8,
+		Parity:   serial.NoParity,
+		StopBits: serial.OneStopBit,
 	}
 	logger.Debug("Opening")
 	port, err := serial.Open(g.portName, mode)
