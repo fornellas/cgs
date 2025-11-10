@@ -45,7 +45,7 @@ func (s *Shell) getManagerFn(
 
 		feedbackMessageHeight := 3
 		promptHeight := 3
-		statusWidth := 13
+		statusWidth := 16
 
 		grblViewManagerFn := grblViewManager.GetManagerFn(gui, 0, 0, maxX-(1+statusWidth), maxY-(1+feedbackMessageHeight+promptHeight))
 		if err := grblViewManagerFn(gui); err != nil {
@@ -148,24 +148,10 @@ func (s *Shell) receiverHandleMessagePushFeedback(
 }
 
 //gocyclo:ignore
-func (s *Shell) receiverHandleMessagePushStatusReport(
-	ctx context.Context,
-	gui *gocui.Gui,
+func (s *Shell) receiverHandleMessagePushStatusReportPosition(
 	statusReport *MessagePushStatusReport,
-) bool {
-	logger := log.MustLogger(ctx)
-
-	statusView, err := gui.View(s.statusViewName)
-	if err != nil {
-		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err))
-		return true
-	}
-
-	var buf bytes.Buffer
-
-	fmt.Fprintf(&buf, "[%s]\n", statusReport.MachineState.State)
-	// TODO handle messagePushStatusReport.MachineState.SubState
-
+	buf *bytes.Buffer,
+) {
 	var mx, my, mz, ma, wx, wy, wz, wa *float64
 	if statusReport.MachinePosition != nil {
 		mx = &statusReport.MachinePosition.X
@@ -204,35 +190,74 @@ func (s *Shell) receiverHandleMessagePushStatusReport(
 		}
 	}
 	if wx != nil || wy != nil || wz != nil || wa != nil {
-		fmt.Fprintf(&buf, "Work\n")
+		fmt.Fprintf(buf, "Work\n")
 	}
 	if wx != nil {
-		fmt.Fprintf(&buf, "X:%.3f\n", *wx)
+		fmt.Fprintf(buf, "X:%.3f\n", *wx)
 	}
 	if wy != nil {
-		fmt.Fprintf(&buf, "Y:%.3f\n", *wy)
+		fmt.Fprintf(buf, "Y:%.3f\n", *wy)
 	}
 	if wz != nil {
-		fmt.Fprintf(&buf, "Z:%.3f\n", *wz)
+		fmt.Fprintf(buf, "Z:%.3f\n", *wz)
 	}
 	if wa != nil {
-		fmt.Fprintf(&buf, "A:%.3f\n", *wa)
+		fmt.Fprintf(buf, "A:%.3f\n", *wa)
 	}
 	if mx != nil || my != nil || mz != nil || ma != nil {
-		fmt.Fprintf(&buf, "Machine\n")
+		fmt.Fprintf(buf, "Machine\n")
 	}
 	if mx != nil {
-		fmt.Fprintf(&buf, "X:%.3f\n", *mx)
+		fmt.Fprintf(buf, "X:%.3f\n", *mx)
 	}
 	if my != nil {
-		fmt.Fprintf(&buf, "Y:%.3f\n", *my)
+		fmt.Fprintf(buf, "Y:%.3f\n", *my)
 	}
 	if mz != nil {
-		fmt.Fprintf(&buf, "Z:%.3f\n", *mz)
+		fmt.Fprintf(buf, "Z:%.3f\n", *mz)
 	}
 	if ma != nil {
-		fmt.Fprintf(&buf, "A:%.3f\n", *ma)
+		fmt.Fprintf(buf, "A:%.3f\n", *ma)
 	}
+}
+func (s *Shell) receiverHandleMessagePushStatusReport(
+	ctx context.Context,
+	gui *gocui.Gui,
+	statusReport *MessagePushStatusReport,
+) bool {
+	logger := log.MustLogger(ctx)
+
+	statusView, err := gui.View(s.statusViewName)
+	if err != nil {
+		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err))
+		return true
+	}
+
+	var buf bytes.Buffer
+
+	fmt.Fprintf(&buf, "[%s]\n", statusReport.MachineState.State)
+	// TODO messagePushStatusReport.MachineState.SubState
+
+	s.receiverHandleMessagePushStatusReportPosition(statusReport, &buf)
+
+	// TODO BufferState
+
+	// TODO LineNumber
+
+	// TODO Feed
+
+	// TODO FeedSpindle
+
+	// TODO PinState
+
+	if s.grbl.OverrideValues != nil {
+		fmt.Fprint(&buf, "Overrides\n")
+		fmt.Fprintf(&buf, "Feed: %.0f%%\n", s.grbl.OverrideValues.Feed)
+		fmt.Fprintf(&buf, "Rapids: %.0f%%\n", s.grbl.OverrideValues.Rapids)
+		fmt.Fprintf(&buf, "Spindle: %.0f%%\n", s.grbl.OverrideValues.Spindle)
+	}
+
+	// TODO AccessoryState
 
 	statusView.Clear()
 	n, err := statusView.Write(buf.Bytes())
