@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/fornellas/slogxt/log"
 	"github.com/jroimartin/gocui"
@@ -16,16 +17,20 @@ type ViewManager interface {
 }
 
 type Shell struct {
-	grbl           *Grbl
-	grblViewName   string
-	promptViewName string
+	grbl                    *Grbl
+	grblViewName            string
+	statusViewName          string
+	feedbackMessageViewName string
+	promptViewName          string
 }
 
 func NewShell(grbl *Grbl) *Shell {
 	return &Shell{
-		grbl:           grbl,
-		grblViewName:   "grbl",
-		promptViewName: "prompt",
+		grbl:                    grbl,
+		grblViewName:            "grbl",
+		statusViewName:          "status",
+		feedbackMessageViewName: "feedbackMessage",
+		promptViewName:          "prompt",
 	}
 }
 
@@ -37,12 +42,34 @@ func (s *Shell) getManagerFn(
 	return func(*gocui.Gui) error {
 		maxX, maxY := gui.Size()
 
-		grblViewManagerFn := grblViewManager.GetManagerFn(gui, 0, 0, maxX-1, maxY-4)
+		feedbackMessageHeight := 3
+		promptHeight := 3
+		statusWidth := 11
+
+		grblViewManagerFn := grblViewManager.GetManagerFn(gui, 0, 0, maxX-(1+statusWidth), maxY-(1+feedbackMessageHeight+promptHeight))
 		if err := grblViewManagerFn(gui); err != nil {
 			return fmt.Errorf("shell: manager: Grbl view manager failed: %w", err)
 		}
 
-		promptViewManagerFn := promptViewManoger.GetManagerFn(gui, 0, maxY-3, maxX-1, maxY-1)
+		if view, err := gui.SetView(s.statusViewName, maxX-statusWidth, 0, maxX-1, maxY-(1+feedbackMessageHeight+promptHeight)); err != nil {
+			if err != gocui.ErrUnknownView {
+				return err
+			}
+			view.Title = "Status"
+			view.Wrap = true
+			view.Autoscroll = true
+		}
+
+		if view, err := gui.SetView(s.feedbackMessageViewName, 0, maxY-6, maxX-1, maxY-(1+feedbackMessageHeight)); err != nil {
+			if err != gocui.ErrUnknownView {
+				return err
+			}
+			view.Title = "Feedback Message"
+			view.Wrap = true
+			view.Autoscroll = true
+		}
+
+		promptViewManagerFn := promptViewManoger.GetManagerFn(gui, 0, maxY-promptHeight, maxX-1, maxY-1)
 		if err := promptViewManagerFn(gui); err != nil {
 			return fmt.Errorf("shell: manager: prompt view manager failed: %w", err)
 		}
@@ -104,6 +131,43 @@ func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.Ma
 			return fmt.Errorf("shell: receive error: %w (%#v)", err, err)
 		}
 
+		feedbackMessage, ok := message.(*MessagePushFeedback)
+		if ok {
+			feedbackMessageView, err := gui.View(s.feedbackMessageViewName)
+			if err != nil {
+				return fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err)
+			}
+			feedbackMessageView.Clear()
+			text := feedbackMessage.Text()
+			n, err := fmt.Fprint(feedbackMessageView, text)
+			if err != nil {
+				return fmt.Errorf("shell: receiver: failed to write to Grbl view: %w", err)
+			}
+			if n != len(text) {
+				return fmt.Errorf("shell: receiver: short write to Grbl view: expected %d, got %d", len(text), n)
+			}
+		}
+
+		messageStatusReport, ok := message.(*MessagePushStatusReport)
+		if ok {
+			statusView, err := gui.View(s.statusViewName)
+			if err != nil {
+				return fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err)
+			}
+			statusView.Clear()
+			statusReport, err := messageStatusReport.Parse()
+			if err != nil {
+				return fmt.Errorf("shell: receiver: failed to parse status report: %w", err)
+			}
+			n, err := fmt.Fprint(statusView, statusReport.MachineState.State)
+			if err != nil {
+				return fmt.Errorf("shell: receiver: failed to write to Grbl view: %w", err)
+			}
+			if n != len(statusReport.MachineState.State) {
+				return fmt.Errorf("shell: receiver: short write to Grbl view: expected %d, got %d", len(statusReport.MachineState.State), n)
+			}
+		}
+
 		grblView, err := gui.View(s.grblViewName)
 		if err != nil {
 			return fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err)
@@ -116,7 +180,7 @@ func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.Ma
 			return fmt.Errorf("shell: receiver: failed to write to Grbl view: %w", err)
 		}
 		if n != len(line) {
-			return fmt.Errorf("shell: handleCommand: short write to Grbl view: expected %d, got %d", len(line), n)
+			return fmt.Errorf("shell: receiver: short write to Grbl view: expected %d, got %d", len(line), n)
 		}
 		gui.Update(managerFn)
 	}
@@ -198,6 +262,28 @@ func (s *Shell) Execute(ctx context.Context) (err error) {
 			close(receiverDone)
 		}()
 		err = errors.Join(err, s.receiver(receiverCtx, gui, managerFn))
+	}()
+
+	// Status
+	statusCtx, statusCancel := context.WithCancel(ctx)
+	statusDone := make(chan struct{})
+	defer func() {
+		statusCancel()
+		<-statusDone
+	}()
+	go func() {
+		defer func() {
+			close(statusDone)
+		}()
+		for {
+			if statusCtx.Err() != nil {
+				break
+			}
+			if err := s.grbl.SendRealTimeCommand(statusCtx, RealTimeCommandStatusReportQuery); err != nil {
+				logger.Error("Failed to request status report query", "err", err, "%#v", fmt.Sprintf("%#v", err))
+			}
+			time.Sleep(200 * time.Millisecond)
+		}
 	}()
 
 	// Main Loop
