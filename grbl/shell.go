@@ -45,7 +45,7 @@ func (s *Shell) getManagerFn(
 
 		feedbackMessageHeight := 3
 		promptHeight := 3
-		statusWidth := 11
+		statusWidth := 13
 
 		grblViewManagerFn := grblViewManager.GetManagerFn(gui, 0, 0, maxX-(1+statusWidth), maxY-(1+feedbackMessageHeight+promptHeight))
 		if err := grblViewManagerFn(gui); err != nil {
@@ -147,10 +147,11 @@ func (s *Shell) receiverHandleMessagePushFeedback(
 	return false
 }
 
+//gocyclo:ignore
 func (s *Shell) receiverHandleMessagePushStatusReport(
 	ctx context.Context,
 	gui *gocui.Gui,
-	messagePushStatusReport *MessagePushStatusReport,
+	statusReport *MessagePushStatusReport,
 ) bool {
 	logger := log.MustLogger(ctx)
 
@@ -162,7 +163,76 @@ func (s *Shell) receiverHandleMessagePushStatusReport(
 
 	var buf bytes.Buffer
 
-	fmt.Fprintf(&buf, "%s", messagePushStatusReport.MachineState.State)
+	fmt.Fprintf(&buf, "[%s]\n", statusReport.MachineState.State)
+	// TODO handle messagePushStatusReport.MachineState.SubState
+
+	var mx, my, mz, ma, wx, wy, wz, wa *float64
+	if statusReport.MachinePosition != nil {
+		mx = &statusReport.MachinePosition.X
+		my = &statusReport.MachinePosition.Y
+		mz = &statusReport.MachinePosition.Z
+		ma = statusReport.MachinePosition.A
+		if s.grbl.WorkCoordinateOffset != nil {
+			wxv := statusReport.MachinePosition.X - s.grbl.WorkCoordinateOffset.X
+			wx = &wxv
+			wyv := statusReport.MachinePosition.Y - s.grbl.WorkCoordinateOffset.Y
+			wy = &wyv
+			wzv := statusReport.MachinePosition.Z - s.grbl.WorkCoordinateOffset.Z
+			wz = &wzv
+			if statusReport.MachinePosition.A != nil && s.grbl.WorkCoordinateOffset.A != nil {
+				wav := *statusReport.MachinePosition.A - *s.grbl.WorkCoordinateOffset.A
+				wa = &wav
+			}
+		}
+	}
+	if statusReport.WorkPosition != nil {
+		wx = &statusReport.WorkPosition.X
+		wy = &statusReport.WorkPosition.Y
+		wz = &statusReport.WorkPosition.Z
+		wa = statusReport.WorkPosition.A
+		if s.grbl.WorkCoordinateOffset != nil {
+			mxv := statusReport.WorkPosition.X - s.grbl.WorkCoordinateOffset.X
+			mx = &mxv
+			myv := statusReport.WorkPosition.Y - s.grbl.WorkCoordinateOffset.Y
+			my = &myv
+			mzv := statusReport.WorkPosition.Z - s.grbl.WorkCoordinateOffset.Z
+			mz = &mzv
+			if statusReport.WorkPosition.A != nil && s.grbl.WorkCoordinateOffset.A != nil {
+				mav := *statusReport.WorkPosition.A - *s.grbl.WorkCoordinateOffset.A
+				ma = &mav
+			}
+		}
+	}
+	if wx != nil || wy != nil || wz != nil || wa != nil {
+		fmt.Fprintf(&buf, "Work\n")
+	}
+	if wx != nil {
+		fmt.Fprintf(&buf, "X:%.3f\n", *wx)
+	}
+	if wy != nil {
+		fmt.Fprintf(&buf, "Y:%.3f\n", *wy)
+	}
+	if wz != nil {
+		fmt.Fprintf(&buf, "Z:%.3f\n", *wz)
+	}
+	if wa != nil {
+		fmt.Fprintf(&buf, "A:%.3f\n", *wa)
+	}
+	if mx != nil || my != nil || mz != nil || ma != nil {
+		fmt.Fprintf(&buf, "Machine\n")
+	}
+	if mx != nil {
+		fmt.Fprintf(&buf, "X:%.3f\n", *mx)
+	}
+	if my != nil {
+		fmt.Fprintf(&buf, "Y:%.3f\n", *my)
+	}
+	if mz != nil {
+		fmt.Fprintf(&buf, "Z:%.3f\n", *mz)
+	}
+	if ma != nil {
+		fmt.Fprintf(&buf, "A:%.3f\n", *ma)
+	}
 
 	statusView.Clear()
 	n, err := statusView.Write(buf.Bytes())
@@ -170,8 +240,8 @@ func (s *Shell) receiverHandleMessagePushStatusReport(
 		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to write to Grbl view: %w", err))
 		return true
 	}
-	if n != len(messagePushStatusReport.MachineState.State) {
-		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: short write to Grbl view: expected %d, got %d", len(messagePushStatusReport.MachineState.State), n))
+	if n != len(buf.Bytes()) {
+		logger.Error("Receiver", "err", fmt.Errorf("shell: 2receiver: short write to Grbl view: expected %d, got %d", len(buf.Bytes()), n))
 		return true
 	}
 
@@ -204,8 +274,8 @@ func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.Ma
 			}
 		}
 
-		if messagePushStatusReport, ok := message.(*MessagePushStatusReport); ok {
-			if s.receiverHandleMessagePushStatusReport(ctx, gui, messagePushStatusReport) {
+		if statusReport, ok := message.(*MessagePushStatusReport); ok {
+			if s.receiverHandleMessagePushStatusReport(ctx, gui, statusReport) {
 				gui.Update(managerFn)
 				continue
 			}

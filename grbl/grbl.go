@@ -126,6 +126,16 @@ func (g *Grbl) Open(ctx context.Context) error {
 		return fmt.Errorf("grbl: serial port open error: %s: %w", g.portName, err)
 	}
 
+	// we need to set this to allow context cancellation to work
+	logger.Debug("Setting read timeout")
+	if err := port.SetReadTimeout(50 * time.Millisecond); err != nil {
+		closeErr := port.Close()
+		if closeErr != nil {
+			closeErr = fmt.Errorf("grbl: serial port close error: %s: %w", g.portName, closeErr)
+		}
+		return errors.Join(fmt.Errorf("grbl: error setting read timeout: %w", err), closeErr)
+	}
+
 	g.port = port
 	g.WorkCoordinateOffset = nil
 	g.OverrideValues = nil
@@ -150,17 +160,6 @@ func (g *Grbl) Open(ctx context.Context) error {
 		logger.Debug("Ignoring", "message", message)
 	}
 	logger.Debug("Welcome message received")
-
-	// we need to set this to allow context cancellation to work
-	logger.Debug("Setting read timeout")
-	if err := g.port.SetReadTimeout(50 * time.Millisecond); err != nil {
-		g.port = nil
-		closeErr := port.Close()
-		if closeErr != nil {
-			closeErr = fmt.Errorf("grbl: serial port close error: %s: %w", g.portName, closeErr)
-		}
-		return errors.Join(fmt.Errorf("grbl: error setting read timeout: %w", err), closeErr)
-	}
 
 	return nil
 }

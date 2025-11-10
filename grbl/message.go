@@ -458,7 +458,7 @@ type StatusReportWorkPosition struct {
 	X float64
 	Y float64
 	Z float64
-	A float64
+	A *float64
 }
 
 func NewStatusReportWorkPosition(dataValues []string) (*StatusReportWorkPosition, error) {
@@ -483,10 +483,11 @@ func NewStatusReportWorkPosition(dataValues []string) (*StatusReportWorkPosition
 		return nil, fmt.Errorf("work position Z invalid: %#v", dataValues[2])
 	}
 	if len(dataValues) > 3 {
-		workPosition.A, err = strconv.ParseFloat(dataValues[3], 64)
+		a, err := strconv.ParseFloat(dataValues[3], 64)
 		if err != nil {
 			return nil, fmt.Errorf("work position A invalid: %#v", dataValues[3])
 		}
+		workPosition.A = &a
 	}
 	return workPosition, nil
 }
@@ -497,7 +498,7 @@ type StatusReportWorkCoordinateOffset struct {
 	X float64
 	Y float64
 	Z float64
-	A float64
+	A *float64
 }
 
 func NewStatusReportWorkCoordinateOffset(dataValues []string) (*StatusReportWorkCoordinateOffset, error) {
@@ -522,10 +523,11 @@ func NewStatusReportWorkCoordinateOffset(dataValues []string) (*StatusReportWork
 		return nil, fmt.Errorf("work coordinate offset Z invalid: %#v", dataValues[2])
 	}
 	if len(dataValues) > 3 {
-		wco.A, err = strconv.ParseFloat(dataValues[3], 64)
+		a, err := strconv.ParseFloat(dataValues[3], 64)
 		if err != nil {
 			return nil, fmt.Errorf("work coordinate offset A invalid: %#v", dataValues[3])
 		}
+		wco.A = &a
 	}
 	return wco, nil
 }
