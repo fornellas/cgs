@@ -91,22 +91,52 @@ func (s *Shell) getManagerFn(
 	}
 }
 
+func (s *Shell) grblSendBlock(ctx context.Context, gui *gocui.Gui, block string) error {
+	if err := s.grbl.SendBlock(ctx, block); err != nil {
+		return fmt.Errorf("shell: handleCommand: failed to send command to Grbl: %w", err)
+	}
+	grblView, err := gui.View(s.grblViewName)
+	if err != nil {
+		return fmt.Errorf("shell: handleCommand: failed to get Grbl view: %w", err)
+	}
+	line := fmt.Sprintf("> %s\n", block)
+	n, err := fmt.Fprint(grblView, line)
+	if err != nil {
+		return fmt.Errorf("shell: handleCommand: failed to write to Grbl view: %w", err)
+	}
+	if n != len(line) {
+		return fmt.Errorf("shell: handleCommand: short write to Grbl view: expected %d, got %d", len(line), n)
+	}
+	return nil
+}
+
+func (s *Shell) grblSendRealTimeCommand(ctx context.Context, gui *gocui.Gui, command RealTimeCommand) error {
+	if err := s.grbl.SendRealTimeCommand(ctx, command); err != nil {
+		return fmt.Errorf("shell: handleCommand: failed to send command to Grbl: %w", err)
+	}
+	grblView, err := gui.View(s.grblViewName)
+	if err != nil {
+		return fmt.Errorf("shell: handleCommand: failed to get Grbl view: %w", err)
+	}
+	line := fmt.Sprintf("> %s\n", command)
+	n, err := fmt.Fprint(grblView, line)
+	if err != nil {
+		return fmt.Errorf("shell: handleCommand: failed to write to Grbl view: %w", err)
+	}
+	if n != len(line) {
+		return fmt.Errorf("shell: handleCommand: short write to Grbl view: expected %d, got %d", len(line), n)
+	}
+	return nil
+}
+
 func (s *Shell) getHandleSendBlockFn(ctx context.Context) func(gui *gocui.Gui, block string) error {
 	return func(gui *gocui.Gui, block string) error {
-		if err := s.grbl.SendBlock(ctx, block); err != nil {
-			return fmt.Errorf("shell: handleCommand: failed to send command to Grbl: %w", err)
+		if err := s.grblSendBlock(ctx, gui, block); err != nil {
+			return err
 		}
-		grblView, err := gui.View(s.grblViewName)
-		if err != nil {
-			return fmt.Errorf("shell: handleCommand: failed to get Grbl view: %w", err)
-		}
-		line := fmt.Sprintf("> %s\n", block)
-		n, err := fmt.Fprint(grblView, line)
-		if err != nil {
-			return fmt.Errorf("shell: handleCommand: failed to write to Grbl view: %w", err)
-		}
-		if n != len(line) {
-			return fmt.Errorf("shell: handleCommand: short write to Grbl view: expected %d, got %d", len(line), n)
+		// $G after each sent block enables accurate tracking of g-code parser state
+		if err := s.grblSendBlock(ctx, gui, "$G"); err != nil {
+			return err
 		}
 		return nil
 	}
@@ -114,22 +144,7 @@ func (s *Shell) getHandleSendBlockFn(ctx context.Context) func(gui *gocui.Gui, b
 
 func (s *Shell) getHandleResetFn(ctx context.Context) func(gui *gocui.Gui) error {
 	return func(gui *gocui.Gui) error {
-		if err := s.grbl.SendRealTimeCommand(ctx, RealTimeCommandSoftReset); err != nil {
-			return fmt.Errorf("shell: handleCommand: failed to send command to Grbl: %w", err)
-		}
-		grblView, err := gui.View(s.grblViewName)
-		if err != nil {
-			return fmt.Errorf("shell: handleCommand: failed to get Grbl view: %w", err)
-		}
-		line := fmt.Sprintf("> %s\n", RealTimeCommandSoftReset)
-		n, err := fmt.Fprint(grblView, line)
-		if err != nil {
-			return fmt.Errorf("shell: handleCommand: failed to write to Grbl view: %w", err)
-		}
-		if n != len(line) {
-			return fmt.Errorf("shell: handleCommand: short write to Grbl view: expected %d, got %d", len(line), n)
-		}
-		return nil
+		return s.grblSendRealTimeCommand(ctx, gui, RealTimeCommandSoftReset)
 	}
 }
 
@@ -333,6 +348,24 @@ func (s *Shell) receiverHandleMessagePushStatusReport(
 	return false
 }
 
+func (s *Shell) handleReset(ctx context.Context, gui *gocui.Gui) bool {
+	logger := log.MustLogger(ctx)
+	statusView, err := gui.View(s.statusViewName)
+	if err != nil {
+		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err))
+		return true
+	}
+	statusView.Clear()
+	gcodeView, err := gui.View(s.gcodeViewName)
+	if err != nil {
+		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err))
+		return true
+	}
+	gcodeView.Clear()
+	return false
+}
+
+//gocyclo:ignore
 func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.ManagerFunc) error {
 	logger := log.MustLogger(ctx)
 	for {
@@ -352,6 +385,23 @@ func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.Ma
 			continue
 		}
 
+		line := fmt.Sprintf("< %s\n", message)
+		n, err := fmt.Fprint(grblView, line)
+		if err != nil {
+			logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to write to Grbl view: %w", err))
+			gui.Update(managerFn)
+			continue
+		}
+		if n != len(line) {
+			logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: short write to Grbl view: expected %d, got %d", len(line), n))
+			gui.Update(managerFn)
+			continue
+		}
+
+		// if messagePushGcodeState, ok := message.(*MessagePushGcodeState); ok {
+		// 	// TODO
+		// }
+
 		if messagePushFeedback, ok := message.(*MessagePushFeedback); ok {
 			if s.receiverHandleMessagePushFeedback(ctx, gui, messagePushFeedback) {
 				gui.Update(managerFn)
@@ -366,19 +416,22 @@ func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.Ma
 			}
 		}
 
-		line := fmt.Sprintf("< %s\n", message)
+		if messagePushAlarm, ok := message.(*MessagePushAlarm); ok {
+			if s.handleReset(ctx, gui) {
+				gui.Update(managerFn)
+				continue
+			}
+			logger.Error("Alarm", "reason", messagePushAlarm.Error())
+		}
 
-		n, err := fmt.Fprint(grblView, line)
-		if err != nil {
-			logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to write to Grbl view: %w", err))
-			gui.Update(managerFn)
-			continue
+		if _, ok := message.(*MessagePushWelcome); ok {
+			if s.handleReset(ctx, gui) {
+				gui.Update(managerFn)
+				continue
+			}
+			logger.Info("Soft-reset")
 		}
-		if n != len(line) {
-			logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: short write to Grbl view: expected %d, got %d", len(line), n))
-			gui.Update(managerFn)
-			continue
-		}
+
 		gui.Update(managerFn)
 	}
 }
@@ -470,9 +523,10 @@ func (s *Shell) Execute(ctx context.Context) (err error) {
 			if statusCtx.Err() != nil {
 				break
 			}
-			if err := s.grbl.SendRealTimeCommand(statusCtx, RealTimeCommandStatusReportQuery); err != nil {
+			if err := s.grblSendRealTimeCommand(statusCtx, gui, RealTimeCommandStatusReportQuery); err != nil {
 				logger.Error("Failed to request status report query", "err", err, "%#v", fmt.Sprintf("%#v", err))
 			}
+
 			time.Sleep(200 * time.Millisecond)
 		}
 	}()
