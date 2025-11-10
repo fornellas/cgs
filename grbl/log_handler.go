@@ -10,21 +10,21 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
-// ViewHandler implements slog.Handler, and proxies calls to either a pre-existing log handler,
+// ViewLogHandler implements slog.Handler, and proxies calls to either a pre-existing log handler,
 // or to a gocui.View.
-type ViewHandler struct {
+type ViewLogHandler struct {
 	originalHandler slog.Handler
 	viewHandler     slog.Handler
 	gui             **gocui.Gui
 	viewName        string
 }
 
-func NewViewHandler(
+func NewViewLogHandler(
 	originalHandler slog.Handler,
 	gui **gocui.Gui,
 	viewName string,
-) *ViewHandler {
-	h := &ViewHandler{
+) *ViewLogHandler {
+	h := &ViewLogHandler{
 		originalHandler: originalHandler,
 		gui:             gui,
 		viewName:        viewName,
@@ -45,11 +45,11 @@ func NewViewHandler(
 	return h
 }
 
-func (h *ViewHandler) Enabled(ctx context.Context, level slog.Level) bool {
+func (h *ViewLogHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	return h.originalHandler.Enabled(ctx, level)
 }
 
-func (h *ViewHandler) Handle(ctx context.Context, record slog.Record) error {
+func (h *ViewLogHandler) Handle(ctx context.Context, record slog.Record) error {
 	gui := (*h.gui)
 	if gui == nil {
 		return h.originalHandler.Handle(ctx, record)
@@ -57,8 +57,8 @@ func (h *ViewHandler) Handle(ctx context.Context, record slog.Record) error {
 	return h.viewHandler.Handle(ctx, record)
 }
 
-func (h *ViewHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &ViewHandler{
+func (h *ViewLogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &ViewLogHandler{
 		originalHandler: h.originalHandler.WithAttrs(attrs),
 		viewHandler:     h.viewHandler.WithAttrs(attrs),
 		gui:             h.gui,
@@ -66,8 +66,8 @@ func (h *ViewHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	}
 }
 
-func (h *ViewHandler) WithGroup(name string) slog.Handler {
-	return &ViewHandler{
+func (h *ViewLogHandler) WithGroup(name string) slog.Handler {
+	return &ViewLogHandler{
 		originalHandler: h.originalHandler.WithGroup(name),
 		viewHandler:     h.viewHandler.WithGroup(name),
 		gui:             h.gui,
@@ -75,7 +75,7 @@ func (h *ViewHandler) WithGroup(name string) slog.Handler {
 	}
 }
 
-func (h *ViewHandler) Write(p []byte) (n int, err error) {
+func (h *ViewLogHandler) Write(p []byte) (n int, err error) {
 	gui := (*h.gui)
 	view, err := gui.View(h.viewName)
 	if err != nil {

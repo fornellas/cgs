@@ -1,0 +1,5 @@
+shell.go
+    Split view for grbl commands and real time commands
+    track status of response message (ok / error)
+    Implement G-Code parser state
+    $# G-code Parameters state

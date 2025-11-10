@@ -197,6 +197,7 @@ func (g *Grbl) SendRealTimeCommand(ctx context.Context, cmd RealTimeCommand) err
 
 // TODO Synchronization
 
+// Send a command / system command to Grbl.
 func (g *Grbl) SendCommand(ctx context.Context, command string) error {
 	_, logger := g.mustLogger(ctx)
 	logger.Debug("Sending block", "block", command)

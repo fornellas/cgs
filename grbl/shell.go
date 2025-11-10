@@ -18,29 +18,29 @@ type ViewManager interface {
 }
 
 type Shell struct {
-	grbl                    *Grbl
-	grblViewName            string
-	gcodeViewName           string
-	statusViewName          string
-	feedbackMessageViewName string
-	promptViewName          string
+	grbl                     *Grbl
+	grblCommandViewName      string
+	gcodeParserStateViewName string
+	statusViewName           string
+	feedbackMessageViewName  string
+	promptViewName           string
 }
 
 func NewShell(grbl *Grbl) *Shell {
 	return &Shell{
-		grbl:                    grbl,
-		grblViewName:            "grbl",
-		gcodeViewName:           "gcode",
-		statusViewName:          "status",
-		feedbackMessageViewName: "feedbackMessage",
-		promptViewName:          "prompt",
+		grbl:                     grbl,
+		grblCommandViewName:      "grblCommand",
+		gcodeParserStateViewName: "gcodeParserState",
+		statusViewName:           "status",
+		feedbackMessageViewName:  "feedbackMessage",
+		promptViewName:           "prompt",
 	}
 }
 
 func (s *Shell) getManagerFn(
 	gui *gocui.Gui,
-	grblViewManager *GrblView,
-	promptViewManoger *PromptView,
+	grblCommandViewManager *GrblCommandViewManager,
+	promptViewManoger *PromptViewManager,
 ) func(*gocui.Gui) error {
 	return func(*gocui.Gui) error {
 		maxX, maxY := gui.Size()
@@ -50,12 +50,12 @@ func (s *Shell) getManagerFn(
 		gcodeWidth := 15
 		statusWidth := 14
 
-		grblViewManagerFn := grblViewManager.GetManagerFn(gui, 0, 0, maxX-(gcodeWidth+statusWidth+3), maxY-(1+feedbackMessageHeight+promptHeight))
+		grblViewManagerFn := grblCommandViewManager.GetManagerFn(gui, 0, 0, maxX-(gcodeWidth+statusWidth+3), maxY-(1+feedbackMessageHeight+promptHeight))
 		if err := grblViewManagerFn(gui); err != nil {
 			return fmt.Errorf("shell: manager: Grbl view manager failed: %w", err)
 		}
 
-		if view, err := gui.SetView(s.gcodeViewName, maxX-(gcodeWidth+statusWidth+2), 0, maxX-statusWidth-1, maxY-(1+feedbackMessageHeight+promptHeight)); err != nil {
+		if view, err := gui.SetView(s.gcodeParserStateViewName, maxX-(gcodeWidth+statusWidth+2), 0, maxX-statusWidth-1, maxY-(1+feedbackMessageHeight+promptHeight)); err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
@@ -95,12 +95,12 @@ func (s *Shell) grblSendCommand(ctx context.Context, gui *gocui.Gui, command str
 	if err := s.grbl.SendCommand(ctx, command); err != nil {
 		return fmt.Errorf("shell: handleCommand: failed to send command to Grbl: %w", err)
 	}
-	grblView, err := gui.View(s.grblViewName)
+	grblCommandView, err := gui.View(s.grblCommandViewName)
 	if err != nil {
 		return fmt.Errorf("shell: handleCommand: failed to get Grbl view: %w", err)
 	}
 	line := fmt.Sprintf("> %s\n", command)
-	n, err := fmt.Fprint(grblView, line)
+	n, err := fmt.Fprint(grblCommandView, line)
 	if err != nil {
 		return fmt.Errorf("shell: handleCommand: failed to write to Grbl view: %w", err)
 	}
@@ -114,12 +114,12 @@ func (s *Shell) grblSendRealTimeCommand(ctx context.Context, gui *gocui.Gui, com
 	if err := s.grbl.SendRealTimeCommand(ctx, command); err != nil {
 		return fmt.Errorf("shell: handleCommand: failed to send command to Grbl: %w", err)
 	}
-	grblView, err := gui.View(s.grblViewName)
+	grblCommandView, err := gui.View(s.grblCommandViewName)
 	if err != nil {
 		return fmt.Errorf("shell: handleCommand: failed to get Grbl view: %w", err)
 	}
 	line := fmt.Sprintf("> %s\n", command)
-	n, err := fmt.Fprint(grblView, line)
+	n, err := fmt.Fprint(grblCommandView, line)
 	if err != nil {
 		return fmt.Errorf("shell: handleCommand: failed to write to Grbl view: %w", err)
 	}
@@ -356,7 +356,7 @@ func (s *Shell) handleReset(ctx context.Context, gui *gocui.Gui) bool {
 		return true
 	}
 	statusView.Clear()
-	gcodeView, err := gui.View(s.gcodeViewName)
+	gcodeView, err := gui.View(s.gcodeParserStateViewName)
 	if err != nil {
 		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err))
 		return true
@@ -369,7 +369,7 @@ func (s *Shell) handleReset(ctx context.Context, gui *gocui.Gui) bool {
 func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.ManagerFunc) error {
 	logger := log.MustLogger(ctx)
 	for {
-		grblView, err := gui.View(s.grblViewName)
+		grblCommandView, err := gui.View(s.grblCommandViewName)
 		if err != nil {
 			logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err))
 			continue
@@ -386,7 +386,7 @@ func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.Ma
 		}
 
 		line := fmt.Sprintf("< %s\n", message)
-		n, err := fmt.Fprint(grblView, line)
+		n, err := fmt.Fprint(grblCommandView, line)
 		if err != nil {
 			logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to write to Grbl view: %w", err))
 			gui.Update(managerFn)
@@ -445,12 +445,12 @@ func (s *Shell) newGui(ctx context.Context) (*gocui.Gui, gocui.ManagerFunc, erro
 	gui.Cursor = true
 
 	viewManagers := []ViewManager{}
-	grblViewManager := NewGrblView(s.grblViewName)
-	viewManagers = append(viewManagers, grblViewManager)
-	promptViewManoger := NewPromptView(s.promptViewName, "> ", s.getHandleSendCommandFn(ctx), s.getHandleResetFn(ctx))
-	viewManagers = append(viewManagers, promptViewManoger)
+	grblCommandViewManager := NewGrblCommandViewManager(s.grblCommandViewName)
+	viewManagers = append(viewManagers, grblCommandViewManager)
+	promptViewManager := NewPromptViewManager(s.promptViewName, "> ", s.getHandleSendCommandFn(ctx), s.getHandleResetFn(ctx))
+	viewManagers = append(viewManagers, promptViewManager)
 
-	managerFn := s.getManagerFn(gui, grblViewManager, promptViewManoger)
+	managerFn := s.getManagerFn(gui, grblCommandViewManager, promptViewManager)
 	gui.SetManagerFunc(managerFn)
 
 	if err := s.setKeybindings(gui, viewManagers); err != nil {
@@ -472,8 +472,8 @@ func (s *Shell) Execute(ctx context.Context) (err error) {
 	// Logger handler
 	var gui *gocui.Gui
 	logger := log.MustLogger(ctx)
-	viewHandler := NewViewHandler(logger.Handler(), &gui, s.grblViewName)
-	logger = slog.New(viewHandler)
+	viewLogHandler := NewViewLogHandler(logger.Handler(), &gui, s.grblCommandViewName)
+	logger = slog.New(viewLogHandler)
 	ctx = log.WithLogger(ctx, logger)
 
 	// Open Grbl

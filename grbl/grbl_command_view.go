@@ -4,17 +4,17 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
-type GrblView struct {
+type GrblCommandViewManager struct {
 	name string
 }
 
-func NewGrblView(name string) *GrblView {
-	return &GrblView{
+func NewGrblCommandViewManager(name string) *GrblCommandViewManager {
+	return &GrblCommandViewManager{
 		name: name,
 	}
 }
 
-func (p *GrblView) GetManagerFn(gui *gocui.Gui, x0, y0, x1, y1 int) func(gui *gocui.Gui) error {
+func (p *GrblCommandViewManager) GetManagerFn(gui *gocui.Gui, x0, y0, x1, y1 int) func(gui *gocui.Gui) error {
 	return func(gui *gocui.Gui) error {
 		if view, err := gui.SetView(p.name, x0, y0, x1, y1); err != nil {
 			if err != gocui.ErrUnknownView {
@@ -28,6 +28,6 @@ func (p *GrblView) GetManagerFn(gui *gocui.Gui, x0, y0, x1, y1 int) func(gui *go
 	}
 }
 
-func (p *GrblView) InitKeybindings(g *gocui.Gui) error {
+func (p *GrblCommandViewManager) InitKeybindings(g *gocui.Gui) error {
 	return nil
 }
