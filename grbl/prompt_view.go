@@ -100,7 +100,7 @@ func (p *PromptView) GetManagerFn(gui *gocui.Gui, x0, y0, x1, y1 int) func(gui *
 			if err != gocui.ErrUnknownView {
 				return err
 			}
-			view.Title = "Prompt"
+			view.Title = "Prompt (^X=soft-reset, ^C=quit)"
 			view.Editable = true
 			view.Editor = gocui.EditorFunc(p.editorFn)
 			view.Wrap = false
