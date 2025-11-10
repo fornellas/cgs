@@ -1,0 +1,51 @@
+[MSG:
+?
+    State
+        Idle, Run, Hold, Jog, Alarm, Door, Check, Home, Sleep
+    Current Position / Work Coordinate Offset
+        MPos or WPos, WCO
+  		If `WPos:` is given, use `MPos = WPos + WCO`.
+  		If `MPos:` is given, use `WPos = MPos - WCO`.
+    Buffer State
+        Bf
+    Line Number
+        Ln
+    Current Feed and Speed
+        F, FS
+    Input Pin State
+        Pn
+    Override Values
+        Ov
+    Accessory State
+        A
+$G G-Code Parser State
+    Motion Mode
+    Coordinate System Selection
+    Plane selection
+    Units
+    Distance Mode
+    Feed Rate Mode
+    Spindle Turning
+    Coolant State
+    Active Tool
+    Feed Rate
+    Spindle Speed
+$# G-code Parameters
+    Work Coordinates
+        [G54:0.000,0.000,0.000]
+        [G55:0.000,0.000,0.000]
+        [G56:0.000,0.000,0.000]
+        [G57:0.000,0.000,0.000]
+        [G58:0.000,0.000,0.000]
+        [G59:0.000,0.000,0.000]
+    Pre defined positions
+        [G28:0.000,0.000,0.000]
+        [G30:0.000,0.000,0.000]
+    Non-Persistent
+        Coordinate offset
+            [G92:0.000,0.000,0.000]
+        Tool Length Offset
+            [TLO:0.000]
+        Probing
+            Coordinates of the last probing cycle, where the suffix :1 denotes if the last probe was successful and :0 as not successful.
+            [PRB:0.000,0.000,0.000:0]
