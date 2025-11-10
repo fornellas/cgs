@@ -417,6 +417,33 @@ func NewStatusReportMachineState(dataField string) (*StatusReportMachineState, e
 	}, nil
 }
 
+func (m *StatusReportMachineState) SubStateString() string {
+	if m.SubState == nil {
+		return ""
+	}
+	switch m.State {
+	case "Hold":
+		switch *m.SubState {
+		case 0:
+			return "complete"
+		case 1:
+			return "in-progress"
+		}
+	case "Door":
+		switch *m.SubState {
+		case 0:
+			return "closed"
+		case 1:
+			return "ajar"
+		case 2:
+			return "opened"
+		case 3:
+			return "resuming"
+		}
+	}
+	return fmt.Sprintf("unknown (%d)", *m.SubState)
+}
+
 type StatusReportMachinePosition struct {
 	X float64
 	Y float64

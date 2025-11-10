@@ -149,8 +149,8 @@ func (s *Shell) receiverHandleMessagePushFeedback(
 
 //gocyclo:ignore
 func (s *Shell) receiverHandleMessagePushStatusReportPosition(
-	statusReport *MessagePushStatusReport,
 	buf *bytes.Buffer,
+	statusReport *MessagePushStatusReport,
 ) {
 	var mx, my, mz, ma, wx, wy, wz, wa *float64
 	if statusReport.MachinePosition != nil {
@@ -190,7 +190,7 @@ func (s *Shell) receiverHandleMessagePushStatusReportPosition(
 		}
 	}
 	if wx != nil || wy != nil || wz != nil || wa != nil {
-		fmt.Fprintf(buf, "Work\n")
+		fmt.Fprintf(buf, "\nWork\n")
 	}
 	if wx != nil {
 		fmt.Fprintf(buf, "X:%.3f\n", *wx)
@@ -238,42 +238,44 @@ func (s *Shell) receiverHandleMessagePushStatusReport(
 	var buf bytes.Buffer
 
 	fmt.Fprintf(&buf, "[%s]\n", statusReport.MachineState.State)
-	// TODO messagePushStatusReport.MachineState.SubState
+	if statusReport.MachineState.SubState != nil {
+		fmt.Fprintf(&buf, "(%s)\n", statusReport.MachineState.SubStateString())
+	}
 
-	s.receiverHandleMessagePushStatusReportPosition(statusReport, &buf)
+	s.receiverHandleMessagePushStatusReportPosition(&buf, statusReport)
 
 	if statusReport.BufferState != nil {
-		fmt.Fprint(&buf, "Buffer\n")
+		fmt.Fprint(&buf, "\nBuffer\n")
 		fmt.Fprintf(&buf, "Blocks:%d\n", statusReport.BufferState.AvailableBlocks)
 		fmt.Fprintf(&buf, "Bytes:%d\n", statusReport.BufferState.AvailableBytes)
 	}
 
 	if statusReport.LineNumber != nil {
-		fmt.Fprintf(&buf, "Line:%d\n", *statusReport.LineNumber)
+		fmt.Fprintf(&buf, "\nLine:%d\n", *statusReport.LineNumber)
 	}
 
 	if statusReport.Feed != nil {
-		fmt.Fprintf(&buf, "Feed:%.1f\n", *statusReport.Feed)
+		fmt.Fprintf(&buf, "\nFeed:%.1f\n", *statusReport.Feed)
 	}
 
 	if statusReport.FeedSpindle != nil {
-		fmt.Fprintf(&buf, "Feed:%.0f\n", statusReport.FeedSpindle.Feed)
+		fmt.Fprintf(&buf, "\nFeed:%.0f\n", statusReport.FeedSpindle.Feed)
 		fmt.Fprintf(&buf, "Speed:%.0f\n", statusReport.FeedSpindle.Speed)
 	}
 
 	if statusReport.PinState != nil {
-		fmt.Fprintf(&buf, "PinState:%s\n", statusReport.PinState)
+		fmt.Fprintf(&buf, "\nPinState:%s\n", statusReport.PinState)
 	}
 
 	if s.grbl.OverrideValues != nil {
-		fmt.Fprint(&buf, "Overrides\n")
+		fmt.Fprint(&buf, "\nOverrides\n")
 		fmt.Fprintf(&buf, "Feed:%.0f%%\n", s.grbl.OverrideValues.Feed)
 		fmt.Fprintf(&buf, "Rapids:%.0f%%\n", s.grbl.OverrideValues.Rapids)
 		fmt.Fprintf(&buf, "Spindle:%.0f%%\n", s.grbl.OverrideValues.Spindle)
 	}
 
 	if statusReport.AccessoryState != nil {
-		fmt.Fprint(&buf, "Accessory\n")
+		fmt.Fprint(&buf, "\nAccessory\n")
 		if statusReport.AccessoryState.SpindleCW != nil && *statusReport.AccessoryState.SpindleCW {
 			fmt.Fprint(&buf, "Spindle: CW")
 		}
