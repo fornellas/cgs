@@ -229,7 +229,10 @@ func (g *Grbl) Receive(ctx context.Context) (Message, error) {
 		line = line[:len(line)-1]
 	}
 
-	message := NewMessage(string(line))
+	message, err := NewMessage(string(line))
+	if err != nil {
+		return nil, err
+	}
 
 	return message, nil
 }

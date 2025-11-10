@@ -224,24 +224,24 @@ func (m *MessagePushAlarm) Error() error {
 	}
 }
 
-func NewMessagePush(message string) Message {
+func NewMessagePush(message string) (Message, error) {
 	if strings.HasPrefix(message, "Grbl ") {
-		return &MessagePushWelcome{Message: message}
+		return &MessagePushWelcome{Message: message}, nil
 	}
 	if strings.HasPrefix(message, messagePushAlarmPrefix) {
-		return &MessagePushAlarm{Message: message}
+		return &MessagePushAlarm{Message: message}, nil
 	}
 	if strings.HasPrefix(message, "$") {
-		return &MessagePushSettings{Message: message}
+		return &MessagePushSettings{Message: message}, nil
 	}
 	if strings.HasPrefix(message, "[MSG:") {
-		return &MessagePushFeedback{Message: message}
+		return &MessagePushFeedback{Message: message}, nil
 	}
 	if strings.HasPrefix(message, "[GC:") {
-		return &MessagePushGcodeState{Message: message}
+		return &MessagePushGcodeState{Message: message}, nil
 	}
 	if strings.HasPrefix(message, "[HLP:") {
-		return &MessagePushHelp{Message: message}
+		return &MessagePushHelp{Message: message}, nil
 	}
 	gcodeParamPrefixes := []string{
 		"[G54:",
@@ -258,26 +258,26 @@ func NewMessagePush(message string) Message {
 	}
 	for _, prefix := range gcodeParamPrefixes {
 		if strings.HasPrefix(message, prefix) {
-			return &MessagePushGcodeParam{Message: message}
+			return &MessagePushGcodeParam{Message: message}, nil
 		}
 	}
 	if strings.HasPrefix(message, "[VER:") {
-		return &MessagePushBuildInfo{Message: message}
+		return &MessagePushBuildInfo{Message: message}, nil
 	}
 	if strings.HasPrefix(message, "[OPT:") {
-		return &MessagePushCompileTimeOptions{Message: message}
+		return &MessagePushCompileTimeOptions{Message: message}, nil
 	}
 	if strings.HasPrefix(message, ">") {
-		return &MessagePushStartupLineExecution{Message: message}
+		return &MessagePushStartupLineExecution{Message: message}, nil
 	}
 	if strings.HasPrefix(message, "<") {
-		return &MessagePushStatusReport{Message: message}
+		return NewMessagePushStatusReport(message)
 	}
 	if strings.HasPrefix(message, "[echo:") {
-		return &MessagePushEcho{Message: message}
+		return &MessagePushEcho{Message: message}, nil
 	}
 
-	return &MessagePushUnknown{Message: message}
+	return &MessagePushUnknown{Message: message}, nil
 }
 
 type MessagePushSettings struct {
@@ -461,6 +461,36 @@ type StatusReportWorkPosition struct {
 	A float64
 }
 
+func NewStatusReportWorkPosition(dataValues []string) (*StatusReportWorkPosition, error) {
+	workPosition := &StatusReportWorkPosition{}
+
+	if len(dataValues) < 3 || len(dataValues) > 4 {
+		return nil, fmt.Errorf("work position field malformed: %#v", dataValues)
+	}
+
+	var err error
+
+	workPosition.X, err = strconv.ParseFloat(dataValues[0], 64)
+	if err != nil {
+		return nil, fmt.Errorf("work position X invalid: %#v", dataValues[0])
+	}
+	workPosition.Y, err = strconv.ParseFloat(dataValues[1], 64)
+	if err != nil {
+		return nil, fmt.Errorf("work position Y invalid: %#v", dataValues[1])
+	}
+	workPosition.Z, err = strconv.ParseFloat(dataValues[2], 64)
+	if err != nil {
+		return nil, fmt.Errorf("work position Z invalid: %#v", dataValues[2])
+	}
+	if len(dataValues) > 3 {
+		workPosition.A, err = strconv.ParseFloat(dataValues[3], 64)
+		if err != nil {
+			return nil, fmt.Errorf("work position A invalid: %#v", dataValues[3])
+		}
+	}
+	return workPosition, nil
+}
+
 // Work coordinate offset is the current work coordinate offset of the g-code parser, which is the
 // sum of the current work coordinate system, G92 offsets, and G43.1 tool length offset.
 type StatusReportWorkCoordinateOffset struct {
@@ -470,6 +500,36 @@ type StatusReportWorkCoordinateOffset struct {
 	A float64
 }
 
+func NewStatusReportWorkCoordinateOffset(dataValues []string) (*StatusReportWorkCoordinateOffset, error) {
+	wco := &StatusReportWorkCoordinateOffset{}
+
+	if len(dataValues) < 3 || len(dataValues) > 4 {
+		return nil, fmt.Errorf("work coordinate offset field malformed: %#v", dataValues)
+	}
+
+	var err error
+
+	wco.X, err = strconv.ParseFloat(dataValues[0], 64)
+	if err != nil {
+		return nil, fmt.Errorf("work coordinate offset X invalid: %#v", dataValues[0])
+	}
+	wco.Y, err = strconv.ParseFloat(dataValues[1], 64)
+	if err != nil {
+		return nil, fmt.Errorf("work coordinate offset Y invalid: %#v", dataValues[1])
+	}
+	wco.Z, err = strconv.ParseFloat(dataValues[2], 64)
+	if err != nil {
+		return nil, fmt.Errorf("work coordinate offset Z invalid: %#v", dataValues[2])
+	}
+	if len(dataValues) > 3 {
+		wco.A, err = strconv.ParseFloat(dataValues[3], 64)
+		if err != nil {
+			return nil, fmt.Errorf("work coordinate offset A invalid: %#v", dataValues[3])
+		}
+	}
+	return wco, nil
+}
+
 type StatusReportBufferState struct {
 	// Number of available blocks in the planner buffer
 	AvailableBlocks int
@@ -477,16 +537,86 @@ type StatusReportBufferState struct {
 	AvailableBytes int
 }
 
+func NewStatusReportBufferState(dataValues []string) (*StatusReportBufferState, error) {
+	if len(dataValues) != 2 {
+		return nil, fmt.Errorf("buffer state field malformed: %#v", dataValues)
+	}
+
+	availableBlocks, err := strconv.Atoi(dataValues[0])
+	if err != nil {
+		return nil, fmt.Errorf("buffer state available blocks invalid: %#v", dataValues[0])
+	}
+
+	availableBytes, err := strconv.Atoi(dataValues[1])
+	if err != nil {
+		return nil, fmt.Errorf("buffer state available bytes invalid: %#v", dataValues[1])
+	}
+
+	return &StatusReportBufferState{
+		AvailableBlocks: availableBlocks,
+		AvailableBytes:  availableBytes,
+	}, nil
+}
+
 // Line currently being executed
 type StatusReportLineNumber int
 
+func NewStatusReportLineNumber(dataValues []string) (*StatusReportLineNumber, error) {
+	if len(dataValues) != 1 {
+		return nil, fmt.Errorf("line number field malformed: %#v", dataValues)
+	}
+
+	lineNumber, err := strconv.Atoi(dataValues[0])
+	if err != nil {
+		return nil, fmt.Errorf("line number invalid: %#v", dataValues[0])
+	}
+
+	result := StatusReportLineNumber(lineNumber)
+	return &result, nil
+}
+
 // Current Feed
 type StatusReportFeed float64
+
+func NewStatusReportFeed(dataValues []string) (*StatusReportFeed, error) {
+	if len(dataValues) != 1 {
+		return nil, fmt.Errorf("feed field malformed: %#v", dataValues)
+	}
+
+	feed, err := strconv.ParseFloat(dataValues[0], 64)
+	if err != nil {
+		return nil, fmt.Errorf("feed invalid: %#v", dataValues[0])
+	}
+
+	result := StatusReportFeed(feed)
+	return &result, nil
+}
 
 // Current Feed and Speed
 type StatusReportFeedSpindle struct {
 	Feed  float64
 	Speed float64
+}
+
+func NewStatusReportFeedSpindle(dataValues []string) (*StatusReportFeedSpindle, error) {
+	if len(dataValues) != 2 {
+		return nil, fmt.Errorf("feed spindle field malformed: %#v", dataValues)
+	}
+
+	feed, err := strconv.ParseFloat(dataValues[0], 64)
+	if err != nil {
+		return nil, fmt.Errorf("feed spindle feed invalid: %#v", dataValues[0])
+	}
+
+	speed, err := strconv.ParseFloat(dataValues[1], 64)
+	if err != nil {
+		return nil, fmt.Errorf("feed spindle speed invalid: %#v", dataValues[1])
+	}
+
+	return &StatusReportFeedSpindle{
+		Feed:  feed,
+		Speed: speed,
+	}, nil
 }
 
 // Input pins Grbl has detected as 'triggered'.
@@ -502,11 +632,75 @@ type StatusReportPinState struct {
 	CycleStart *bool
 }
 
+func NewStatusReportPinState(dataValues []string) (*StatusReportPinState, error) {
+	if len(dataValues) != 1 {
+		return nil, fmt.Errorf("pin state field malformed: %#v", dataValues)
+	}
+
+	pinState := &StatusReportPinState{}
+	pins := dataValues[0]
+
+	for _, pin := range pins {
+		trueVal := true
+		switch pin {
+		case 'X':
+			pinState.XLimit = &trueVal
+		case 'Y':
+			pinState.YLimit = &trueVal
+		case 'Z':
+			pinState.ZLimit = &trueVal
+		case 'A':
+			pinState.ALimit = &trueVal
+		case 'P':
+			pinState.Probe = &trueVal
+		case 'D':
+			pinState.Door = &trueVal
+		case 'H':
+			pinState.Hold = &trueVal
+		case 'R':
+			pinState.SoftReset = &trueVal
+		case 'S':
+			pinState.CycleStart = &trueVal
+		default:
+			return nil, fmt.Errorf("pin state unknown pin: %#v", string(pin))
+		}
+	}
+
+	return pinState, nil
+}
+
 // Indicates current override values in percent of programmed values.
 type StatusReportOverrideValues struct {
 	Feed    float64
 	Rapids  float64
 	Spindle float64
+}
+
+func NewStatusReportOverrideValues(dataValues []string) (*StatusReportOverrideValues, error) {
+	if len(dataValues) != 3 {
+		return nil, fmt.Errorf("override values field malformed: %#v", dataValues)
+	}
+
+	feed, err := strconv.ParseFloat(dataValues[0], 64)
+	if err != nil {
+		return nil, fmt.Errorf("override values feed invalid: %#v", dataValues[0])
+	}
+
+	rapids, err := strconv.ParseFloat(dataValues[1], 64)
+	if err != nil {
+		return nil, fmt.Errorf("override values rapids invalid: %#v", dataValues[1])
+	}
+
+	spindle, err := strconv.ParseFloat(dataValues[2], 64)
+	if err != nil {
+		return nil, fmt.Errorf("override values spindle invalid: %#v", dataValues[2])
+	}
+
+	return &StatusReportOverrideValues{
+		Feed:    feed,
+		Rapids:  rapids,
+		Spindle: spindle,
+	}, nil
 }
 
 type StatusReportAccessoryState struct {
@@ -520,7 +714,35 @@ type StatusReportAccessoryState struct {
 	MistCoolant *bool
 }
 
-type StatusReport struct {
+func NewStatusReportAccessoryState(dataValues []string) (*StatusReportAccessoryState, error) {
+	if len(dataValues) != 1 {
+		return nil, fmt.Errorf("accessory state field malformed: %#v", dataValues)
+	}
+
+	accessoryState := &StatusReportAccessoryState{}
+	accessories := dataValues[0]
+
+	for _, accessory := range accessories {
+		trueVal := true
+		switch accessory {
+		case 'S':
+			accessoryState.SpindleCW = &trueVal
+		case 'C':
+			accessoryState.SpindleCCW = &trueVal
+		case 'F':
+			accessoryState.FloodCoolant = &trueVal
+		case 'M':
+			accessoryState.MistCoolant = &trueVal
+		default:
+			return nil, fmt.Errorf("accessory state unknown accessory: %#v", string(accessory))
+		}
+	}
+
+	return accessoryState, nil
+}
+
+type MessagePushStatusReport struct {
+	Message              string
 	MachineState         StatusReportMachineState
 	MachinePosition      *StatusReportMachinePosition
 	WorkPosition         *StatusReportWorkPosition
@@ -534,8 +756,94 @@ type StatusReport struct {
 	AccessoryState       *StatusReportAccessoryState
 }
 
-type MessagePushStatusReport struct {
-	Message string
+//gocyclo:ignore
+func NewMessagePushStatusReport(message string) (*MessagePushStatusReport, error) {
+	if !strings.HasPrefix(message, "<") {
+		return nil, fmt.Errorf("status report message does not start with '<': %#v", message)
+	}
+
+	dataFields := strings.Split(message[1:len(message)-1], "|")
+	if len(dataFields) < 2 {
+		return nil, fmt.Errorf("status report message missing required data fields: %#v", message)
+	}
+
+	machineState, err := NewStatusReportMachineState(dataFields[0])
+	if err != nil {
+		return nil, fmt.Errorf("status report message parsing failed: %#v: %w", message, err)
+	}
+
+	messagePushStatusReport := &MessagePushStatusReport{
+		Message:      message,
+		MachineState: *machineState,
+	}
+
+	for _, dataField := range dataFields[1:] {
+		parts := strings.Split(dataField, ":")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("status report message malformed data field: %#v: %#v", message, dataField)
+		}
+		dataType := parts[0]
+		dataValues := strings.Split(parts[1], ",")
+
+		switch dataType {
+		case "MPos":
+			messagePushStatusReport.MachinePosition, err = NewStatusReportMachinePosition(dataValues)
+			if err != nil {
+				return nil, fmt.Errorf("status report message: failed to parse MPos: %w", err)
+			}
+		case "WPos":
+			messagePushStatusReport.WorkPosition, err = NewStatusReportWorkPosition(dataValues)
+			if err != nil {
+				return nil, fmt.Errorf("status report message: failed to parse WPos: %w", err)
+			}
+		case "WCO":
+			messagePushStatusReport.WorkCoordinateOffset, err = NewStatusReportWorkCoordinateOffset(dataValues)
+			if err != nil {
+				return nil, fmt.Errorf("status report message: failed to parse WCO: %w", err)
+			}
+		case "Bf":
+			messagePushStatusReport.BufferState, err = NewStatusReportBufferState(dataValues)
+			if err != nil {
+				return nil, fmt.Errorf("status report message: failed to parse Bf: %w", err)
+			}
+		case "Ln":
+			messagePushStatusReport.LineNumber, err = NewStatusReportLineNumber(dataValues)
+			if err != nil {
+				return nil, fmt.Errorf("status report message: failed to parse Ln: %w", err)
+			}
+		case "F":
+			messagePushStatusReport.Feed, err = NewStatusReportFeed(dataValues)
+			if err != nil {
+				return nil, fmt.Errorf("status report message: failed to parse F: %w", err)
+			}
+		case "FS":
+			messagePushStatusReport.FeedSpindle, err = NewStatusReportFeedSpindle(dataValues)
+			if err != nil {
+				return nil, fmt.Errorf("status report message: failed to parse FS: %w", err)
+			}
+		case "Pn":
+			messagePushStatusReport.PinState, err = NewStatusReportPinState(dataValues)
+			if err != nil {
+				return nil, fmt.Errorf("status report message: failed to parse Pn: %w", err)
+			}
+		case "Ov":
+			messagePushStatusReport.OverrideValues, err = NewStatusReportOverrideValues(dataValues)
+			if err != nil {
+				return nil, fmt.Errorf("status report message: failed to parse Ov: %w", err)
+			}
+		case "A":
+			messagePushStatusReport.AccessoryState, err = NewStatusReportAccessoryState(dataValues)
+			if err != nil {
+				return nil, fmt.Errorf("status report message: failed to parse A: %w", err)
+			}
+		}
+	}
+
+	if !strings.HasPrefix(message, "<") {
+		return nil, fmt.Errorf("status report message does not end with '>': %#v", message)
+	}
+
+	return messagePushStatusReport, nil
 }
 
 func (m *MessagePushStatusReport) Type() MessageType {
@@ -544,94 +852,6 @@ func (m *MessagePushStatusReport) Type() MessageType {
 
 func (m *MessagePushStatusReport) String() string {
 	return m.Message
-}
-
-func (m *MessagePushStatusReport) Parse() (*StatusReport, error) {
-	if !strings.HasPrefix(m.Message, "<") {
-		return nil, fmt.Errorf("status report message does not start with '<': %#v", m.Message)
-	}
-
-	dataFields := strings.Split(m.Message[1:len(m.Message)-2], "|")
-	if len(dataFields) < 2 {
-		return nil, fmt.Errorf("status report message missing required data fields: %#v", m.Message)
-	}
-
-	machineState, err := NewStatusReportMachineState(dataFields[0])
-	if err != nil {
-		return nil, fmt.Errorf("status report message parsing failed: %#v: %w", m.Message, err)
-	}
-
-	statusReport := &StatusReport{
-		MachineState: *machineState,
-	}
-
-	for _, dataField := range dataFields[1:] {
-		parts := strings.Split(dataField, ":")
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("status report message malformed data field: %#v: %#v", m.Message, dataField)
-		}
-		dataType := parts[0]
-		dataValues := strings.Split(parts[1], ",")
-
-		switch dataType {
-		case "MPos":
-			statusReport.MachinePosition, err = NewStatusReportMachinePosition(dataValues)
-			if err != nil {
-				return nil, fmt.Errorf("status report messaged: failed to parse MPos: %w", err)
-			}
-		case "WPos":
-			statusReport.WorkPosition, err = NewStatusReportWorkPosition(dataValues)
-			if err != nil {
-				return nil, fmt.Errorf("status report messaged: failed to parse WPos: %w", err)
-			}
-		case "WCO":
-			statusReport.WorkCoordinateOffset, err = NewStatusReportWorkCoordinateOffset(dataValues)
-			if err != nil {
-				return nil, fmt.Errorf("status report messaged: failed to parse WCO: %w", err)
-			}
-		case "Bf":
-			statusReport.BufferState, err = NewStatusReportBufferState(dataValues)
-			if err != nil {
-				return nil, fmt.Errorf("status report messaged: failed to parse Bf: %w", err)
-			}
-		case "Ln":
-			statusReport.LineNumber, err = NewStatusReportLineNumber(dataValues)
-			if err != nil {
-				return nil, fmt.Errorf("status report messaged: failed to parse Ln: %w", err)
-			}
-		case "F":
-			statusReport.Feed, err = NewStatusReportFeed(dataValues)
-			if err != nil {
-				return nil, fmt.Errorf("status report messaged: failed to parse F: %w", err)
-			}
-		case "FS":
-			statusReport.FeedSpindle, err = NewStatusReportFeedSpindle(dataValues)
-			if err != nil {
-				return nil, fmt.Errorf("status report messaged: failed to parse FS: %w", err)
-			}
-		case "Pn":
-			statusReport.PinState, err = NewStatusReportPinState(dataValues)
-			if err != nil {
-				return nil, fmt.Errorf("status report messaged: failed to parse Pn: %w", err)
-			}
-		case "Ov":
-			statusReport.OverrideValues, err = NewStatusReportOverrideValues(dataValues)
-			if err != nil {
-				return nil, fmt.Errorf("status report messaged: failed to parse Ov: %w", err)
-			}
-		case "A":
-			statusReport.AccessoryState, err = NewStatusReportAccessoryState(dataValues)
-			if err != nil {
-				return nil, fmt.Errorf("status report messaged: failed to parse A: %w", err)
-			}
-		}
-	}
-
-	if !strings.HasPrefix(m.Message, "<") {
-		return nil, fmt.Errorf("status report message does not end with '>': %#v", m.Message)
-	}
-
-	return statusReport, nil
 }
 
 type MessagePushEcho struct {
@@ -658,11 +878,11 @@ func (m *MessagePushUnknown) String() string {
 	return m.Message
 }
 
-func NewMessage(message string) Message {
+func NewMessage(message string) (Message, error) {
 	if message == messageResponseOk || strings.HasPrefix(message, messageResponseErrorPrefix) {
 		return &MessageResponse{
 			Message: message,
-		}
+		}, nil
 	}
 	return NewMessagePush(message)
 }
