@@ -9,15 +9,21 @@ import (
 )
 
 type PromptView struct {
-	name, prompt string
-	enterFn      func(gui *gocui.Gui, command string) error
+	viewName, prompt string
+	enterFn          func(gui *gocui.Gui, command string) error
+	resetFn          func(gui *gocui.Gui) error
 }
 
-func NewPromptView(name, prompt string, enterFn func(gui *gocui.Gui, command string) error) *PromptView {
+func NewPromptView(
+	name, prompt string,
+	enterFn func(gui *gocui.Gui, command string) error,
+	resetFn func(gui *gocui.Gui) error,
+) *PromptView {
 	return &PromptView{
-		name:    name,
-		prompt:  prompt,
-		enterFn: enterFn,
+		viewName: name,
+		prompt:   prompt,
+		enterFn:  enterFn,
+		resetFn:  resetFn,
 	}
 }
 
@@ -90,7 +96,7 @@ func (p *PromptView) editorFn(view *gocui.View, key gocui.Key, ch rune, mod gocu
 
 func (p *PromptView) GetManagerFn(gui *gocui.Gui, x0, y0, x1, y1 int) func(gui *gocui.Gui) error {
 	return func(gui *gocui.Gui) error {
-		if view, err := gui.SetView(p.name, x0, y0, x1, y1); err != nil {
+		if view, err := gui.SetView(p.viewName, x0, y0, x1, y1); err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
@@ -137,8 +143,31 @@ func (p *PromptView) handleKeyBindEnter(gui *gocui.Gui, view *gocui.View) (err e
 	return err
 }
 
+func (p *PromptView) handleKeyBindReset(gui *gocui.Gui, view *gocui.View) (err error) {
+	view.Clear()
+
+	fmt.Fprint(view, p.prompt)
+
+	if setCursorErr := view.SetCursor(len(p.prompt), 0); setCursorErr != nil {
+		err = errors.Join(err, setCursorErr)
+	}
+
+	if setOriginErr := view.SetOrigin(0, 0); setOriginErr != nil {
+		err = errors.Join(err, setOriginErr)
+	}
+
+	if resetErr := p.resetFn(gui); resetErr != nil {
+		err = errors.Join(err, resetErr)
+	}
+	return
+}
+
 func (p *PromptView) InitKeybindings(gui *gocui.Gui) error {
-	if err := gui.SetKeybinding(p.name, gocui.KeyEnter, gocui.ModNone, p.handleKeyBindEnter); err != nil {
+	if err := gui.SetKeybinding(p.viewName, gocui.KeyEnter, gocui.ModNone, p.handleKeyBindEnter); err != nil {
+		return err
+	}
+
+	if err := gui.SetKeybinding(p.viewName, gocui.KeyCtrlX, gocui.ModNone, p.handleKeyBindReset); err != nil {
 		return err
 	}
 

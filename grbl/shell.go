@@ -20,6 +20,7 @@ type ViewManager interface {
 type Shell struct {
 	grbl                    *Grbl
 	grblViewName            string
+	gcodeViewName           string
 	statusViewName          string
 	feedbackMessageViewName string
 	promptViewName          string
@@ -29,6 +30,7 @@ func NewShell(grbl *Grbl) *Shell {
 	return &Shell{
 		grbl:                    grbl,
 		grblViewName:            "grbl",
+		gcodeViewName:           "gcode",
 		statusViewName:          "status",
 		feedbackMessageViewName: "feedbackMessage",
 		promptViewName:          "prompt",
@@ -45,11 +47,19 @@ func (s *Shell) getManagerFn(
 
 		feedbackMessageHeight := 3
 		promptHeight := 3
-		statusWidth := 15
+		gcodeWidth := 15
+		statusWidth := 14
 
-		grblViewManagerFn := grblViewManager.GetManagerFn(gui, 0, 0, maxX-(1+statusWidth), maxY-(1+feedbackMessageHeight+promptHeight))
+		grblViewManagerFn := grblViewManager.GetManagerFn(gui, 0, 0, maxX-(gcodeWidth+statusWidth+3), maxY-(1+feedbackMessageHeight+promptHeight))
 		if err := grblViewManagerFn(gui); err != nil {
 			return fmt.Errorf("shell: manager: Grbl view manager failed: %w", err)
+		}
+
+		if view, err := gui.SetView(s.gcodeViewName, maxX-(gcodeWidth+statusWidth+2), 0, maxX-statusWidth-1, maxY-(1+feedbackMessageHeight+promptHeight)); err != nil {
+			if err != gocui.ErrUnknownView {
+				return err
+			}
+			view.Title = "G-Code Parser"
 		}
 
 		if view, err := gui.SetView(s.statusViewName, maxX-statusWidth, 0, maxX-1, maxY-(1+feedbackMessageHeight+promptHeight)); err != nil {
@@ -57,8 +67,6 @@ func (s *Shell) getManagerFn(
 				return err
 			}
 			view.Title = "Status"
-			view.Wrap = true
-			view.Autoscroll = true
 		}
 
 		if view, err := gui.SetView(s.feedbackMessageViewName, 0, maxY-6, maxX-1, maxY-(1+feedbackMessageHeight)); err != nil {
@@ -93,6 +101,27 @@ func (s *Shell) getHandleSendBlockFn(ctx context.Context) func(gui *gocui.Gui, b
 			return fmt.Errorf("shell: handleCommand: failed to get Grbl view: %w", err)
 		}
 		line := fmt.Sprintf("> %s\n", block)
+		n, err := fmt.Fprint(grblView, line)
+		if err != nil {
+			return fmt.Errorf("shell: handleCommand: failed to write to Grbl view: %w", err)
+		}
+		if n != len(line) {
+			return fmt.Errorf("shell: handleCommand: short write to Grbl view: expected %d, got %d", len(line), n)
+		}
+		return nil
+	}
+}
+
+func (s *Shell) getHandleResetFn(ctx context.Context) func(gui *gocui.Gui) error {
+	return func(gui *gocui.Gui) error {
+		if err := s.grbl.SendRealTimeCommand(ctx, RealTimeCommandSoftReset); err != nil {
+			return fmt.Errorf("shell: handleCommand: failed to send command to Grbl: %w", err)
+		}
+		grblView, err := gui.View(s.grblViewName)
+		if err != nil {
+			return fmt.Errorf("shell: handleCommand: failed to get Grbl view: %w", err)
+		}
+		line := fmt.Sprintf("> %s\n", RealTimeCommandSoftReset)
 		n, err := fmt.Fprint(grblView, line)
 		if err != nil {
 			return fmt.Errorf("shell: handleCommand: failed to write to Grbl view: %w", err)
@@ -264,7 +293,7 @@ func (s *Shell) receiverHandleMessagePushStatusReport(
 	}
 
 	if statusReport.PinState != nil {
-		fmt.Fprintf(&buf, "\nPinState:%s\n", statusReport.PinState)
+		fmt.Fprintf(&buf, "\nPin:%s\n", statusReport.PinState)
 	}
 
 	if s.grbl.OverrideValues != nil {
@@ -365,17 +394,11 @@ func (s *Shell) newGui(ctx context.Context) (*gocui.Gui, gocui.ManagerFunc, erro
 	viewManagers := []ViewManager{}
 	grblViewManager := NewGrblView(s.grblViewName)
 	viewManagers = append(viewManagers, grblViewManager)
-	promptViewManoger := NewPromptView(s.promptViewName, "> ", s.getHandleSendBlockFn(ctx))
+	promptViewManoger := NewPromptView(s.promptViewName, "> ", s.getHandleSendBlockFn(ctx), s.getHandleResetFn(ctx))
 	viewManagers = append(viewManagers, promptViewManoger)
 
 	managerFn := s.getManagerFn(gui, grblViewManager, promptViewManoger)
 	gui.SetManagerFunc(managerFn)
-
-	for _, viewManager := range viewManagers {
-		if err := viewManager.InitKeybindings(gui); err != nil {
-			return nil, nil, fmt.Errorf("shell: failed to initialize ViewManager key bindings: %w", err)
-		}
-	}
 
 	if err := s.setKeybindings(gui, viewManagers); err != nil {
 		return nil, nil, fmt.Errorf("shell: failed to initialize key bindings: %w", err)
