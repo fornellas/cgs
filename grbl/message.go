@@ -1,6 +1,7 @@
 package grbl
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"strconv"
@@ -669,6 +670,39 @@ func NewStatusReportPinState(dataValues []string) (*StatusReportPinState, error)
 	}
 
 	return pinState, nil
+}
+
+//gocyclo:ignore
+func (p *StatusReportPinState) String() string {
+	var buf bytes.Buffer
+	if p.XLimit != nil && *p.XLimit {
+		fmt.Fprint(&buf, "X")
+	}
+	if p.YLimit != nil && *p.YLimit {
+		fmt.Fprint(&buf, "Y")
+	}
+	if p.ZLimit != nil && *p.ZLimit {
+		fmt.Fprint(&buf, "Z")
+	}
+	if p.ALimit != nil && *p.ALimit {
+		fmt.Fprint(&buf, "A")
+	}
+	if p.Probe != nil && *p.Probe {
+		fmt.Fprint(&buf, "P")
+	}
+	if p.Door != nil && *p.Door {
+		fmt.Fprint(&buf, "D")
+	}
+	if p.Hold != nil && *p.Hold {
+		fmt.Fprint(&buf, "H")
+	}
+	if p.SoftReset != nil && *p.SoftReset {
+		fmt.Fprint(&buf, "R")
+	}
+	if p.CycleStart != nil && *p.CycleStart {
+		fmt.Fprint(&buf, "S")
+	}
+	return buf.String()
 }
 
 // Indicates current override values in percent of programmed values.

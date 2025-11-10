@@ -45,7 +45,7 @@ func (s *Shell) getManagerFn(
 
 		feedbackMessageHeight := 3
 		promptHeight := 3
-		statusWidth := 16
+		statusWidth := 15
 
 		grblViewManagerFn := grblViewManager.GetManagerFn(gui, 0, 0, maxX-(1+statusWidth), maxY-(1+feedbackMessageHeight+promptHeight))
 		if err := grblViewManagerFn(gui); err != nil {
@@ -220,6 +220,8 @@ func (s *Shell) receiverHandleMessagePushStatusReportPosition(
 		fmt.Fprintf(buf, "A:%.3f\n", *ma)
 	}
 }
+
+//gocyclo:ignore
 func (s *Shell) receiverHandleMessagePushStatusReport(
 	ctx context.Context,
 	gui *gocui.Gui,
@@ -240,24 +242,51 @@ func (s *Shell) receiverHandleMessagePushStatusReport(
 
 	s.receiverHandleMessagePushStatusReportPosition(statusReport, &buf)
 
-	// TODO BufferState
+	if statusReport.BufferState != nil {
+		fmt.Fprint(&buf, "Buffer\n")
+		fmt.Fprintf(&buf, "Blocks:%d\n", statusReport.BufferState.AvailableBlocks)
+		fmt.Fprintf(&buf, "Bytes:%d\n", statusReport.BufferState.AvailableBytes)
+	}
 
-	// TODO LineNumber
+	if statusReport.LineNumber != nil {
+		fmt.Fprintf(&buf, "Line:%d\n", *statusReport.LineNumber)
+	}
 
-	// TODO Feed
+	if statusReport.Feed != nil {
+		fmt.Fprintf(&buf, "Feed:%.1f\n", *statusReport.Feed)
+	}
 
-	// TODO FeedSpindle
+	if statusReport.FeedSpindle != nil {
+		fmt.Fprintf(&buf, "Feed:%.0f\n", statusReport.FeedSpindle.Feed)
+		fmt.Fprintf(&buf, "Speed:%.0f\n", statusReport.FeedSpindle.Speed)
+	}
 
-	// TODO PinState
+	if statusReport.PinState != nil {
+		fmt.Fprintf(&buf, "PinState:%s\n", statusReport.PinState)
+	}
 
 	if s.grbl.OverrideValues != nil {
 		fmt.Fprint(&buf, "Overrides\n")
-		fmt.Fprintf(&buf, "Feed: %.0f%%\n", s.grbl.OverrideValues.Feed)
-		fmt.Fprintf(&buf, "Rapids: %.0f%%\n", s.grbl.OverrideValues.Rapids)
-		fmt.Fprintf(&buf, "Spindle: %.0f%%\n", s.grbl.OverrideValues.Spindle)
+		fmt.Fprintf(&buf, "Feed:%.0f%%\n", s.grbl.OverrideValues.Feed)
+		fmt.Fprintf(&buf, "Rapids:%.0f%%\n", s.grbl.OverrideValues.Rapids)
+		fmt.Fprintf(&buf, "Spindle:%.0f%%\n", s.grbl.OverrideValues.Spindle)
 	}
 
-	// TODO AccessoryState
+	if statusReport.AccessoryState != nil {
+		fmt.Fprint(&buf, "Accessory\n")
+		if statusReport.AccessoryState.SpindleCW != nil && *statusReport.AccessoryState.SpindleCW {
+			fmt.Fprint(&buf, "Spindle: CW")
+		}
+		if statusReport.AccessoryState.SpindleCCW != nil && *statusReport.AccessoryState.SpindleCCW {
+			fmt.Fprint(&buf, "Spindle: CCW")
+		}
+		if statusReport.AccessoryState.FloodCoolant != nil && *statusReport.AccessoryState.FloodCoolant {
+			fmt.Fprint(&buf, "Flood Coolant")
+		}
+		if statusReport.AccessoryState.MistCoolant != nil && *statusReport.AccessoryState.MistCoolant {
+			fmt.Fprint(&buf, "Mist Coolant")
+		}
+	}
 
 	statusView.Clear()
 	n, err := statusView.Write(buf.Bytes())
