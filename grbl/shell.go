@@ -68,29 +68,29 @@ func (s *Shell) getManagerFn(
 		}
 
 		// G-Code Parser
-		if view, err := gui.SetView(s.gcodeParserStateViewName, maxX-(gcodeWidth+statusWidth+2), 0, maxX-statusWidth-1, maxY-(1+feedbackMessageHeight+promptHeight)); err != nil {
+		if gCodeParserView, err := gui.SetView(s.gcodeParserStateViewName, maxX-(gcodeWidth+statusWidth+2), 0, maxX-statusWidth-1, maxY-(1+feedbackMessageHeight+promptHeight)); err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
-			view.Title = "G-Code Parser"
+			gCodeParserView.Title = "G-Code Parser"
 		}
 
 		// Status
-		if view, err := gui.SetView(s.statusViewName, maxX-statusWidth, 0, maxX-1, maxY-(1+feedbackMessageHeight+promptHeight)); err != nil {
+		if statusView, err := gui.SetView(s.statusViewName, maxX-statusWidth, 0, maxX-1, maxY-(1+feedbackMessageHeight+promptHeight)); err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
-			view.Title = "Status"
+			statusView.Title = "Status"
 		}
 
 		// Feedback Message
-		if view, err := gui.SetView(s.feedbackMessageViewName, 0, maxY-6, maxX-1, maxY-(1+feedbackMessageHeight)); err != nil {
+		if feedbackMessageView, err := gui.SetView(s.feedbackMessageViewName, 0, maxY-6, maxX-1, maxY-(1+feedbackMessageHeight)); err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
-			view.Title = "Feedback Message"
-			view.Wrap = true
-			view.Autoscroll = true
+			feedbackMessageView.Title = "Feedback Message"
+			feedbackMessageView.Wrap = true
+			feedbackMessageView.Autoscroll = true
 		}
 
 		// Prompt

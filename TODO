@@ -1,4 +1,6 @@
 shell.go
+    add lock to various view references
+        there's a race condition updating them
     toggle for supressing status query / message
     improve Grbl.SendCommand to wait for the response
         TBD how to avoid races with Grbl.Receive calls

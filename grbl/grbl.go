@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
+	"os"
 	"time"
 
 	"github.com/fornellas/slogxt/log"
@@ -93,27 +93,23 @@ var (
 )
 
 type Grbl struct {
-	portName string
-	port     serial.Port
+	openPortFn func(*serial.Mode) (serial.Port, error)
+	port       serial.Port
 	// WorkCoordinateOffset holds the newest value received via a status report.
 	WorkCoordinateOffset *StatusReportWorkCoordinateOffset
 	// OverrideValues holds the newest value received via a status report.
 	OverrideValues *StatusReportOverrideValues
 }
 
-func NewGrbl(portName string) *Grbl {
+func NewGrbl(openPortFn func(*serial.Mode) (serial.Port, error)) *Grbl {
 	g := &Grbl{
-		portName: portName,
+		openPortFn: openPortFn,
 	}
 	return g
 }
 
-func (g *Grbl) mustLogger(ctx context.Context) (context.Context, *slog.Logger) {
-	return log.MustWithGroupAttrs(ctx, "Grbl", "portName", g.portName)
-}
-
 func (g *Grbl) Open(ctx context.Context) error {
-	ctx, logger := g.mustLogger(ctx)
+	logger := log.MustLogger(ctx)
 
 	logger.Info("Connecting")
 
@@ -124,17 +120,17 @@ func (g *Grbl) Open(ctx context.Context) error {
 		StopBits: serial.OneStopBit,
 	}
 	logger.Debug("Opening")
-	port, err := serial.Open(g.portName, mode)
+	port, err := g.openPortFn(mode)
 	if err != nil {
-		return fmt.Errorf("grbl: serial port open error: %s: %w", g.portName, err)
+		return fmt.Errorf("grbl: serial port open error: %w", err)
 	}
 
-	// we need to set this to allow context cancellation to work
+	// we need to set this to allow polling reads to support context cancellation / timeout
 	logger.Debug("Setting read timeout")
-	if err := port.SetReadTimeout(50 * time.Millisecond); err != nil {
+	if err := port.SetReadTimeout(100 * time.Millisecond); err != nil {
 		closeErr := port.Close()
 		if closeErr != nil {
-			closeErr = fmt.Errorf("grbl: serial port close error: %s: %w", g.portName, closeErr)
+			closeErr = fmt.Errorf("grbl: serial port close error: %w", closeErr)
 		}
 		return errors.Join(fmt.Errorf("grbl: error setting read timeout: %w", err), closeErr)
 	}
@@ -152,7 +148,7 @@ func (g *Grbl) Open(ctx context.Context) error {
 			g.port = nil
 			closeErr := port.Close()
 			if closeErr != nil {
-				closeErr = fmt.Errorf("grbl: serial port close error: %s: %w", g.portName, closeErr)
+				closeErr = fmt.Errorf("grbl: serial port close error: %w", closeErr)
 			}
 			return errors.Join(err, closeErr)
 		}
@@ -168,7 +164,7 @@ func (g *Grbl) Open(ctx context.Context) error {
 }
 
 func (g *Grbl) Close(ctx context.Context) (err error) {
-	_, logger := g.mustLogger(ctx)
+	logger := log.MustLogger(ctx)
 	logger.Debug("Closing")
 	if g.port != nil {
 		err = g.port.Close()
@@ -180,15 +176,15 @@ func (g *Grbl) Close(ctx context.Context) (err error) {
 
 // SendRealTimeCommand issues a real time command to Grbl.
 func (g *Grbl) SendRealTimeCommand(ctx context.Context, cmd RealTimeCommand) error {
-	_, logger := g.mustLogger(ctx)
+	logger := log.MustLogger(ctx)
 	logger.Debug("Sending real time command", "command", cmd)
 	data := []byte{byte(cmd)}
 	n, err := g.port.Write(data)
 	if err != nil {
-		return fmt.Errorf("grbl: write to serial port error: %s: %w", g.portName, err)
+		return fmt.Errorf("grbl: write to serial port error: %w", err)
 	}
 	if n != len(data) {
-		return fmt.Errorf("grbl: write to serial port error: %s: wrote %d bytes, expected %d", g.portName, n, len(data))
+		return fmt.Errorf("grbl: write to serial port error: wrote %d bytes, expected %d", n, len(data))
 	}
 	return nil
 }
@@ -199,31 +195,32 @@ func (g *Grbl) SendRealTimeCommand(ctx context.Context, cmd RealTimeCommand) err
 
 // Send a command / system command to Grbl.
 func (g *Grbl) SendCommand(ctx context.Context, command string) error {
-	_, logger := g.mustLogger(ctx)
+	logger := log.MustLogger(ctx)
 	logger.Debug("Sending block", "block", command)
 	line := append([]byte(command), '\n')
 	n, err := g.port.Write(line)
 	if err != nil {
-		return fmt.Errorf("grbl: write to serial port error: %s: %w", g.portName, err)
+		return fmt.Errorf("grbl: write to serial port error: %w", err)
 	}
 	if n != len(line) {
-		return fmt.Errorf("grbl: write to serial port error: %s: wrote %d bytes, expected %d", g.portName, n, len(command))
+		return fmt.Errorf("grbl: write to serial port error: wrote %d bytes, expected %d", n, len(command))
 	}
 	return nil
 }
 
 // Receive message from Grbl.
 func (g *Grbl) Receive(ctx context.Context) (Message, error) {
-	ctx, logger := g.mustLogger(ctx)
+	logger := log.MustLogger(ctx)
 	logger.Debug("Receiving message")
 	line := []byte{}
 	for {
 		if err := ctx.Err(); err != nil {
-			return nil, fmt.Errorf("grbl: context error: %s: %w", g.portName, err)
+			return nil, fmt.Errorf("grbl: context error: %w", err)
 		}
 		b := make([]byte, 1)
+
 		n, err := g.port.Read(b)
-		if err != nil {
+		if err != nil && !errors.Is(err, os.ErrDeadlineExceeded) {
 			return nil, err
 		}
 		if n == 0 {

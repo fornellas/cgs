@@ -8,20 +8,25 @@ import (
 )
 
 var ShellCmd = &cobra.Command{
-	Use:   "shell path",
-	Short: "Open Grbl serial connection at path and provide a shell prompt to send commands.",
-	Args:  cobra.ExactArgs(1),
+	Use:   "shell",
+	Short: "Open Grbl serial connection and provide a shell prompt to send commands.",
+	Args:  cobra.NoArgs,
 	Run: GetRunFn(func(cmd *cobra.Command, args []string) (err error) {
-		portName := args[0]
-
 		ctx, logger := log.MustWithAttrs(
 			cmd.Context(),
-			"portName", portName,
+			"port-name", portName,
+			"address", address,
 		)
 		cmd.SetContext(ctx)
+
 		logger.Info("Running")
 
-		grbl := grblMod.NewGrbl(portName)
+		openPortFn, err := GetOpenPortFn()
+		if err != nil {
+			return err
+		}
+
+		grbl := grblMod.NewGrbl(openPortFn)
 
 		shell := grblMod.NewShell(grbl)
 		if err := shell.Execute(ctx); err != nil {
@@ -33,6 +38,8 @@ var ShellCmd = &cobra.Command{
 }
 
 func init() {
+	AddPortFlags(ShellCmd)
+
 	RootCmd.AddCommand(ShellCmd)
 
 	resetFlagsFns = append(resetFlagsFns, func() {
