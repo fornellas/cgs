@@ -25,9 +25,10 @@ type Shell struct {
 	statusViewName              string
 	feedbackMessageViewName     string
 	promptViewName              string
+	enableStatusMessages        bool
 }
 
-func NewShell(grbl *Grbl) *Shell {
+func NewShell(grbl *Grbl, enableStatusMessages bool) *Shell {
 	return &Shell{
 		grbl:                        grbl,
 		grblCommandViewName:         "grblCommand",
@@ -36,6 +37,7 @@ func NewShell(grbl *Grbl) *Shell {
 		statusViewName:              "status",
 		feedbackMessageViewName:     "feedbackMessage",
 		promptViewName:              "prompt",
+		enableStatusMessages:        enableStatusMessages,
 	}
 }
 
@@ -128,6 +130,9 @@ func (s *Shell) grblSendCommand(ctx context.Context, gui *gocui.Gui, command str
 func (s *Shell) grblSendRealTimeCommand(ctx context.Context, gui *gocui.Gui, command RealTimeCommand) error {
 	if err := s.grbl.SendRealTimeCommand(ctx, command); err != nil {
 		return fmt.Errorf("shell: handleCommand: failed to send command to Grbl: %w", err)
+	}
+	if !s.enableStatusMessages && command == RealTimeCommandStatusReportQuery {
+		return nil
 	}
 	grblCommandView, err := gui.View(s.grblRealtimeCommandViewName)
 	if err != nil {
@@ -409,17 +414,20 @@ func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.Ma
 			}
 		}
 
-		line := fmt.Sprintf("< %s\n", message)
-		n, err := fmt.Fprint(view, line)
-		if err != nil {
-			logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to write to Grbl view: %w", err))
-			gui.Update(managerFn)
-			continue
-		}
-		if n != len(line) {
-			logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: short write to Grbl view: expected %d, got %d", len(line), n))
-			gui.Update(managerFn)
-			continue
+		_, isStatusReport := message.(*MessagePushStatusReport)
+		if !(!s.enableStatusMessages && isStatusReport) {
+			line := fmt.Sprintf("< %s\n", message)
+			n, err := fmt.Fprint(view, line)
+			if err != nil {
+				logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to write to Grbl view: %w", err))
+				gui.Update(managerFn)
+				continue
+			}
+			if n != len(line) {
+				logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: short write to Grbl view: expected %d, got %d", len(line), n))
+				gui.Update(managerFn)
+				continue
+			}
 		}
 
 		// if messagePushGcodeState, ok := message.(*MessagePushGcodeState); ok {
