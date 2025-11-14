@@ -150,7 +150,6 @@ var ShellCmd = &cobra.Command{
 
 		commandInputField := tview.NewInputField().
 			SetLabel("Command: ")
-
 		commandInputField.SetDoneFunc(func(key tcell.Key) {
 			switch key {
 			case tcell.KeyEscape:
@@ -194,34 +193,16 @@ var ShellCmd = &cobra.Command{
 						tview.NewFlex().
 							AddItem(
 								tview.NewFlex().SetDirection(tview.FlexRow).
-									AddItem(
-										realTimeTextView,
-										0, 1, false,
-									).
-									AddItem(
-										commandsTextView,
-										0, 1, false,
-									),
+									AddItem(realTimeTextView, 0, 1, false).
+									AddItem(commandsTextView, 0, 1, false),
 								0, 3, false,
 							).
-							AddItem(
-								tview.NewBox().SetBorder(true).SetTitle("G-Code Parser"),
-								0, 1, false,
-							).
-							AddItem(
-								tview.NewBox().SetBorder(true).SetTitle("Status"),
-								14, 0, false,
-							),
+							AddItem(tview.NewBox().SetBorder(true).SetTitle("G-Code Parser"), 0, 1, false).
+							AddItem(tview.NewBox().SetBorder(true).SetTitle("Status"), 14, 0, false),
 						0, 1, false,
 					).
-					AddItem(
-						feedbackTextView,
-						1, 0, false,
-					).
-					AddItem(
-						commandInputField,
-						1, 0, false,
-					),
+					AddItem(feedbackTextView, 1, 0, false).
+					AddItem(commandInputField, 1, 0, false),
 				0, 1, false,
 			)
 
