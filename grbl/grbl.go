@@ -98,7 +98,11 @@ type Grbl struct {
 	// WorkCoordinateOffset holds the newest value received via a status report.
 	WorkCoordinateOffset *StatusReportWorkCoordinateOffset
 	// OverrideValues holds the newest value received via a status report.
-	OverrideValues *StatusReportOverrideValues
+	OverrideValues    *StatusReportOverrideValues
+	receiveCtxCancel  context.CancelFunc
+	pushMessageCh     chan Message
+	responseMessageCh chan Message
+	receiveDoneCh     chan error
 }
 
 func NewGrbl(openPortFn func(*serial.Mode) (serial.Port, error)) *Grbl {
@@ -108,7 +112,60 @@ func NewGrbl(openPortFn func(*serial.Mode) (serial.Port, error)) *Grbl {
 	return g
 }
 
-func (g *Grbl) Open(ctx context.Context) error {
+func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
+	logger := log.MustLogger(ctx)
+	logger.Debug("Receiving message")
+	line := []byte{}
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("grbl: receive message: context error: %w", err)
+		}
+		b := make([]byte, 1)
+
+		n, err := g.port.Read(b)
+		if err != nil && !errors.Is(err, os.ErrDeadlineExceeded) {
+			return nil, fmt.Errorf("grbl: receive message: read error: %w", err)
+		}
+		if n == 0 {
+			continue
+		}
+		if b[0] == '\n' {
+			break
+		}
+		line = append(line, b[0])
+	}
+
+	if len(line) >= 1 && line[len(line)-1] == '\r' {
+		line = line[:len(line)-1]
+	}
+
+	logger.Debug("Received message", "line", string(line))
+
+	message, err := NewMessage(string(line))
+	if err != nil {
+		return nil, fmt.Errorf("grbl: receive message: bad message: %w", err)
+	}
+
+	if _, ok := message.(*MessagePushWelcome); ok {
+		g.WorkCoordinateOffset = nil
+		g.OverrideValues = nil
+	}
+
+	if messagePushStatusReport, ok := message.(*MessagePushStatusReport); ok {
+		g.WorkCoordinateOffset = messagePushStatusReport.WorkCoordinateOffset
+		g.OverrideValues = messagePushStatusReport.OverrideValues
+	}
+
+	return message, nil
+}
+
+// Connect opens the serial connection and waits for Grbl reset.
+// On success, it returns a channel where push messages received from Grbl are sent to: this channel
+// must be read from in a loop to process the push messages. On read errors, this channel will be
+// closed.
+// Disconnect() must be called when the connection won't be used anymore or when the message channel
+// is closed.
+func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 	logger := log.MustLogger(ctx)
 
 	logger.Info("Connecting")
@@ -122,7 +179,7 @@ func (g *Grbl) Open(ctx context.Context) error {
 	logger.Debug("Opening")
 	port, err := g.openPortFn(mode)
 	if err != nil {
-		return fmt.Errorf("grbl: serial port open error: %w", err)
+		return nil, fmt.Errorf("grbl: serial port open error: %w", err)
 	}
 
 	// we need to set this to allow polling reads to support context cancellation / timeout
@@ -132,44 +189,77 @@ func (g *Grbl) Open(ctx context.Context) error {
 		if closeErr != nil {
 			closeErr = fmt.Errorf("grbl: serial port close error: %w", closeErr)
 		}
-		return errors.Join(fmt.Errorf("grbl: error setting read timeout: %w", err), closeErr)
+		return nil, errors.Join(fmt.Errorf("grbl: error setting read timeout: %w", err), closeErr)
 	}
 
 	g.port = port
+
 	g.WorkCoordinateOffset = nil
 	g.OverrideValues = nil
 
-	logger.Debug("Waiting for welcome message")
-	receiveCtx, receiveCancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
-	defer receiveCancel()
-	for {
-		message, err := g.Receive(receiveCtx)
-		if err != nil {
-			g.port = nil
-			closeErr := port.Close()
-			if closeErr != nil {
-				closeErr = fmt.Errorf("grbl: serial port close error: %w", closeErr)
-			}
-			return errors.Join(err, closeErr)
-		}
-		_, ok := message.(*MessagePushWelcome)
-		if ok {
-			break
-		}
-		logger.Debug("Ignoring", "message", message)
-	}
-	logger.Debug("Welcome message received")
+	var receiveCtx context.Context
+	receiveCtx, g.receiveCtxCancel = context.WithCancel(ctx)
+	g.pushMessageCh = make(chan Message)
+	g.responseMessageCh = make(chan Message)
+	g.receiveDoneCh = make(chan error, 1)
 
-	return nil
+	go func() {
+		for {
+			message, err := g.receiveMessage(receiveCtx)
+			if err != nil {
+				logger.Debug("Receive message failed", "err", err)
+				if errors.Is(err, context.Canceled) {
+					err = nil
+				}
+				g.receiveDoneCh <- err
+				close(g.pushMessageCh)
+				close(g.responseMessageCh)
+				return
+			}
+			switch message.Type() {
+			case MessageTypePush:
+				logger.Debug("Push message")
+				g.pushMessageCh <- message
+			case MessageTypeResponse:
+				logger.Debug("Response message")
+				g.responseMessageCh <- message
+			default:
+				panic(fmt.Sprintf("bug: unexpected message type: %#v", message.Type()))
+			}
+		}
+	}()
+
+	logger.Debug("Waiting for welcome message")
+	welcomeCtx, welcomeCtxCancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
+	defer welcomeCtxCancel()
+	for {
+		select {
+		case message, ok := <-g.pushMessageCh:
+			if !ok {
+				logger.Debug("Push message channel closed, disconnecting")
+				return nil, g.Disconnect(ctx)
+			}
+			if _, ok := message.(*MessagePushWelcome); ok {
+				logger.Debug("Connected")
+				return g.pushMessageCh, nil
+			}
+			logger.Debug("Ignoring", "message", message)
+		case <-welcomeCtx.Done():
+			logger.Debug("Context done")
+			return nil, errors.Join(welcomeCtx.Err(), g.Disconnect(ctx))
+		}
+	}
 }
 
-func (g *Grbl) Close(ctx context.Context) (err error) {
-	logger := log.MustLogger(ctx)
-	logger.Debug("Closing")
+func (g *Grbl) Disconnect(ctx context.Context) (err error) {
 	if g.port != nil {
-		err = g.port.Close()
+		logger := log.MustLogger(ctx)
+		logger.Debug("Cancelling receive context")
+		g.receiveCtxCancel()
+		err = <-g.receiveDoneCh
+		logger.Debug("Closing serial port")
+		err = errors.Join(err, g.port.Close())
 		g.port = nil
-		return
 	}
 	return
 }
@@ -193,67 +283,31 @@ func (g *Grbl) SendRealTimeCommand(ctx context.Context, cmd RealTimeCommand) err
 
 // TODO Synchronization
 
-// Send a command / system command to Grbl.
-func (g *Grbl) SendCommand(ctx context.Context, command string) error {
+// Send a command / system command to Grbl synchronously.
+// It waits for the response message and returns it.
+func (g *Grbl) SendCommand(ctx context.Context, command string) (Message, error) {
 	logger := log.MustLogger(ctx)
 	logger.Debug("Sending block", "block", command)
 	line := append([]byte(command), '\n')
 	n, err := g.port.Write(line)
 	if err != nil {
-		return fmt.Errorf("grbl: write to serial port error: %w", err)
+		return nil, fmt.Errorf("grbl: write to serial port error: %w", err)
 	}
 	if n != len(line) {
-		return fmt.Errorf("grbl: write to serial port error: wrote %d bytes, expected %d", n, len(command))
+		return nil, fmt.Errorf("grbl: write to serial port error: wrote %d bytes, expected %d", n, len(command))
 	}
-	return nil
+	message, ok := <-g.responseMessageCh
+	if !ok {
+		return nil, fmt.Errorf("grbl: send command failed: message channel is closed")
+	}
+	messageResponse := message.(*MessageResponse)
+	return messageResponse, nil
 }
 
-// Receive message from Grbl.
-func (g *Grbl) Receive(ctx context.Context) (Message, error) {
-	logger := log.MustLogger(ctx)
-	logger.Debug("Receiving message")
-	line := []byte{}
-	for {
-		if err := ctx.Err(); err != nil {
-			return nil, fmt.Errorf("grbl: context error: %w", err)
-		}
-		b := make([]byte, 1)
-
-		n, err := g.port.Read(b)
-		if err != nil && !errors.Is(err, os.ErrDeadlineExceeded) {
-			return nil, err
-		}
-		if n == 0 {
-			continue
-		}
-		if b[0] == '\n' {
-			break
-		}
-		line = append(line, b[0])
-	}
-
-	if len(line) >= 1 && line[len(line)-1] == '\r' {
-		line = line[:len(line)-1]
-	}
-
-	message, err := NewMessage(string(line))
-	if err != nil {
-		return nil, err
-	}
-
-	if _, ok := message.(*MessagePushWelcome); ok {
-		g.WorkCoordinateOffset = nil
-		g.OverrideValues = nil
-	}
-
-	if messagePushStatusReport, ok := message.(*MessagePushStatusReport); ok {
-		if messagePushStatusReport.WorkCoordinateOffset != nil {
-			g.WorkCoordinateOffset = messagePushStatusReport.WorkCoordinateOffset
-		}
-		if messagePushStatusReport.OverrideValues != nil {
-			g.OverrideValues = messagePushStatusReport.OverrideValues
-		}
-	}
-
-	return message, nil
-}
+// TODO Streaming Protocol: Character-Counting
+//   EEPROM Issues: can't stream with character counting for some commands:
+//     write commands: G10 L2, G10 L20, G28.1, G30.1, $x=, $I=, $Nx=, $RST=
+//     read commands: G54-G59, G28, G30, $$, $I, $N, $#
+//   Check g-code with $C before sending
+// func (g *Grbl)StreamProgram(r io.Reader) error {
+// }
