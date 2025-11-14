@@ -36,11 +36,14 @@ var ShellCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		pushMessageDoneCh := make(chan struct{})
 		defer func() {
 			err = errors.Join(err, grbl.Disconnect(ctx))
+			<-pushMessageDoneCh
 		}()
 
 		go func() {
+			defer func() { pushMessageDoneCh <- struct{}{} }()
 			for {
 				select {
 				case <-ctx.Done():
