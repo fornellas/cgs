@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/fornellas/slogxt/log"
 	"github.com/gdamore/tcell/v2"
@@ -86,8 +87,10 @@ func writePositionStatus(grbl *grblMod.Grbl, w io.Writer, statusReport *grblMod.
 			}
 		}
 	}
+	var nl bool
 	if wx != nil || wy != nil || wz != nil || wa != nil {
-		fmt.Fprintf(w, "\nWork\n")
+		fmt.Fprintf(w, "Work\n")
+		nl = true
 	}
 	if wx != nil {
 		fmt.Fprintf(w, "X:%.3f\n", *wx)
@@ -102,7 +105,10 @@ func writePositionStatus(grbl *grblMod.Grbl, w io.Writer, statusReport *grblMod.
 		fmt.Fprintf(w, "A:%.3f\n", *wa)
 	}
 	if mx != nil || my != nil || mz != nil || ma != nil {
-		fmt.Fprintf(w, "\nMachine\n")
+		if nl {
+			fmt.Fprintf(w, "\n")
+		}
+		fmt.Fprintf(w, "Machine\n")
 	}
 	if mx != nil {
 		fmt.Fprintf(w, "X:%.3f\n", *mx)
@@ -119,15 +125,33 @@ func writePositionStatus(grbl *grblMod.Grbl, w io.Writer, statusReport *grblMod.
 }
 
 //gocyclo:ignore
-func updateStatusView(statusView *tview.TextView, statusReport *grblMod.MessagePushStatusReport, grbl *grblMod.Grbl) {
+func updateStatusReport(
+	stateView *tview.TextView,
+	statusView *tview.TextView,
+	statusReport *grblMod.MessagePushStatusReport,
+	grbl *grblMod.Grbl,
+) {
 	stateColor := getColorForMachineState(statusReport.MachineState.State)
 
-	statusView.Clear()
-
-	fmt.Fprintf(statusView, "[%s]%s[-]\n", stateColor, tview.Escape(statusReport.MachineState.State))
+	stateView.Clear()
+	stateView.SetBackgroundColor(stateColor)
+	_, _, stateViewWidth, _ := stateView.GetRect()
+	state := statusReport.MachineState.State
+	fmt.Fprintf(
+		stateView, "%s%s\n",
+		strings.Repeat(" ", (stateViewWidth-2-len(state))/2),
+		tview.Escape(state),
+	)
 	if statusReport.MachineState.SubState != nil {
-		fmt.Fprintf(statusView, "(%s)\n", tview.Escape(statusReport.MachineState.SubStateString()))
+		subState := statusReport.MachineState.SubStateString()
+		fmt.Fprintf(
+			stateView, "%s(%s)\n",
+			strings.Repeat(" ", (stateViewWidth-4-len(subState))/2),
+			tview.Escape(subState),
+		)
 	}
+
+	statusView.Clear()
 
 	writePositionStatus(grbl, statusView, statusReport)
 
@@ -241,6 +265,15 @@ var ShellCmd = &cobra.Command{
 			app.Draw()
 		})
 
+		stateTextView := tview.NewTextView().
+			SetDynamicColors(true).
+			SetScrollable(true).
+			SetWrap(true)
+		stateTextView.SetBorder(true).SetTitle("State")
+		stateTextView.SetChangedFunc(func() {
+			app.Draw()
+		})
+
 		statusTextView := tview.NewTextView().
 			SetDynamicColors(true).
 			SetScrollable(true).
@@ -267,8 +300,10 @@ var ShellCmd = &cobra.Command{
 						color = tcell.ColorYellow
 						detailsFn = func() {
 							fmt.Fprintf(realTimeTextView, "[%s]Soft-Reset detected[-]\n", color)
-							statusTextView.Clear()
 						}
+						stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+						stateTextView.Clear()
+						statusTextView.Clear()
 						feedbackTextView.SetText("")
 					}
 					if messagePushAlarm, ok := message.(*grblMod.MessagePushAlarm); ok {
@@ -279,7 +314,7 @@ var ShellCmd = &cobra.Command{
 					}
 					if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
 						color = getColorForMachineState(messagePushStatusReport.MachineState.State)
-						updateStatusView(statusTextView, messagePushStatusReport, grbl)
+						updateStatusReport(stateTextView, statusTextView, messagePushStatusReport, grbl)
 					}
 					if messagePushFeedback, ok := message.(*grblMod.MessagePushFeedback); ok {
 						feedbackTextView.SetText(messagePushFeedback.Text())
@@ -347,7 +382,12 @@ var ShellCmd = &cobra.Command{
 								0, 3, false,
 							).
 							AddItem(tview.NewBox().SetBorder(true).SetTitle("G-Code Parser"), 0, 1, false).
-							AddItem(statusTextView, 14, 0, false),
+							AddItem(
+								tview.NewFlex().SetDirection(tview.FlexRow).
+									AddItem(stateTextView, 4, 0, false).
+									AddItem(statusTextView, 0, 1, false),
+								14, 0, false,
+							),
 						0, 1, false,
 					).
 					AddItem(feedbackTextView, 1, 0, false).
