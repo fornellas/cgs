@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/fornellas/slogxt/log"
 	"github.com/gdamore/tcell/v2"
@@ -15,12 +16,14 @@ import (
 )
 
 type Shell struct {
-	grbl *grblMod.Grbl
+	grbl               *grblMod.Grbl
+	displayStatusComms bool
 }
 
-func NewShell(grbl *grblMod.Grbl) *Shell {
+func NewShell(grbl *grblMod.Grbl, displayStatusComms bool) *Shell {
 	return &Shell{
-		grbl: grbl,
+		grbl:               grbl,
+		displayStatusComms: displayStatusComms,
 	}
 }
 
@@ -186,6 +189,9 @@ func (s *Shell) pushMessageReceiver(
 			if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
 				color = getMachineStateColor(messagePushStatusReport.MachineState.State)
 				s.updateStatusReport(stateTextView, statusTextView, messagePushStatusReport)
+				if !s.displayStatusComms {
+					continue
+				}
 			}
 			if messagePushFeedback, ok := message.(*grblMod.MessagePushFeedback); ok {
 				feedbackTextView.SetText(messagePushFeedback.Text())
@@ -360,8 +366,25 @@ func (s *Shell) sendRealTimeCommand(ctx context.Context, cmd grblMod.RealTimeCom
 	if err := s.grbl.SendRealTimeCommand(ctx, cmd); err != nil {
 		return err
 	}
-	fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(cmd.String()))
+	if s.displayStatusComms || cmd != grblMod.RealTimeCommandStatusReportQuery {
+		fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(cmd.String()))
+	}
 	return nil
+}
+
+func (s *Shell) statusQueryWorker(ctx context.Context, doneCh chan error) {
+	for {
+		select {
+		case <-ctx.Done():
+			doneCh <- nil
+			return
+		case <-time.After(200 * time.Millisecond):
+			if err := s.grbl.SendRealTimeCommand(ctx, grblMod.RealTimeCommandStatusReportQuery); err != nil {
+				doneCh <- fmt.Errorf("failed to send periodic status query real-time command: %w", err)
+				return
+			}
+		}
+	}
 }
 
 func (s *Shell) Run(ctx context.Context) error {
@@ -373,8 +396,18 @@ func (s *Shell) Run(ctx context.Context) error {
 		return err
 	}
 	pushMessageDoneCh := make(chan struct{})
+	statusQueryWorkerErrCh := make(chan error)
+	statusQueryWorkerCtx, statusQueryWorkerCancel := context.WithCancel(ctx)
+	go s.statusQueryWorker(statusQueryWorkerCtx, statusQueryWorkerErrCh)
 	defer func() {
+		logger.Info("Stopping status query worker")
+		statusQueryWorkerCancel()
+		if statusQueryErr := <-statusQueryWorkerErrCh; statusQueryErr != nil {
+			err = errors.Join(err, statusQueryErr)
+		}
+		logger.Info("Disconnecting")
 		err = errors.Join(err, s.grbl.Disconnect(ctx))
+		logger.Info("waiting for push message receiver")
 		<-pushMessageDoneCh
 	}()
 

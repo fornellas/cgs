@@ -1,13 +1,16 @@
 shell.go
-    g-code parser status
-        handle $G better
-            omit messages after command sent
-            on startup
-    add lock to various view references
-        there's a race condition updating them
-    toggle for supressing status query / message
-    improve Grbl.SendCommand to wait for the response
-        TBD how to avoid races with Grbl.Receive calls
-    track status of response message (ok / error)
-    Implement G-Code parser state
-    $# G-code Parameters state
+    shell
+        Fix race
+            open
+            $X
+            !
+            ~
+            > status stops being updated, locks on exit
+        when ALARM:* push message is received, update State panel
+        Implement G-Code Parser State panel
+            on connect & soft-reset
+            omit these commands / messages by default, add toggle to enable view
+        Implement G-code Parameters panel
+    grbl
+        implement stream
+        implement jogging

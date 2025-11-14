@@ -1,0 +1,2 @@
+- Don't bother to write tests.
+- Test any changes by running `make ci`. If it fails, fix & rerun until complete.

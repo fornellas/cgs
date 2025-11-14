@@ -8,6 +8,9 @@ import (
 	shellMod "github.com/fornellas/cgs/shell"
 )
 
+var displayStatusComms bool
+var defaultDisplayStatusComms = false
+
 var ShellCmd = &cobra.Command{
 	Use:   "shell",
 	Short: "Open Grbl serial connection and provide a shell prompt to send commands.",
@@ -27,7 +30,7 @@ var ShellCmd = &cobra.Command{
 
 		grbl := grblMod.NewGrbl(openPortFn)
 
-		shell := shellMod.NewShell(grbl)
+		shell := shellMod.NewShell(grbl, displayStatusComms)
 
 		return shell.Run(ctx)
 	}),
@@ -35,9 +38,16 @@ var ShellCmd = &cobra.Command{
 
 func init() {
 	AddPortFlags(ShellCmd)
+	ShellCmd.Flags().BoolVar(
+		&displayStatusComms,
+		"display-status-comms",
+		defaultDisplayStatusComms,
+		"Display status report query real-time commands and status report push messages; this is always automatically polled and can be noily",
+	)
 
 	RootCmd.AddCommand(ShellCmd)
 
 	resetFlagsFns = append(resetFlagsFns, func() {
+		displayStatusComms = defaultDisplayStatusComms
 	})
 }

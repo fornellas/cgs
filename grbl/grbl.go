@@ -165,6 +165,8 @@ func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
 // closed.
 // Disconnect() must be called when the connection won't be used anymore or when the message channel
 // is closed.
+//
+//gocyclo:ignore
 func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 	mode := &serial.Mode{
 		BaudRate: 115200,
@@ -209,11 +211,33 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 				close(g.responseMessageCh)
 				return
 			}
+
+			if err := receiveCtx.Err(); err != nil {
+				g.receiveDoneCh <- nil
+				close(g.pushMessageCh)
+				close(g.responseMessageCh)
+				return
+			}
+
 			switch message.Type() {
 			case MessageTypePush:
-				g.pushMessageCh <- message
+				select {
+				case g.pushMessageCh <- message:
+				case <-receiveCtx.Done():
+					g.receiveDoneCh <- nil
+					close(g.pushMessageCh)
+					close(g.responseMessageCh)
+					return
+				}
 			case MessageTypeResponse:
-				g.responseMessageCh <- message
+				select {
+				case g.responseMessageCh <- message:
+				case <-receiveCtx.Done():
+					g.receiveDoneCh <- nil
+					close(g.pushMessageCh)
+					close(g.responseMessageCh)
+					return
+				}
 			default:
 				panic(fmt.Sprintf("bug: unexpected message type: %#v", message.Type()))
 			}
