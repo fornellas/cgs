@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/fornellas/slogxt/log"
 	"github.com/spf13/cobra"
@@ -25,8 +24,6 @@ var ShellCmd = &cobra.Command{
 		)
 		cmd.SetContext(ctx)
 
-		logger.Info("Running")
-
 		openPortFn, err := GetOpenPortFn()
 		if err != nil {
 			return err
@@ -34,6 +31,7 @@ var ShellCmd = &cobra.Command{
 
 		grbl := grblMod.NewGrbl(openPortFn)
 
+		logger.Info("Connecting")
 		pushMessageCh, err := grbl.Connect(ctx)
 		if err != nil {
 			return err
@@ -42,19 +40,17 @@ var ShellCmd = &cobra.Command{
 			err = errors.Join(err, grbl.Disconnect(ctx))
 		}()
 
-		time.Sleep(time.Second)
-
 		go func() {
-			select {
-			case <-ctx.Done():
-				logger.Info("Receiver: context done", "err", ctx.Err())
-				return
-			case message, ok := <-pushMessageCh:
-				if !ok {
-					logger.Info("Receiver: push messages channel closed")
+			for {
+				select {
+				case <-ctx.Done():
 					return
+				case message, ok := <-pushMessageCh:
+					if !ok {
+						return
+					}
+					fmt.Printf("< %s\n", message.String())
 				}
-				fmt.Printf("< %s\n", message.String())
 			}
 		}()
 
@@ -64,6 +60,10 @@ var ShellCmd = &cobra.Command{
 			text, err := reader.ReadString('\n')
 			if err != nil {
 				return fmt.Errorf("failed to read input: %w", err)
+			}
+			text = text[:len(text)-1]
+			if text == "q" {
+				return nil
 			}
 			fmt.Printf("> %s", text)
 			message, err := grbl.SendCommand(ctx, text)

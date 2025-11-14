@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
-	"github.com/fornellas/slogxt/log"
 	"go.bug.st/serial"
 )
 
@@ -113,8 +113,6 @@ func NewGrbl(openPortFn func(*serial.Mode) (serial.Port, error)) *Grbl {
 }
 
 func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
-	logger := log.MustLogger(ctx)
-	logger.Debug("Receiving message")
 	line := []byte{}
 	for {
 		if err := ctx.Err(); err != nil {
@@ -138,8 +136,6 @@ func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
 	if len(line) >= 1 && line[len(line)-1] == '\r' {
 		line = line[:len(line)-1]
 	}
-
-	logger.Debug("Received message", "line", string(line))
 
 	message, err := NewMessage(string(line))
 	if err != nil {
@@ -166,24 +162,18 @@ func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
 // Disconnect() must be called when the connection won't be used anymore or when the message channel
 // is closed.
 func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
-	logger := log.MustLogger(ctx)
-
-	logger.Info("Connecting")
-
 	mode := &serial.Mode{
 		BaudRate: 115200,
 		DataBits: 8,
 		Parity:   serial.NoParity,
 		StopBits: serial.OneStopBit,
 	}
-	logger.Debug("Opening")
 	port, err := g.openPortFn(mode)
 	if err != nil {
 		return nil, fmt.Errorf("grbl: serial port open error: %w", err)
 	}
 
 	// we need to set this to allow polling reads to support context cancellation / timeout
-	logger.Debug("Setting read timeout")
 	if err := port.SetReadTimeout(100 * time.Millisecond); err != nil {
 		closeErr := port.Close()
 		if closeErr != nil {
@@ -207,7 +197,6 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 		for {
 			message, err := g.receiveMessage(receiveCtx)
 			if err != nil {
-				logger.Debug("Receive message failed", "err", err)
 				if errors.Is(err, context.Canceled) {
 					err = nil
 				}
@@ -218,10 +207,8 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 			}
 			switch message.Type() {
 			case MessageTypePush:
-				logger.Debug("Push message")
 				g.pushMessageCh <- message
 			case MessageTypeResponse:
-				logger.Debug("Response message")
 				g.responseMessageCh <- message
 			default:
 				panic(fmt.Sprintf("bug: unexpected message type: %#v", message.Type()))
@@ -229,23 +216,18 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 		}
 	}()
 
-	logger.Debug("Waiting for welcome message")
 	welcomeCtx, welcomeCtxCancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
 	defer welcomeCtxCancel()
 	for {
 		select {
 		case message, ok := <-g.pushMessageCh:
 			if !ok {
-				logger.Debug("Push message channel closed, disconnecting")
 				return nil, g.Disconnect(ctx)
 			}
 			if _, ok := message.(*MessagePushWelcome); ok {
-				logger.Debug("Connected")
 				return g.pushMessageCh, nil
 			}
-			logger.Debug("Ignoring", "message", message)
 		case <-welcomeCtx.Done():
-			logger.Debug("Context done")
 			return nil, errors.Join(welcomeCtx.Err(), g.Disconnect(ctx))
 		}
 	}
@@ -253,11 +235,8 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 
 func (g *Grbl) Disconnect(ctx context.Context) (err error) {
 	if g.port != nil {
-		logger := log.MustLogger(ctx)
-		logger.Debug("Cancelling receive context")
 		g.receiveCtxCancel()
 		err = <-g.receiveDoneCh
-		logger.Debug("Closing serial port")
 		err = errors.Join(err, g.port.Close())
 		g.port = nil
 	}
@@ -266,8 +245,6 @@ func (g *Grbl) Disconnect(ctx context.Context) (err error) {
 
 // SendRealTimeCommand issues a real time command to Grbl.
 func (g *Grbl) SendRealTimeCommand(ctx context.Context, cmd RealTimeCommand) error {
-	logger := log.MustLogger(ctx)
-	logger.Debug("Sending real time command", "command", cmd)
 	data := []byte{byte(cmd)}
 	n, err := g.port.Write(data)
 	if err != nil {
@@ -286,8 +263,10 @@ func (g *Grbl) SendRealTimeCommand(ctx context.Context, cmd RealTimeCommand) err
 // Send a command / system command to Grbl synchronously.
 // It waits for the response message and returns it.
 func (g *Grbl) SendCommand(ctx context.Context, command string) (Message, error) {
-	logger := log.MustLogger(ctx)
-	logger.Debug("Sending block", "block", command)
+	if strings.Contains(command, "\n") {
+		return nil, fmt.Errorf("command must be single line string: %#v", command)
+	}
+
 	line := append([]byte(command), '\n')
 	n, err := g.port.Write(line)
 	if err != nil {
@@ -300,6 +279,7 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (Message, error)
 	if !ok {
 		return nil, fmt.Errorf("grbl: send command failed: message channel is closed")
 	}
+
 	messageResponse := message.(*MessageResponse)
 	return messageResponse, nil
 }
