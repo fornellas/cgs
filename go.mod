@@ -19,7 +19,9 @@ tool (
 
 require (
 	github.com/fornellas/slogxt v1.1.1
+	github.com/gdamore/tcell/v2 v2.8.1
 	github.com/jroimartin/gocui v0.5.0
+	github.com/rivo/tview v0.42.0
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
@@ -41,6 +43,7 @@ require (
 	github.com/fornellas/rrb v0.2.6 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fzipp/gocyclo v0.6.0 // indirect
+	github.com/gdamore/encoding v1.0.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -48,6 +51,7 @@ require (
 	github.com/hloiseaufcms/mcp-gopls v0.0.0-20250409141140-2587313f195c // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jandelgado/gcov2lcov v1.1.1 // indirect
+	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mark3labs/mcp-go v0.18.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

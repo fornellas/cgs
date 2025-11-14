@@ -275,9 +275,16 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (Message, error)
 	if n != len(line) {
 		return nil, fmt.Errorf("grbl: write to serial port error: wrote %d bytes, expected %d", n, len(command))
 	}
-	message, ok := <-g.responseMessageCh
-	if !ok {
-		return nil, fmt.Errorf("grbl: send command failed: message channel is closed")
+	var message Message
+	var ok bool
+
+	select {
+	case message, ok = <-g.responseMessageCh:
+		if !ok {
+			return nil, fmt.Errorf("grbl: command failed: response message channel is closed")
+		}
+	case <-time.After(time.Second):
+		return nil, fmt.Errorf("grbl: command failed: timeout waiting fro respense message")
 	}
 
 	messageResponse := message.(*MessageResponse)
