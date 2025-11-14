@@ -148,8 +148,12 @@ func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
 	}
 
 	if messagePushStatusReport, ok := message.(*MessagePushStatusReport); ok {
-		g.WorkCoordinateOffset = messagePushStatusReport.WorkCoordinateOffset
-		g.OverrideValues = messagePushStatusReport.OverrideValues
+		if messagePushStatusReport.WorkCoordinateOffset != nil {
+			g.WorkCoordinateOffset = messagePushStatusReport.WorkCoordinateOffset
+		}
+		if messagePushStatusReport.OverrideValues != nil {
+			g.OverrideValues = messagePushStatusReport.OverrideValues
+		}
 	}
 
 	return message, nil
