@@ -1,4 +1,4 @@
-package grbl
+package oldshell
 
 import (
 	"bytes"
@@ -10,6 +10,8 @@ import (
 
 	"github.com/fornellas/slogxt/log"
 	"github.com/jroimartin/gocui"
+
+	"github.com/fornellas/cgs/grbl"
 )
 
 type ViewManager interface {
@@ -18,7 +20,7 @@ type ViewManager interface {
 }
 
 type Shell struct {
-	grbl                        *Grbl
+	grbl                        *grbl.Grbl
 	grblCommandViewName         string
 	grblRealtimeCommandViewName string
 	gcodeParserStateViewName    string
@@ -28,7 +30,7 @@ type Shell struct {
 	enableStatusMessages        bool
 }
 
-func NewShell(grbl *Grbl, enableStatusMessages bool) *Shell {
+func NewShell(grbl *grbl.Grbl, enableStatusMessages bool) *Shell {
 	return &Shell{
 		grbl:                        grbl,
 		grblCommandViewName:         "grblCommand",
@@ -128,11 +130,11 @@ func (s *Shell) grblSendCommand(ctx context.Context, gui *gocui.Gui, command str
 	return nil
 }
 
-func (s *Shell) grblSendRealTimeCommand(ctx context.Context, gui *gocui.Gui, command RealTimeCommand) error {
+func (s *Shell) grblSendRealTimeCommand(ctx context.Context, gui *gocui.Gui, command grbl.RealTimeCommand) error {
 	if err := s.grbl.SendRealTimeCommand(ctx, command); err != nil {
 		return fmt.Errorf("shell: handleCommand: failed to send command to Grbl: %w", err)
 	}
-	if !s.enableStatusMessages && command == RealTimeCommandStatusReportQuery {
+	if !s.enableStatusMessages && command == grbl.RealTimeCommandStatusReportQuery {
 		return nil
 	}
 	grblCommandView, err := gui.View(s.grblRealtimeCommandViewName)
@@ -165,7 +167,7 @@ func (s *Shell) getHandleSendCommandFn(ctx context.Context) func(gui *gocui.Gui,
 
 func (s *Shell) getHandleResetFn(ctx context.Context) func(gui *gocui.Gui) error {
 	return func(gui *gocui.Gui) error {
-		return s.grblSendRealTimeCommand(ctx, gui, RealTimeCommandSoftReset)
+		return s.grblSendRealTimeCommand(ctx, gui, grbl.RealTimeCommandSoftReset)
 	}
 }
 
@@ -190,7 +192,7 @@ func (s *Shell) setKeybindings(gui *gocui.Gui, viewManagers []ViewManager) error
 func (s *Shell) receiverHandleMessagePushGcodeState(
 	ctx context.Context,
 	gui *gocui.Gui,
-	messagePushFeedback *MessagePushGcodeState,
+	messagePushFeedback *grbl.MessagePushGcodeState,
 ) bool {
 	logger := log.MustLogger(ctx)
 
@@ -252,7 +254,7 @@ func (s *Shell) receiverHandleMessagePushGcodeState(
 func (s *Shell) receiverHandleMessagePushFeedback(
 	ctx context.Context,
 	gui *gocui.Gui,
-	messagePushFeedback *MessagePushFeedback,
+	messagePushFeedback *grbl.MessagePushFeedback,
 ) bool {
 	logger := log.MustLogger(ctx)
 	feedbackMessageView, err := gui.View(s.feedbackMessageViewName)
@@ -277,7 +279,7 @@ func (s *Shell) receiverHandleMessagePushFeedback(
 //gocyclo:ignore
 func (s *Shell) receiverHandleMessagePushStatusReportPosition(
 	buf *bytes.Buffer,
-	statusReport *MessagePushStatusReport,
+	statusReport *grbl.MessagePushStatusReport,
 ) {
 	var mx, my, mz, ma, wx, wy, wz, wa *float64
 	if statusReport.MachinePosition != nil {
@@ -352,7 +354,7 @@ func (s *Shell) receiverHandleMessagePushStatusReportPosition(
 func (s *Shell) receiverHandleMessagePushStatusReport(
 	ctx context.Context,
 	gui *gocui.Gui,
-	statusReport *MessagePushStatusReport,
+	statusReport *grbl.MessagePushStatusReport,
 ) bool {
 	logger := log.MustLogger(ctx)
 
@@ -465,7 +467,7 @@ func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.Ma
 		}
 
 		var view *gocui.View
-		if messageResponse, ok := message.(*MessageResponse); ok {
+		if messageResponse, ok := message.(*grbl.MessageResponse); ok {
 			view, err = gui.View(s.grblCommandViewName)
 			if err != nil {
 				logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err))
@@ -482,7 +484,7 @@ func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.Ma
 			}
 		}
 
-		_, isStatusReport := message.(*MessagePushStatusReport)
+		_, isStatusReport := message.(*grbl.MessagePushStatusReport)
 		if !(!s.enableStatusMessages && isStatusReport) {
 			line := fmt.Sprintf("< %s\n", message)
 			n, err := fmt.Fprint(view, line)
@@ -498,28 +500,28 @@ func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.Ma
 			}
 		}
 
-		if messagePushGcodeState, ok := message.(*MessagePushGcodeState); ok {
+		if messagePushGcodeState, ok := message.(*grbl.MessagePushGcodeState); ok {
 			if s.receiverHandleMessagePushGcodeState(ctx, gui, messagePushGcodeState) {
 				gui.Update(managerFn)
 				continue
 			}
 		}
 
-		if messagePushFeedback, ok := message.(*MessagePushFeedback); ok {
+		if messagePushFeedback, ok := message.(*grbl.MessagePushFeedback); ok {
 			if s.receiverHandleMessagePushFeedback(ctx, gui, messagePushFeedback) {
 				gui.Update(managerFn)
 				continue
 			}
 		}
 
-		if statusReport, ok := message.(*MessagePushStatusReport); ok {
+		if statusReport, ok := message.(*grbl.MessagePushStatusReport); ok {
 			if s.receiverHandleMessagePushStatusReport(ctx, gui, statusReport) {
 				gui.Update(managerFn)
 				continue
 			}
 		}
 
-		if messagePushAlarm, ok := message.(*MessagePushAlarm); ok {
+		if messagePushAlarm, ok := message.(*grbl.MessagePushAlarm); ok {
 			if s.handleReset(ctx, gui) {
 				gui.Update(managerFn)
 				continue
@@ -527,7 +529,7 @@ func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.Ma
 			logger.Error("Alarm", "reason", messagePushAlarm.Error())
 		}
 
-		if _, ok := message.(*MessagePushWelcome); ok {
+		if _, ok := message.(*grbl.MessagePushWelcome); ok {
 			if s.handleReset(ctx, gui) {
 				gui.Update(managerFn)
 				continue
@@ -635,7 +637,7 @@ func (s *Shell) Execute(ctx context.Context) (err error) {
 			if statusCtx.Err() != nil {
 				break
 			}
-			if err := s.grblSendRealTimeCommand(statusCtx, gui, RealTimeCommandStatusReportQuery); err != nil {
+			if err := s.grblSendRealTimeCommand(statusCtx, gui, grbl.RealTimeCommandStatusReportQuery); err != nil {
 				logger.Error("Failed to request status report query", "err", err, "%#v", fmt.Sprintf("%#v", err))
 			}
 

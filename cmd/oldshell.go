@@ -5,13 +5,14 @@ import (
 	"github.com/spf13/cobra"
 
 	grblMod "github.com/fornellas/cgs/grbl"
+	"github.com/fornellas/cgs/oldshell"
 )
 
 var enableStatusMessages bool
 var defaultEnableStatusMessages = false
 
-var ShellCmd = &cobra.Command{
-	Use:   "shell",
+var OldShellCmd = &cobra.Command{
+	Use:   "oldshell",
 	Short: "Open Grbl serial connection and provide a shell prompt to send commands.",
 	Args:  cobra.NoArgs,
 	Run: GetRunFn(func(cmd *cobra.Command, args []string) (err error) {
@@ -31,7 +32,7 @@ var ShellCmd = &cobra.Command{
 
 		grbl := grblMod.NewGrbl(openPortFn)
 
-		shell := grblMod.NewShell(grbl, enableStatusMessages)
+		shell := oldshell.NewShell(grbl, enableStatusMessages)
 		if err := shell.Execute(ctx); err != nil {
 			return err
 		}
@@ -41,11 +42,11 @@ var ShellCmd = &cobra.Command{
 }
 
 func init() {
-	AddPortFlags(ShellCmd)
+	AddPortFlags(OldShellCmd)
 
-	ShellCmd.PersistentFlags().BoolVar(&enableStatusMessages, "enable-status-messages", defaultEnableStatusMessages, "Status report is polled regularly, this enables visualization of the query and response message.")
+	OldShellCmd.PersistentFlags().BoolVar(&enableStatusMessages, "enable-status-messages", defaultEnableStatusMessages, "Status report is polled regularly, this enables visualization of the query and response message.")
 
-	RootCmd.AddCommand(ShellCmd)
+	RootCmd.AddCommand(OldShellCmd)
 
 	resetFlagsFns = append(resetFlagsFns, func() {
 		enableStatusMessages = defaultEnableStatusMessages

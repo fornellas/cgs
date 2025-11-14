@@ -1,4 +1,4 @@
-package grbl
+package oldshell
 
 import (
 	"github.com/jroimartin/gocui"
