@@ -64,6 +64,56 @@ func (m *ModalGroup) Copy() *ModalGroup {
 	return &nm
 }
 
+//gocyclo:ignore
+func (m *ModalGroup) Update(word *Word) {
+	switch word.NormalizedString() {
+	case "G0", "G1", "G2", "G3", "G33", "G38.2", "G38.3", "G38.4", "G38.5", "G73", "G76", "G80", "G81", "G82", "G83", "G84", "G85", "G86", "G87", "G88", "G89":
+		m.Motion = word
+	case "G17", "G18", "G19":
+		m.PlaneSelection = word
+	// DiameterRadiusForLathes
+	// G7, G8
+	case "G90", "G91":
+		m.DistanceMode = word
+	case "G93", "G94":
+		m.FeedRateMode = word
+	case "G20", "G21":
+		m.Units = word
+	case "G40", "G41", "G42", "G41.1", "G42.1":
+		m.CutterRadiusCompensation = word
+	case "G43", "G43.1", "G49":
+		m.ToolLengthOffset = word
+	// ReturnModeInCannedCycles
+	// G98, G99
+	case "G54", "G55", "G56", "G57", "G58", "G59", "G59.1", "G59.2", "G59.3":
+		m.CoordinateSystemSelection = word
+	case "M0", "M1", "M2", "M30", "M60":
+		m.Stopping = word
+	// ToolChange
+	// M6 Tn
+	case "M3", "M4", "M5":
+		m.SpindleTurning = word
+	case "M7", "M8":
+		skip := false
+		for _, w := range m.Coolant {
+			if w.NormalizedString() == word.NormalizedString() {
+				skip = true
+				break
+			}
+		}
+		if skip {
+			break
+		}
+		m.Coolant = append(m.Coolant, word)
+	case "M9":
+		m.Coolant = []*Word{word}
+		// OverrideSwitches
+		// M48, M49
+		// FlowControl
+		// O-
+	}
+}
+
 // DefaultModalGroup holds Grbl default modal group states.
 // See: https://github.com/gnea/grbl/wiki/Grbl-v1.1-Commands.
 var DefaultModalGroup ModalGroup = ModalGroup{
@@ -204,52 +254,7 @@ func (p *Parser) handleToken(token *Token) (bool, error) {
 //gocyclo:ignore
 func (p *Parser) updateModalGroups(block *Block) {
 	for _, word := range block.Commands() {
-		switch word.NormalizedString() {
-		case "G0", "G1", "G2", "G3", "G33", "G38.2", "G38.3", "G38.4", "G38.5", "G73", "G76", "G80", "G81", "G82", "G83", "G84", "G85", "G86", "G87", "G88", "G89":
-			p.ModalGroup.Motion = word
-		case "G17", "G18", "G19":
-			p.ModalGroup.PlaneSelection = word
-		// DiameterRadiusForLathes
-		// G7, G8
-		case "G90", "G91":
-			p.ModalGroup.DistanceMode = word
-		case "G93", "G94":
-			p.ModalGroup.FeedRateMode = word
-		case "G20", "G21":
-			p.ModalGroup.Units = word
-		case "G40", "G41", "G42", "G41.1", "G42.1":
-			p.ModalGroup.CutterRadiusCompensation = word
-		case "G43", "G43.1", "G49":
-			p.ModalGroup.ToolLengthOffset = word
-		// ReturnModeInCannedCycles
-		// G98, G99
-		case "G54", "G55", "G56", "G57", "G58", "G59", "G59.1", "G59.2", "G59.3":
-			p.ModalGroup.CoordinateSystemSelection = word
-		case "M0", "M1", "M2", "M30", "M60":
-			p.ModalGroup.Stopping = word
-		// ToolChange
-		// M6 Tn
-		case "M3", "M4", "M5":
-			p.ModalGroup.SpindleTurning = word
-		case "M7", "M8":
-			skip := false
-			for _, w := range p.ModalGroup.Coolant {
-				if w.NormalizedString() == word.NormalizedString() {
-					skip = true
-					break
-				}
-			}
-			if skip {
-				break
-			}
-			p.ModalGroup.Coolant = append(p.ModalGroup.Coolant, word)
-		case "M9":
-			p.ModalGroup.Coolant = nil
-			// OverrideSwitches
-			// M48, M49
-			// FlowControl
-			// O-
-		}
+		p.ModalGroup.Update(word)
 	}
 }
 

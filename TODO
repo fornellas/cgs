@@ -1,4 +1,8 @@
 shell.go
+    g-code parser status
+        handle $G better
+            omit messages after command sent
+            on startup
     add lock to various view references
         there's a race condition updating them
     toggle for supressing status query / message

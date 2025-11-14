@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/fornellas/cgs/gcode"
 )
 
 type MessageType int
@@ -239,7 +241,7 @@ func NewMessagePush(message string) (Message, error) {
 		return &MessagePushFeedback{Message: message}, nil
 	}
 	if strings.HasPrefix(message, "[GC:") {
-		return &MessagePushGcodeState{Message: message}, nil
+		return NewMessagePushGcodeState(message)
 	}
 	if strings.HasPrefix(message, "[HLP:") {
 		return &MessagePushHelp{Message: message}, nil
@@ -310,7 +312,40 @@ func (m *MessagePushFeedback) Text() string {
 }
 
 type MessagePushGcodeState struct {
-	Message string
+	Message      string
+	ModalGroup   *gcode.ModalGroup
+	Tool         *float64
+	SpindleSpeed *float64
+	FeedRate     *float64
+}
+
+func NewMessagePushGcodeState(message string) (*MessagePushGcodeState, error) {
+	m := &MessagePushGcodeState{
+		Message:    message,
+		ModalGroup: gcode.DefaultModalGroup.Copy(),
+	}
+
+	block := strings.TrimSuffix(strings.TrimPrefix(message, "[GC:"), "]")
+	for wordStr := range strings.SplitSeq(block, " ") {
+		word, err := gcode.NewWordFromString(wordStr)
+		if err != nil {
+			return nil, err
+		}
+		m.ModalGroup.Update(word)
+		switch word.Letter() {
+		case 'T':
+			n := word.Number()
+			m.Tool = &n
+		case 'F':
+			n := word.Number()
+			m.FeedRate = &n
+		case 'S':
+			n := word.Number()
+			m.SpindleSpeed = &n
+		}
+	}
+
+	return m, nil
 }
 
 func (m *MessagePushGcodeState) Type() MessageType {

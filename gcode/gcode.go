@@ -8,6 +8,67 @@ import (
 	"unicode"
 )
 
+var wordToName = map[string]string{
+	"G0":    "Rapid Linear Motion",
+	"G1":    "Linear Motion at Feed Rate",
+	"G2":    "Arc at Feed Rate CW",
+	"G3":    "Arc at Feed Rate CCW",
+	"G33":   "Spindle Synchronized Motion",
+	"G38.2": "Straight Probe Toward Piece with Error",
+	"G38.3": "Straight Probe Toward Piece",
+	"G38.4": "Straight Probe From Piece With Error",
+	"G38.5": "Straight Probe From Piece",
+	"G73":   "Drilling Cycle with Chip Breaking",
+	"G76":   "Threading Cycle",
+	"G80":   "Cancel Modal Motion",
+	"G81":   "Drilling Cycle",
+	"G82":   "Drilling Cycle, Dwell",
+	"G83":   "Peck Drilling Cycle",
+	"G84":   "Right-hand Tapping Cycle, Dwell",
+	"G85":   "Boring Cycle, Feed Out",
+	"G86":   "Boring Cycle, Spindle Stop, Rapid Move Out",
+	"G87":   "Back Boring Cycle",
+	"G88":   "Boring Cycle, Spindle Stop, Manual Out",
+	"G89":   "Boring Cycle, Dwell, Feed Out",
+	"G17":   "Plane Select XY",
+	"G18":   "Plane Select ZX",
+	"G19":   "Plane Select YZ",
+	"G90":   "Distance Mode Absolute",
+	"G91":   "Distance Mode Incremental",
+	"G93":   "Feed Rate Mode Inverse Time",
+	"G94":   "Feed Rate Mode Units per Minute",
+	"G20":   "Unit Inches",
+	"G21":   "Unit Milimiters",
+	"G40":   "Compensation Off",
+	"G41":   "Cutter Compensation Left",
+	"G42":   "Cutter Compensation Right",
+	"G41.1": "Dynamic Cutter Compensation Left",
+	"G42.1": "Dynamic Cutter Compensation Right",
+	"G43":   "Tool Length Offset",
+	"G43.1": "Dynamic Tool Length Offset",
+	"G49":   "Cancel Tool Length Compensation",
+	"G54":   "Coordinate System 1",
+	"G55":   "Coordinate System 2",
+	"G56":   "Coordinate System 3",
+	"G57":   "Coordinate System 4",
+	"G58":   "Coordinate System 5",
+	"G59":   "Coordinate System 6",
+	"G59.1": "Coordinate System 7",
+	"G59.2": "Coordinate System 8",
+	"G59.3": "Coordinate System 9",
+	"M0":    "Program Stop",
+	"M1":    "Optional Program Stop",
+	"M2":    "Program End",
+	"M30":   "Program End, Pallet Shuttle, And Reset",
+	"M60":   "Pallet Shuttle And Program Stop",
+	"M3":    "Turn Spindle CW",
+	"M4":    "Turn Spindle CCW",
+	"M5":    "Stop Spindle Turning",
+	"M7":    "Mist Coolant On",
+	"M8":    "Flood Coolant On",
+	"M9":    "Mist And Flood Coolant Off",
+}
+
 // Word may either give a command or provide an argument to a command.
 type Word struct {
 	letter rune
@@ -15,6 +76,19 @@ type Word struct {
 	// The original string that declared this word. This is used to avoid parsing / serializing
 	// upper/lowercase letters or float poont representation differences, for consistency on output.
 	originalStr *string
+}
+
+func NewWordFromString(w string) (*Word, error) {
+	if len(w) < 2 {
+		return nil, fmt.Errorf("invalid word string: %s", w)
+	}
+	letter := unicode.ToUpper(rune(w[0]))
+	numberStr := w[1:]
+	parsedNumber, err := strconv.ParseFloat(numberStr, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid word string: %s: failed to parse float: %w", w, err)
+	}
+	return NewWord(letter, parsedNumber), nil
 }
 
 // NewWord creates a Word from given letter and number.
@@ -76,6 +150,14 @@ func (w *Word) NormalizedString() string {
 		}
 	}
 	return fmt.Sprintf("%c%.4f", w.letter, w.number)
+}
+
+// Name returns a human friendly name for the word.
+func (w *Word) Name() string {
+	if name, ok := wordToName[w.NormalizedString()]; ok {
+		return name
+	}
+	return w.NormalizedString()
 }
 
 // IsCommand returns true if the word is a command (letter G or M).

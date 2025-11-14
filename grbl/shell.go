@@ -52,7 +52,7 @@ func (s *Shell) getManagerFn(
 
 		feedbackMessageHeight := 3
 		promptHeight := 3
-		gcodeWidth := 15
+		gcodeWidth := 20
 		statusWidth := 14
 		realtimeCommandY1 := (maxY - (1 + feedbackMessageHeight + promptHeight)) / 2
 		commandY0 := realtimeCommandY1 + 1
@@ -75,6 +75,7 @@ func (s *Shell) getManagerFn(
 				return err
 			}
 			gCodeParserView.Title = "G-Code Parser"
+			gCodeParserView.Wrap = true
 		}
 
 		// Status
@@ -184,6 +185,68 @@ func (s *Shell) setKeybindings(gui *gocui.Gui, viewManagers []ViewManager) error
 	}
 
 	return nil
+}
+
+func (s *Shell) receiverHandleMessagePushGcodeState(
+	ctx context.Context,
+	gui *gocui.Gui,
+	messagePushFeedback *MessagePushGcodeState,
+) bool {
+	logger := log.MustLogger(ctx)
+
+	gcodeParserStateView, err := gui.View(s.gcodeParserStateViewName)
+	if err != nil {
+		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err))
+		return true
+	}
+	gcodeParserStateView.Clear()
+
+	var buf bytes.Buffer
+
+	if messagePushFeedback.ModalGroup.Motion != nil {
+		fmt.Fprintf(&buf, "%s:%s\n", messagePushFeedback.ModalGroup.Motion.NormalizedString(), messagePushFeedback.ModalGroup.Motion.Name())
+	}
+	if messagePushFeedback.ModalGroup.PlaneSelection != nil {
+		fmt.Fprintf(&buf, "%s:%s\n", messagePushFeedback.ModalGroup.PlaneSelection.NormalizedString(), messagePushFeedback.ModalGroup.PlaneSelection.Name())
+	}
+	if messagePushFeedback.ModalGroup.DistanceMode != nil {
+		fmt.Fprintf(&buf, "%s:%s\n", messagePushFeedback.ModalGroup.DistanceMode.NormalizedString(), messagePushFeedback.ModalGroup.DistanceMode.Name())
+	}
+	if messagePushFeedback.ModalGroup.Units != nil {
+		fmt.Fprintf(&buf, "%s:%s\n", messagePushFeedback.ModalGroup.Units.NormalizedString(), messagePushFeedback.ModalGroup.Units.Name())
+	}
+	if messagePushFeedback.ModalGroup.ToolLengthOffset != nil {
+		fmt.Fprintf(&buf, "%s:%s\n", messagePushFeedback.ModalGroup.ToolLengthOffset.NormalizedString(), messagePushFeedback.ModalGroup.ToolLengthOffset.Name())
+	}
+	if messagePushFeedback.ModalGroup.CoordinateSystemSelection != nil {
+		fmt.Fprintf(&buf, "%s:%s\n", messagePushFeedback.ModalGroup.CoordinateSystemSelection.NormalizedString(), messagePushFeedback.ModalGroup.CoordinateSystemSelection.Name())
+	}
+	if messagePushFeedback.ModalGroup.SpindleTurning != nil {
+		fmt.Fprintf(&buf, "%s:%s\n", messagePushFeedback.ModalGroup.SpindleTurning.NormalizedString(), messagePushFeedback.ModalGroup.SpindleTurning.Name())
+	}
+	for _, word := range messagePushFeedback.ModalGroup.Coolant {
+		fmt.Fprintf(&buf, "%s:%s\n", word.NormalizedString(), word.Name())
+	}
+	if messagePushFeedback.Tool != nil {
+		fmt.Fprintf(&buf, "Tool: %.0f\n", *messagePushFeedback.Tool)
+	}
+	if messagePushFeedback.FeedRate != nil {
+		fmt.Fprintf(&buf, "Feed Rate: %.0f\n", *messagePushFeedback.FeedRate)
+	}
+	if messagePushFeedback.SpindleSpeed != nil {
+		fmt.Fprintf(&buf, "Speed: %.0f\n", *messagePushFeedback.SpindleSpeed)
+	}
+
+	n, err := gcodeParserStateView.Write(buf.Bytes())
+	if err != nil {
+		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to write to Grbl view: %w", err))
+		return true
+	}
+	if n != len(buf.Bytes()) {
+		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: short write to Grbl view: expected %d, got %d", len(buf.Bytes()), n))
+		return true
+	}
+	return false
 }
 
 func (s *Shell) receiverHandleMessagePushFeedback(
@@ -370,12 +433,14 @@ func (s *Shell) receiverHandleMessagePushStatusReport(
 
 func (s *Shell) handleReset(ctx context.Context, gui *gocui.Gui) bool {
 	logger := log.MustLogger(ctx)
+
 	statusView, err := gui.View(s.statusViewName)
 	if err != nil {
 		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err))
 		return true
 	}
 	statusView.Clear()
+
 	gcodeView, err := gui.View(s.gcodeParserStateViewName)
 	if err != nil {
 		logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err))
@@ -400,11 +465,14 @@ func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.Ma
 		}
 
 		var view *gocui.View
-		if _, ok := message.(*MessageResponse); ok {
+		if messageResponse, ok := message.(*MessageResponse); ok {
 			view, err = gui.View(s.grblCommandViewName)
 			if err != nil {
 				logger.Error("Receiver", "err", fmt.Errorf("shell: receiver: failed to get Grbl view: %w", err))
 				continue
+			}
+			if err := messageResponse.Error(); err != nil {
+				logger.Error("Response", "err", err)
 			}
 		} else {
 			view, err = gui.View(s.grblRealtimeCommandViewName)
@@ -430,9 +498,12 @@ func (s *Shell) receiver(ctx context.Context, gui *gocui.Gui, managerFn gocui.Ma
 			}
 		}
 
-		// if messagePushGcodeState, ok := message.(*MessagePushGcodeState); ok {
-		// 	// TODO
-		// }
+		if messagePushGcodeState, ok := message.(*MessagePushGcodeState); ok {
+			if s.receiverHandleMessagePushGcodeState(ctx, gui, messagePushGcodeState) {
+				gui.Update(managerFn)
+				continue
+			}
+		}
 
 		if messagePushFeedback, ok := message.(*MessagePushFeedback); ok {
 			if s.receiverHandleMessagePushFeedback(ctx, gui, messagePushFeedback) {
