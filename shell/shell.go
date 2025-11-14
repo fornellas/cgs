@@ -19,13 +19,12 @@ type Shell struct {
 }
 
 func NewShell(grbl *grblMod.Grbl) *Shell {
-
 	return &Shell{
 		grbl: grbl,
 	}
 }
 
-func getColorForMachineState(state string) tcell.Color {
+func getMachineStateColor(state string) tcell.Color {
 	switch state {
 	case "Idle":
 		return tcell.ColorGreen
@@ -47,6 +46,160 @@ func getColorForMachineState(state string) tcell.Color {
 		return tcell.ColorSilver
 	default:
 		return tcell.ColorWhite
+	}
+}
+
+func (s *Shell) getCommandsTextView(app *tview.Application) *tview.TextView {
+	commandsTextView := tview.NewTextView().
+		SetDynamicColors(true).
+		SetScrollable(true).
+		SetWrap(true)
+	commandsTextView.SetBorder(true).SetTitle("Commands")
+	commandsTextView.SetChangedFunc(func() {
+		commandsTextView.ScrollToEnd()
+		app.Draw()
+	})
+	return commandsTextView
+}
+
+func (s *Shell) getRealTimeTextView(app *tview.Application) *tview.TextView {
+	realTimeTextView := tview.NewTextView().
+		SetDynamicColors(true).
+		SetScrollable(true).
+		SetWrap(true)
+	realTimeTextView.SetBorder(true).SetTitle("Real-Time")
+	realTimeTextView.SetChangedFunc(func() {
+		realTimeTextView.ScrollToEnd()
+		app.Draw()
+	})
+	return realTimeTextView
+}
+
+func (s *Shell) getFeedbackTextView(app *tview.Application) *tview.TextView {
+	feedbackTextView := tview.NewTextView().
+		SetDynamicColors(true).
+		SetScrollable(true).
+		SetWrap(true)
+	feedbackTextView.SetTitle("Feedback Message")
+	feedbackTextView.SetChangedFunc(func() {
+		feedbackTextView.ScrollToEnd()
+		app.Draw()
+	})
+	return feedbackTextView
+}
+
+func (s *Shell) getStateTextView(app *tview.Application) *tview.TextView {
+	stateTextView := tview.NewTextView().
+		SetDynamicColors(true).
+		SetScrollable(true).
+		SetWrap(true)
+	stateTextView.SetBorder(true).SetTitle("State")
+	stateTextView.SetChangedFunc(func() {
+		app.Draw()
+	})
+	return stateTextView
+}
+
+func (s *Shell) getStatusTextView(app *tview.Application) *tview.TextView {
+	statusTextView := tview.NewTextView().
+		SetDynamicColors(true).
+		SetScrollable(true).
+		SetWrap(true)
+	statusTextView.SetBorder(true).SetTitle("Status")
+	statusTextView.SetChangedFunc(func() {
+		app.Draw()
+	})
+	return statusTextView
+}
+
+func (s *Shell) getCommandInputField(
+	ctx context.Context,
+	commandsTextView *tview.TextView,
+) *tview.InputField {
+	commandInputField := tview.NewInputField().
+		SetLabel("Command: ")
+	commandInputField.SetDoneFunc(func(key tcell.Key) {
+		switch key {
+		case tcell.KeyEscape:
+			commandInputField.SetText("")
+		case tcell.KeyEnter:
+			command := commandInputField.GetText()
+			if command != "" {
+				fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(command))
+
+				message, err := s.grbl.SendCommand(ctx, command)
+				if err != nil {
+					fmt.Fprintf(commandsTextView, "[%s]Failed to send: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
+				} else {
+					messageResponse := message.(*grblMod.MessageResponse)
+					if messageResponse.Error() == nil {
+						fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorGreen, tview.Escape(messageResponse.String()))
+					} else {
+						fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.String()))
+						fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.Error().Error()))
+					}
+				}
+				commandInputField.SetText("")
+			}
+		}
+	})
+	return commandInputField
+}
+
+func (s *Shell) pushMessageReceiver(
+	ctx context.Context,
+	pushMessageDoneCh chan struct{},
+	pushMessageCh chan grblMod.Message,
+	realTimeTextView *tview.TextView,
+	stateTextView *tview.TextView,
+	statusTextView *tview.TextView,
+	feedbackTextView *tview.TextView,
+) {
+	defer func() { pushMessageDoneCh <- struct{}{} }()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case message, ok := <-pushMessageCh:
+			if !ok {
+				return
+			}
+
+			var color = tcell.ColorGreen
+			var detailsFn func()
+			if _, ok := message.(*grblMod.MessagePushWelcome); ok {
+				color = tcell.ColorYellow
+				detailsFn = func() {
+					fmt.Fprintf(realTimeTextView, "[%s]Soft-Reset detected[-]\n", color)
+				}
+				stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+				stateTextView.Clear()
+				statusTextView.Clear()
+				feedbackTextView.SetText("")
+			}
+			if messagePushAlarm, ok := message.(*grblMod.MessagePushAlarm); ok {
+				color = tcell.ColorRed
+				detailsFn = func() {
+					fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", color, tview.Escape(messagePushAlarm.Error().Error()))
+				}
+			}
+			if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
+				color = getMachineStateColor(messagePushStatusReport.MachineState.State)
+				s.updateStatusReport(stateTextView, statusTextView, messagePushStatusReport)
+			}
+			if messagePushFeedback, ok := message.(*grblMod.MessagePushFeedback); ok {
+				feedbackTextView.SetText(messagePushFeedback.Text())
+			}
+			text := message.String()
+			if len(text) == 0 {
+				fmt.Fprintf(realTimeTextView, "\n\n")
+			} else {
+				fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", color, tview.Escape(text))
+			}
+			if detailsFn != nil {
+				detailsFn()
+			}
+		}
 	}
 }
 
@@ -132,7 +285,7 @@ func (s *Shell) updateStatusReport(
 	statusView *tview.TextView,
 	statusReport *grblMod.MessagePushStatusReport,
 ) {
-	stateColor := getColorForMachineState(statusReport.MachineState.State)
+	stateColor := getMachineStateColor(statusReport.MachineState.State)
 
 	stateView.Clear()
 	stateView.SetBackgroundColor(stateColor)
@@ -211,7 +364,6 @@ func (s *Shell) sendRealTimeCommand(ctx context.Context, cmd grblMod.RealTimeCom
 	return nil
 }
 
-//gocyclo:ignore
 func (s *Shell) Run(ctx context.Context) error {
 	logger := log.MustLogger(ctx)
 	logger.Info("Connecting")
@@ -229,130 +381,22 @@ func (s *Shell) Run(ctx context.Context) error {
 	app := tview.NewApplication()
 	app.EnableMouse(true)
 
-	commandsTextView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-	commandsTextView.SetBorder(true).SetTitle("Commands")
-	commandsTextView.SetChangedFunc(func() {
-		commandsTextView.ScrollToEnd()
-		app.Draw()
-	})
+	commandsTextView := s.getCommandsTextView(app)
+	realTimeTextView := s.getRealTimeTextView(app)
+	feedbackTextView := s.getFeedbackTextView(app)
+	stateTextView := s.getStateTextView(app)
+	statusTextView := s.getStatusTextView(app)
+	commandInputField := s.getCommandInputField(ctx, commandsTextView)
 
-	realTimeTextView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-	realTimeTextView.SetBorder(true).SetTitle("Real-Time")
-	realTimeTextView.SetChangedFunc(func() {
-		realTimeTextView.ScrollToEnd()
-		app.Draw()
-	})
-
-	feedbackTextView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-	feedbackTextView.SetTitle("Feedback Message")
-	feedbackTextView.SetChangedFunc(func() {
-		feedbackTextView.ScrollToEnd()
-		app.Draw()
-	})
-
-	stateTextView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-	stateTextView.SetBorder(true).SetTitle("State")
-	stateTextView.SetChangedFunc(func() {
-		app.Draw()
-	})
-
-	statusTextView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-	statusTextView.SetBorder(true).SetTitle("Status")
-	statusTextView.SetChangedFunc(func() {
-		app.Draw()
-	})
-
-	go func() {
-		defer func() { pushMessageDoneCh <- struct{}{} }()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case message, ok := <-pushMessageCh:
-				if !ok {
-					return
-				}
-
-				var color = tcell.ColorGreen
-				var detailsFn func()
-				if _, ok := message.(*grblMod.MessagePushWelcome); ok {
-					color = tcell.ColorYellow
-					detailsFn = func() {
-						fmt.Fprintf(realTimeTextView, "[%s]Soft-Reset detected[-]\n", color)
-					}
-					stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
-					stateTextView.Clear()
-					statusTextView.Clear()
-					feedbackTextView.SetText("")
-				}
-				if messagePushAlarm, ok := message.(*grblMod.MessagePushAlarm); ok {
-					color = tcell.ColorRed
-					detailsFn = func() {
-						fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", color, tview.Escape(messagePushAlarm.Error().Error()))
-					}
-				}
-				if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-					color = getColorForMachineState(messagePushStatusReport.MachineState.State)
-					s.updateStatusReport(stateTextView, statusTextView, messagePushStatusReport)
-				}
-				if messagePushFeedback, ok := message.(*grblMod.MessagePushFeedback); ok {
-					feedbackTextView.SetText(messagePushFeedback.Text())
-				}
-				text := message.String()
-				if len(text) == 0 {
-					fmt.Fprintf(realTimeTextView, "\n\n")
-				} else {
-					fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", color, tview.Escape(text))
-				}
-				if detailsFn != nil {
-					detailsFn()
-				}
-			}
-		}
-	}()
-
-	commandInputField := tview.NewInputField().
-		SetLabel("Command: ")
-	commandInputField.SetDoneFunc(func(key tcell.Key) {
-		switch key {
-		case tcell.KeyEscape:
-			commandInputField.SetText("")
-		case tcell.KeyEnter:
-			command := commandInputField.GetText()
-			if command != "" {
-				fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(command))
-
-				message, err := s.grbl.SendCommand(ctx, command)
-				if err != nil {
-					fmt.Fprintf(commandsTextView, "[%s]Failed to send: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
-				} else {
-					messageResponse := message.(*grblMod.MessageResponse)
-					if messageResponse.Error() == nil {
-						fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorGreen, tview.Escape(messageResponse.String()))
-					} else {
-						fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.String()))
-						fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.Error().Error()))
-					}
-				}
-				commandInputField.SetText("")
-			}
-		}
-	})
+	go s.pushMessageReceiver(
+		ctx,
+		pushMessageDoneCh,
+		pushMessageCh,
+		realTimeTextView,
+		stateTextView,
+		statusTextView,
+		feedbackTextView,
+	)
 
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyCtrlX {
