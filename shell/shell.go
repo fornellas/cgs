@@ -129,7 +129,10 @@ func (s *Shell) getCommandInputField(
 			command := commandInputField.GetText()
 			if command != "" {
 				fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(command))
-
+				// FIXME $H (and maybe others) require bigger timeout
+				// FIXME ! (and maybe others) "sometimes" don't return message
+				ctx, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second))
+				defer cancel()
 				message, err := s.grbl.SendCommand(ctx, command)
 				if err != nil {
 					fmt.Fprintf(commandsTextView, "[%s]Failed to send: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
