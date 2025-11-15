@@ -212,13 +212,6 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 				return
 			}
 
-			if err := receiveCtx.Err(); err != nil {
-				g.receiveDoneCh <- nil
-				close(g.pushMessageCh)
-				close(g.responseMessageCh)
-				return
-			}
-
 			switch message.Type() {
 			case MessageTypePush:
 				select {
