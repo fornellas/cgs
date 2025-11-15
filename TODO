@@ -1,5 +1,6 @@
 shell.go
     shell
+        queue input commands: if sending blocks (ie: waiting for grbl response), the whole ui blocks
         when port is closed externally, it freezes
         Fix race
             open

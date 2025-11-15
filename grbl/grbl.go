@@ -166,11 +166,11 @@ func (g *Grbl) messageReceiverWorker(ctx context.Context) {
 			if errors.Is(err, context.Canceled) {
 				err = nil
 			}
-			g.messageReceiverWorkerErrCh <- err
 			g.mu.Lock()
-			defer g.mu.Unlock()
 			close(g.pushMessageCh)
 			g.pushMessageCh = nil
+			g.mu.Unlock()
+			g.messageReceiverWorkerErrCh <- err
 			return
 		}
 
@@ -187,11 +187,11 @@ func (g *Grbl) messageReceiverWorker(ctx context.Context) {
 		select {
 		case messageCh <- message:
 		case <-ctx.Done():
-			g.messageReceiverWorkerErrCh <- nil
 			g.mu.Lock()
-			defer g.mu.Unlock()
 			close(g.pushMessageCh)
 			g.pushMessageCh = nil
+			g.mu.Unlock()
+			g.messageReceiverWorkerErrCh <- nil
 			return
 		}
 	}
@@ -531,23 +531,26 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (Message, error)
 // Disconnect will stop all goroutines and close the serial port.
 func (g *Grbl) Disconnect(ctx context.Context) (err error) {
 	g.mu.Lock()
-	defer g.mu.Unlock()
-	if g.port != nil {
-		g.receiveCtxCancel()
-		err = <-g.messageReceiverWorkerErrCh
-		if g.pushMessageCh != nil {
-			close(g.pushMessageCh)
-		}
-		close(g.responseMessageCh)
-		close(g.messageReceiverWorkerErrCh)
-		err = errors.Join(err, g.port.Close())
-		g.port = nil
-		g.workCoordinateOffset = nil
-		g.overrideValues = nil
-		g.receiveCtxCancel = nil
-		g.pushMessageCh = nil
-		g.responseMessageCh = nil
-		g.messageReceiverWorkerErrCh = nil
+	if g.port == nil {
+		g.mu.Unlock()
+		return
 	}
+	g.receiveCtxCancel()
+	g.mu.Unlock()
+
+	err = <-g.messageReceiverWorkerErrCh
+
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	close(g.responseMessageCh)
+	close(g.messageReceiverWorkerErrCh)
+	err = errors.Join(err, g.port.Close())
+	g.port = nil
+	g.workCoordinateOffset = nil
+	g.overrideValues = nil
+	g.receiveCtxCancel = nil
+	g.pushMessageCh = nil
+	g.responseMessageCh = nil
+	g.messageReceiverWorkerErrCh = nil
 	return
 }
