@@ -1,5 +1,6 @@
 shell.go
     shell
+        when port is closed externally, it freezes
         Fix race
             open
             $X

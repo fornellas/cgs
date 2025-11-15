@@ -326,8 +326,27 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (Message, error)
 		}
 	}
 
-	var message Message
 	var ok bool
+
+	// If a previous command context is cancelled / deadline was exceeded before the response
+	// message is processed, it'll still be in the buffer. This ensures the buffer is empty before
+	// we send the next command, ensuring the response message we get, is related to this command,
+	// not the previous.
+	for {
+		if len(g.responseMessageCh) == 0 {
+			break
+		}
+		select {
+		case _, ok = <-g.responseMessageCh:
+			if !ok {
+				return nil, fmt.Errorf("grbl: command failed: response message channel is closed")
+			}
+		case <-ctx.Done():
+			return nil, fmt.Errorf("grbl: command failed: %w", ctx.Err())
+		}
+	}
+
+	var message Message
 	select {
 	case message, ok = <-g.responseMessageCh:
 		if !ok {
