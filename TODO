@@ -2,19 +2,12 @@ shell.go
     shell
         queue input commands: if sending blocks (ie: waiting for grbl response), the whole ui blocks
         when port is closed externally, it freezes
-        Fix race
-            open
-            $X
-            !
-            ~
-            > status stops being updated, locks on exit
         when ALARM:* push message is received, update State panel
         Implement G-Code Parser State panel
             on connect & soft-reset
             omit these commands / messages by default, add toggle to enable view
         Implement G-code Parameters panel
+        Implement Send File
     grbl
-        fix race
-            struct fields MachinePosition & WorkcoordinateOffset must be made private and have methods added to access them with locks
         implement stream
         implement jogging
