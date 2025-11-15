@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"go.bug.st/serial"
@@ -93,16 +94,15 @@ var (
 )
 
 type Grbl struct {
-	openPortFn func(*serial.Mode) (serial.Port, error)
-	port       serial.Port
-	// WorkCoordinateOffset holds the newest value received via a status report.
-	WorkCoordinateOffset *StatusReportWorkCoordinateOffset
-	// OverrideValues holds the newest value received via a status report.
-	OverrideValues    *StatusReportOverrideValues
-	receiveCtxCancel  context.CancelFunc
-	pushMessageCh     chan Message
-	responseMessageCh chan Message
-	receiveDoneCh     chan error
+	mu                   sync.Mutex
+	openPortFn           func(*serial.Mode) (serial.Port, error)
+	port                 serial.Port
+	workCoordinateOffset *StatusReportWorkCoordinateOffset
+	overrideValues       *StatusReportOverrideValues
+	receiveCtxCancel     context.CancelFunc
+	pushMessageCh        chan Message
+	responseMessageCh    chan Message
+	receiveDoneCh        chan error
 }
 
 func NewGrbl(openPortFn func(*serial.Mode) (serial.Port, error)) *Grbl {
@@ -143,20 +143,76 @@ func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
 	}
 
 	if _, ok := message.(*MessagePushWelcome); ok {
-		g.WorkCoordinateOffset = nil
-		g.OverrideValues = nil
+		g.workCoordinateOffset = nil
+		g.overrideValues = nil
 	}
 
 	if messagePushStatusReport, ok := message.(*MessagePushStatusReport); ok {
 		if messagePushStatusReport.WorkCoordinateOffset != nil {
-			g.WorkCoordinateOffset = messagePushStatusReport.WorkCoordinateOffset
+			g.workCoordinateOffset = messagePushStatusReport.WorkCoordinateOffset
 		}
 		if messagePushStatusReport.OverrideValues != nil {
-			g.OverrideValues = messagePushStatusReport.OverrideValues
+			g.overrideValues = messagePushStatusReport.OverrideValues
 		}
 	}
 
 	return message, nil
+}
+
+func (g *Grbl) receiveLoop(ctx context.Context) {
+	for {
+		message, err := g.receiveMessage(ctx)
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
+			g.receiveDoneCh <- err
+			close(g.pushMessageCh)
+			close(g.responseMessageCh)
+			return
+		}
+
+		switch message.Type() {
+		case MessageTypePush:
+			select {
+			case g.pushMessageCh <- message:
+			case <-ctx.Done():
+				g.receiveDoneCh <- nil
+				close(g.pushMessageCh)
+				close(g.responseMessageCh)
+				return
+			}
+		case MessageTypeResponse:
+			select {
+			case g.responseMessageCh <- message:
+			case <-ctx.Done():
+				g.receiveDoneCh <- nil
+				close(g.pushMessageCh)
+				close(g.responseMessageCh)
+				return
+			}
+		default:
+			panic(fmt.Sprintf("bug: unexpected message type: %#v", message.Type()))
+		}
+	}
+}
+
+func (g *Grbl) waitForWelcomeMessage(ctx context.Context) (chan Message, error) {
+	welcomeCtx, welcomeCtxCancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
+	defer welcomeCtxCancel()
+	for {
+		select {
+		case message, ok := <-g.pushMessageCh:
+			if !ok {
+				return nil, g.Disconnect(ctx)
+			}
+			if _, ok := message.(*MessagePushWelcome); ok {
+				return g.pushMessageCh, nil
+			}
+		case <-welcomeCtx.Done():
+			return nil, errors.Join(welcomeCtx.Err(), g.Disconnect(ctx))
+		}
+	}
 }
 
 // Connect opens the serial connection and waits for Grbl reset.
@@ -190,78 +246,31 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 
 	g.port = port
 
-	g.WorkCoordinateOffset = nil
-	g.OverrideValues = nil
+	g.workCoordinateOffset = nil
+	g.overrideValues = nil
 
 	var receiveCtx context.Context
 	receiveCtx, g.receiveCtxCancel = context.WithCancel(ctx)
-	g.pushMessageCh = make(chan Message)
-	g.responseMessageCh = make(chan Message)
+	g.pushMessageCh = make(chan Message, 50)
+	g.responseMessageCh = make(chan Message, 50)
 	g.receiveDoneCh = make(chan error, 1)
+	go g.receiveLoop(receiveCtx)
 
-	go func() {
-		for {
-			message, err := g.receiveMessage(receiveCtx)
-			if err != nil {
-				if errors.Is(err, context.Canceled) {
-					err = nil
-				}
-				g.receiveDoneCh <- err
-				close(g.pushMessageCh)
-				close(g.responseMessageCh)
-				return
-			}
-
-			switch message.Type() {
-			case MessageTypePush:
-				select {
-				case g.pushMessageCh <- message:
-				case <-receiveCtx.Done():
-					g.receiveDoneCh <- nil
-					close(g.pushMessageCh)
-					close(g.responseMessageCh)
-					return
-				}
-			case MessageTypeResponse:
-				select {
-				case g.responseMessageCh <- message:
-				case <-receiveCtx.Done():
-					g.receiveDoneCh <- nil
-					close(g.pushMessageCh)
-					close(g.responseMessageCh)
-					return
-				}
-			default:
-				panic(fmt.Sprintf("bug: unexpected message type: %#v", message.Type()))
-			}
-		}
-	}()
-
-	welcomeCtx, welcomeCtxCancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
-	defer welcomeCtxCancel()
-	for {
-		select {
-		case message, ok := <-g.pushMessageCh:
-			if !ok {
-				return nil, g.Disconnect(ctx)
-			}
-			if _, ok := message.(*MessagePushWelcome); ok {
-				return g.pushMessageCh, nil
-			}
-		case <-welcomeCtx.Done():
-			return nil, errors.Join(welcomeCtx.Err(), g.Disconnect(ctx))
-		}
-	}
+	return g.waitForWelcomeMessage(ctx)
 }
 
-func (g *Grbl) Disconnect(ctx context.Context) (err error) {
-	if g.port != nil {
-		g.receiveCtxCancel()
-		err = <-g.receiveDoneCh
-		err = errors.Join(err, g.port.Close())
-		g.port = nil
-	}
-	return
+// GetWorkCoordinateOffset returns the newest value received via a push message status report.
+func (g *Grbl) GetWorkCoordinateOffset() *StatusReportWorkCoordinateOffset {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.workCoordinateOffset
+}
+
+// GetOverrideValues returns the newest value received via a push message status report.
+func (g *Grbl) GetOverrideValues() *StatusReportOverrideValues {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.overrideValues
 }
 
 // SendRealTimeCommand issues a real time command to Grbl.
@@ -480,3 +489,13 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (Message, error)
 
 // 	return nil
 // }
+
+func (g *Grbl) Disconnect(ctx context.Context) (err error) {
+	if g.port != nil {
+		g.receiveCtxCancel()
+		err = <-g.receiveDoneCh
+		err = errors.Join(err, g.port.Close())
+		g.port = nil
+	}
+	return
+}

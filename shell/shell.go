@@ -217,15 +217,15 @@ func (s *Shell) writePositionStatus(w io.Writer, statusReport *grblMod.MessagePu
 		my = &statusReport.MachinePosition.Y
 		mz = &statusReport.MachinePosition.Z
 		ma = statusReport.MachinePosition.A
-		if s.grbl.WorkCoordinateOffset != nil {
-			wxv := statusReport.MachinePosition.X - s.grbl.WorkCoordinateOffset.X
+		if s.grbl.GetWorkCoordinateOffset() != nil {
+			wxv := statusReport.MachinePosition.X - s.grbl.GetWorkCoordinateOffset().X
 			wx = &wxv
-			wyv := statusReport.MachinePosition.Y - s.grbl.WorkCoordinateOffset.Y
+			wyv := statusReport.MachinePosition.Y - s.grbl.GetWorkCoordinateOffset().Y
 			wy = &wyv
-			wzv := statusReport.MachinePosition.Z - s.grbl.WorkCoordinateOffset.Z
+			wzv := statusReport.MachinePosition.Z - s.grbl.GetWorkCoordinateOffset().Z
 			wz = &wzv
-			if statusReport.MachinePosition.A != nil && s.grbl.WorkCoordinateOffset.A != nil {
-				wav := *statusReport.MachinePosition.A - *s.grbl.WorkCoordinateOffset.A
+			if statusReport.MachinePosition.A != nil && s.grbl.GetWorkCoordinateOffset().A != nil {
+				wav := *statusReport.MachinePosition.A - *s.grbl.GetWorkCoordinateOffset().A
 				wa = &wav
 			}
 		}
@@ -235,15 +235,15 @@ func (s *Shell) writePositionStatus(w io.Writer, statusReport *grblMod.MessagePu
 		wy = &statusReport.WorkPosition.Y
 		wz = &statusReport.WorkPosition.Z
 		wa = statusReport.WorkPosition.A
-		if s.grbl.WorkCoordinateOffset != nil {
-			mxv := statusReport.WorkPosition.X - s.grbl.WorkCoordinateOffset.X
+		if s.grbl.GetWorkCoordinateOffset() != nil {
+			mxv := statusReport.WorkPosition.X - s.grbl.GetWorkCoordinateOffset().X
 			mx = &mxv
-			myv := statusReport.WorkPosition.Y - s.grbl.WorkCoordinateOffset.Y
+			myv := statusReport.WorkPosition.Y - s.grbl.GetWorkCoordinateOffset().Y
 			my = &myv
-			mzv := statusReport.WorkPosition.Z - s.grbl.WorkCoordinateOffset.Z
+			mzv := statusReport.WorkPosition.Z - s.grbl.GetWorkCoordinateOffset().Z
 			mz = &mzv
-			if statusReport.WorkPosition.A != nil && s.grbl.WorkCoordinateOffset.A != nil {
-				mav := *statusReport.WorkPosition.A - *s.grbl.WorkCoordinateOffset.A
+			if statusReport.WorkPosition.A != nil && s.grbl.GetWorkCoordinateOffset().A != nil {
+				mav := *statusReport.WorkPosition.A - *s.grbl.GetWorkCoordinateOffset().A
 				ma = &mav
 			}
 		}
@@ -338,11 +338,11 @@ func (s *Shell) updateStatusReport(
 		fmt.Fprintf(statusView, "\nPin:%s\n", statusReport.PinState)
 	}
 
-	if s.grbl.OverrideValues != nil {
+	if s.grbl.GetOverrideValues() != nil {
 		fmt.Fprint(statusView, "\nOverrides\n")
-		fmt.Fprintf(statusView, "Feed:%.0f%%\n", s.grbl.OverrideValues.Feed)
-		fmt.Fprintf(statusView, "Rapids:%.0f%%\n", s.grbl.OverrideValues.Rapids)
-		fmt.Fprintf(statusView, "Spindle:%.0f%%\n", s.grbl.OverrideValues.Spindle)
+		fmt.Fprintf(statusView, "Feed:%.0f%%\n", s.grbl.GetOverrideValues().Feed)
+		fmt.Fprintf(statusView, "Rapids:%.0f%%\n", s.grbl.GetOverrideValues().Rapids)
+		fmt.Fprintf(statusView, "Spindle:%.0f%%\n", s.grbl.GetOverrideValues().Spindle)
 	}
 
 	if statusReport.AccessoryState != nil {
