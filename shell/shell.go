@@ -339,31 +339,37 @@ func (s *Shell) writePositionStatus(w io.Writer, statusReport *grblMod.MessagePu
 	}
 }
 
-//gocyclo:ignore
-func (s *Shell) updateStatusReport(
+func (s *Shell) updateState(
 	stateView *tview.TextView,
-	statusView *tview.TextView,
-	statusReport *grblMod.MessagePushStatusReport,
+	state string,
+	subState string,
 ) {
-	stateColor := getMachineStateColor(statusReport.MachineState.State)
+	stateColor := getMachineStateColor(state)
 
 	stateView.Clear()
 	stateView.SetBackgroundColor(stateColor)
 	_, _, stateViewWidth, _ := stateView.GetRect()
-	state := statusReport.MachineState.State
 	fmt.Fprintf(
 		stateView, "%s%s\n",
 		strings.Repeat(" ", (stateViewWidth-2-len(state))/2),
 		tview.Escape(state),
 	)
-	if statusReport.MachineState.SubState != nil {
-		subState := statusReport.MachineState.SubStateString()
+	if len(subState) > 0 {
 		fmt.Fprintf(
 			stateView, "%s(%s)\n",
 			strings.Repeat(" ", (stateViewWidth-4-len(subState))/2),
 			tview.Escape(subState),
 		)
 	}
+}
+
+//gocyclo:ignore
+func (s *Shell) updateStatusReport(
+	stateView *tview.TextView,
+	statusView *tview.TextView,
+	statusReport *grblMod.MessagePushStatusReport,
+) {
+	s.updateState(stateView, statusReport.MachineState.State, statusReport.MachineState.SubStateString())
 
 	statusView.Clear()
 
