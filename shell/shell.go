@@ -460,6 +460,7 @@ func (s *Shell) pushMessageWorker(
 				detailsFn = func() {
 					fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", color, tview.Escape(messagePushAlarm.Error().Error()))
 				}
+				s.updateState(stateTextView, "Alarm", "")
 			}
 			if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
 				color = getMachineStateColor(messagePushStatusReport.MachineState.State)
