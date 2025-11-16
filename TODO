@@ -1,6 +1,5 @@
 shell.go
     shell
-        when ALARM:* push message is received, update State panel
         Implement G-Code Parser State panel
             on connect & soft-reset
             omit these commands / messages by default, add toggle to enable view
@@ -11,6 +10,7 @@ shell.go
         Implement scripting
             https://github.com/google/starlark-go
             https://github.com/d5/tengo
+        Log handling
     grbl
         implement stream
         implement jogging

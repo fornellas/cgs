@@ -422,6 +422,55 @@ func (s *Shell) updateStatusReport(
 	}
 }
 
+func (s *Shell) processMessagePushWelcome(
+	_ *grblMod.MessagePushWelcome,
+	realTimeTextView *tview.TextView,
+	stateTextView *tview.TextView,
+	statusTextView *tview.TextView,
+	feedbackTextView *tview.TextView,
+) (func(), tcell.Color) {
+	color := tcell.ColorYellow
+	detailsFn := func() {
+		fmt.Fprintf(realTimeTextView, "[%s]Soft-Reset detected[-]\n", color)
+	}
+	stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+	stateTextView.Clear()
+	statusTextView.Clear()
+	feedbackTextView.SetText("")
+	return detailsFn, color
+}
+
+func (s *Shell) processMessagePushAlarm(
+	messagePushAlarm *grblMod.MessagePushAlarm,
+	realTimeTextView *tview.TextView,
+	stateTextView *tview.TextView,
+) (func(), tcell.Color) {
+	color := tcell.ColorRed
+	detailsFn := func() {
+		fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", color, tview.Escape(messagePushAlarm.Error().Error()))
+	}
+	s.updateState(stateTextView, "Alarm", "")
+	return detailsFn, color
+}
+
+func (s *Shell) processMessagePushStatusReport(
+	messagePushStatusReport *grblMod.MessagePushStatusReport,
+	stateTextView *tview.TextView,
+	statusTextView *tview.TextView,
+) (func(), tcell.Color) {
+	color := getMachineStateColor(messagePushStatusReport.MachineState.State)
+	s.updateStatusReport(stateTextView, statusTextView, messagePushStatusReport)
+	return nil, color
+}
+
+func (s *Shell) processMessagePushFeedback(
+	messagePushFeedback *grblMod.MessagePushFeedback,
+	feedbackTextView *tview.TextView,
+) (func(), tcell.Color) {
+	feedbackTextView.SetText(messagePushFeedback.Text())
+	return nil, tcell.ColorGreen
+}
+
 func (s *Shell) pushMessageWorker(
 	ctx context.Context,
 	realTimeTextView *tview.TextView,
@@ -445,32 +494,28 @@ func (s *Shell) pushMessageWorker(
 
 			var color = tcell.ColorGreen
 			var detailsFn func()
-			if _, ok := message.(*grblMod.MessagePushWelcome); ok {
-				color = tcell.ColorYellow
-				detailsFn = func() {
-					fmt.Fprintf(realTimeTextView, "[%s]Soft-Reset detected[-]\n", color)
-				}
-				stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
-				stateTextView.Clear()
-				statusTextView.Clear()
-				feedbackTextView.SetText("")
+			if messagePushWelcome, ok := message.(*grblMod.MessagePushWelcome); ok {
+				detailsFn, color = s.processMessagePushWelcome(
+					messagePushWelcome, realTimeTextView, stateTextView, statusTextView, feedbackTextView,
+				)
 			}
 			if messagePushAlarm, ok := message.(*grblMod.MessagePushAlarm); ok {
-				color = tcell.ColorRed
-				detailsFn = func() {
-					fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", color, tview.Escape(messagePushAlarm.Error().Error()))
-				}
-				s.updateState(stateTextView, "Alarm", "")
+				detailsFn, color = s.processMessagePushAlarm(
+					messagePushAlarm, realTimeTextView, stateTextView,
+				)
 			}
 			if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-				color = getMachineStateColor(messagePushStatusReport.MachineState.State)
-				s.updateStatusReport(stateTextView, statusTextView, messagePushStatusReport)
+				detailsFn, color = s.processMessagePushStatusReport(
+					messagePushStatusReport, stateTextView, statusTextView,
+				)
 				if !s.displayStatusComms {
 					continue
 				}
 			}
 			if messagePushFeedback, ok := message.(*grblMod.MessagePushFeedback); ok {
-				feedbackTextView.SetText(messagePushFeedback.Text())
+				detailsFn, color = s.processMessagePushFeedback(
+					messagePushFeedback, feedbackTextView,
+				)
 			}
 			text := message.String()
 			if len(text) == 0 {
