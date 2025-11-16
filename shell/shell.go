@@ -160,7 +160,6 @@ func (s *Shell) getApp(
 	stateTextView := s.getStateTextView(app)
 	statusTextView := s.getStatusTextView(app)
 	commandInputField := s.getCommandInputField(sendCommandCh)
-	app.SetFocus(commandInputField)
 	rootFlex := tview.NewFlex().
 		AddItem(
 			tview.NewFlex().SetDirection(tview.FlexRow).
@@ -185,7 +184,7 @@ func (s *Shell) getApp(
 				AddItem(commandInputField, 1, 0, false),
 			0, 1, false,
 		)
-	app.SetRoot(rootFlex, true)
+	app.SetRoot(rootFlex, true).SetFocus(commandInputField)
 	return app,
 		commandsTextView,
 		realTimeTextView,
