@@ -115,10 +115,7 @@ func (s *Shell) getStatusTextView(app *tview.Application) *tview.TextView {
 	return statusTextView
 }
 
-func (s *Shell) getCommandInputField(
-	ctx context.Context,
-	commandsTextView *tview.TextView,
-) *tview.InputField {
+func (s *Shell) getCommandInputField(commandCh chan string) *tview.InputField {
 	commandInputField := tview.NewInputField().
 		SetLabel("Command: ")
 	commandInputField.SetDoneFunc(func(key tcell.Key) {
@@ -127,86 +124,137 @@ func (s *Shell) getCommandInputField(
 			commandInputField.SetText("")
 		case tcell.KeyEnter:
 			command := commandInputField.GetText()
-			if command != "" {
-				fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(command))
-				// FIXME $H (and maybe others) require bigger timeout
-				// FIXME ! (and maybe others) "sometimes" don't return message
-				ctx, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second))
-				defer cancel()
-				message, err := s.grbl.SendCommand(ctx, command)
-				if err != nil {
-					fmt.Fprintf(commandsTextView, "[%s]Failed to send: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
-				} else {
-					messageResponse := message.(*grblMod.MessageResponse)
-					if messageResponse.Error() == nil {
-						fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorGreen, tview.Escape(messageResponse.String()))
-					} else {
-						fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.String()))
-						fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.Error().Error()))
-					}
-				}
-				commandInputField.SetText("")
+			if command == "" {
+				return
 			}
+			commandCh <- command
+			commandInputField.SetText("")
 		}
 	})
 	return commandInputField
 }
 
-func (s *Shell) pushMessageReceiver(
-	ctx context.Context,
-	pushMessageDoneCh chan struct{},
-	pushMessageCh chan grblMod.Message,
-	realTimeTextView *tview.TextView,
-	stateTextView *tview.TextView,
-	statusTextView *tview.TextView,
-	feedbackTextView *tview.TextView,
+func (s *Shell) getApp(
+	sendCommandCh chan string,
+	sendRealTimeCommandCh chan grblMod.RealTimeCommand,
+) (
+	*tview.Application,
+	*tview.TextView,
+	*tview.TextView,
+	*tview.TextView,
+	*tview.TextView,
+	*tview.TextView,
 ) {
-	defer func() { pushMessageDoneCh <- struct{}{} }()
+	app := tview.NewApplication()
+	app.EnableMouse(true)
+	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyCtrlX {
+			sendRealTimeCommandCh <- grblMod.RealTimeCommandSoftReset
+			return nil
+		}
+		return event
+	})
+	commandsTextView := s.getCommandsTextView(app)
+	realTimeTextView := s.getRealTimeTextView(app)
+	feedbackTextView := s.getFeedbackTextView(app)
+	stateTextView := s.getStateTextView(app)
+	statusTextView := s.getStatusTextView(app)
+	commandInputField := s.getCommandInputField(sendCommandCh)
+	app.SetFocus(commandInputField)
+	rootFlex := tview.NewFlex().
+		AddItem(
+			tview.NewFlex().SetDirection(tview.FlexRow).
+				AddItem(
+					tview.NewFlex().
+						AddItem(
+							tview.NewFlex().SetDirection(tview.FlexRow).
+								AddItem(realTimeTextView, 0, 1, false).
+								AddItem(commandsTextView, 0, 1, false),
+							0, 3, false,
+						).
+						AddItem(tview.NewBox().SetBorder(true).SetTitle("G-Code Parser"), 0, 1, false).
+						AddItem(
+							tview.NewFlex().SetDirection(tview.FlexRow).
+								AddItem(stateTextView, 4, 0, false).
+								AddItem(statusTextView, 0, 1, false),
+							14, 0, false,
+						),
+					0, 1, false,
+				).
+				AddItem(feedbackTextView, 1, 0, false).
+				AddItem(commandInputField, 1, 0, false),
+			0, 1, false,
+		)
+	app.SetRoot(rootFlex, true)
+	return app,
+		commandsTextView,
+		realTimeTextView,
+		feedbackTextView,
+		stateTextView,
+		statusTextView
+}
+
+func (s *Shell) sendCommandWorker(
+	ctx context.Context,
+	commandsTextView *tview.TextView,
+	sendCommandCh chan string,
+	sendCommandWorkerErrCh chan error,
+) {
 	for {
 		select {
 		case <-ctx.Done():
+			sendCommandWorkerErrCh <- ctx.Err()
 			return
-		case message, ok := <-pushMessageCh:
-			if !ok {
-				return
-			}
-
-			var color = tcell.ColorGreen
-			var detailsFn func()
-			if _, ok := message.(*grblMod.MessagePushWelcome); ok {
-				color = tcell.ColorYellow
-				detailsFn = func() {
-					fmt.Fprintf(realTimeTextView, "[%s]Soft-Reset detected[-]\n", color)
-				}
-				stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
-				stateTextView.Clear()
-				statusTextView.Clear()
-				feedbackTextView.SetText("")
-			}
-			if messagePushAlarm, ok := message.(*grblMod.MessagePushAlarm); ok {
-				color = tcell.ColorRed
-				detailsFn = func() {
-					fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", color, tview.Escape(messagePushAlarm.Error().Error()))
-				}
-			}
-			if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-				color = getMachineStateColor(messagePushStatusReport.MachineState.State)
-				s.updateStatusReport(stateTextView, statusTextView, messagePushStatusReport)
-				if !s.displayStatusComms {
-					continue
-				}
-			}
-			if messagePushFeedback, ok := message.(*grblMod.MessagePushFeedback); ok {
-				feedbackTextView.SetText(messagePushFeedback.Text())
-			}
-			text := message.String()
-			if len(text) == 0 {
-				fmt.Fprintf(realTimeTextView, "\n\n")
+		case command := <-sendCommandCh:
+			fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(command))
+			// FIXME $H (and maybe others) require bigger timeout
+			// FIXME ! (and maybe others) "sometimes" don't return message
+			ctx, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second))
+			defer cancel()
+			message, err := s.grbl.SendCommand(ctx, command)
+			if err != nil {
+				fmt.Fprintf(commandsTextView, "[%s]Failed to send: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
 			} else {
-				fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", color, tview.Escape(text))
+				messageResponse := message.(*grblMod.MessageResponse)
+				if messageResponse.Error() == nil {
+					fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorGreen, tview.Escape(messageResponse.String()))
+				} else {
+					fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.String()))
+					fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.Error().Error()))
+				}
 			}
-			if detailsFn != nil {
-				detailsFn()
+		}
+	}
+}
+
+func (s *Shell) sendRealTimeCommand(
+	ctx context.Context,
+	cmd grblMod.RealTimeCommand,
+	realTimeTextView *tview.TextView,
+) error {
+	if err := s.grbl.SendRealTimeCommand(ctx, cmd); err != nil {
+		return err
+	}
+	if s.displayStatusComms || cmd != grblMod.RealTimeCommandStatusReportQuery {
+		fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(cmd.String()))
+	}
+	return nil
+}
+
+func (s *Shell) sendRealTimeCommandWorker(
+	ctx context.Context,
+	realTimeTextView *tview.TextView,
+	sendRealTimeCommandCh chan grblMod.RealTimeCommand,
+	sendRealTimeCommandWorkerErrCh chan error,
+) {
+	for {
+		select {
+		case <-ctx.Done():
+			sendRealTimeCommandWorkerErrCh <- ctx.Err()
+			return
+		case realTimeCommand := <-sendRealTimeCommandCh:
+			if err := s.sendRealTimeCommand(ctx, realTimeCommand, realTimeTextView); err != nil {
+				fmt.Fprintf(realTimeTextView, "[%s]Failed to send soft reset: %s[-]\n", tcell.ColorRed, err)
 			}
 		}
 	}
@@ -365,32 +413,82 @@ func (s *Shell) updateStatusReport(
 	}
 }
 
-func (s *Shell) sendRealTimeCommand(ctx context.Context, cmd grblMod.RealTimeCommand, realTimeTextView *tview.TextView) error {
-	if err := s.grbl.SendRealTimeCommand(ctx, cmd); err != nil {
-		return err
-	}
-	if s.displayStatusComms || cmd != grblMod.RealTimeCommandStatusReportQuery {
-		fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(cmd.String()))
-	}
-	return nil
-}
-
-func (s *Shell) statusQueryWorker(ctx context.Context, doneCh chan error) {
+func (s *Shell) pushMessageWorker(
+	ctx context.Context,
+	realTimeTextView *tview.TextView,
+	stateTextView *tview.TextView,
+	statusTextView *tview.TextView,
+	feedbackTextView *tview.TextView,
+	pushMessageCh chan grblMod.Message,
+	pushMessageErrCh chan error,
+) {
+	defer func() { pushMessageErrCh <- nil }()
 	for {
 		select {
 		case <-ctx.Done():
-			doneCh <- nil
+			return
+		case message, ok := <-pushMessageCh:
+			if !ok {
+				return
+			}
+
+			var color = tcell.ColorGreen
+			var detailsFn func()
+			if _, ok := message.(*grblMod.MessagePushWelcome); ok {
+				color = tcell.ColorYellow
+				detailsFn = func() {
+					fmt.Fprintf(realTimeTextView, "[%s]Soft-Reset detected[-]\n", color)
+				}
+				stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+				stateTextView.Clear()
+				statusTextView.Clear()
+				feedbackTextView.SetText("")
+			}
+			if messagePushAlarm, ok := message.(*grblMod.MessagePushAlarm); ok {
+				color = tcell.ColorRed
+				detailsFn = func() {
+					fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", color, tview.Escape(messagePushAlarm.Error().Error()))
+				}
+			}
+			if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
+				color = getMachineStateColor(messagePushStatusReport.MachineState.State)
+				s.updateStatusReport(stateTextView, statusTextView, messagePushStatusReport)
+				if !s.displayStatusComms {
+					continue
+				}
+			}
+			if messagePushFeedback, ok := message.(*grblMod.MessagePushFeedback); ok {
+				feedbackTextView.SetText(messagePushFeedback.Text())
+			}
+			text := message.String()
+			if len(text) == 0 {
+				fmt.Fprintf(realTimeTextView, "\n\n")
+			} else {
+				fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", color, tview.Escape(text))
+			}
+			if detailsFn != nil {
+				detailsFn()
+			}
+		}
+	}
+}
+
+func (s *Shell) statusQueryWorker(ctx context.Context, statusQueryErrCh chan error) {
+	for {
+		select {
+		case <-ctx.Done():
+			statusQueryErrCh <- nil
 			return
 		case <-time.After(200 * time.Millisecond):
 			if err := s.grbl.SendRealTimeCommand(ctx, grblMod.RealTimeCommandStatusReportQuery); err != nil {
-				doneCh <- fmt.Errorf("failed to send periodic status query real-time command: %w", err)
+				statusQueryErrCh <- fmt.Errorf("failed to send periodic status query real-time command: %w", err)
 				return
 			}
 		}
 	}
 }
 
-func (s *Shell) Run(ctx context.Context) error {
+func (s *Shell) Run(ctx context.Context) (err error) {
 	logger := log.MustLogger(ctx)
 	logger.Info("Connecting")
 
@@ -398,76 +496,61 @@ func (s *Shell) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	pushMessageDoneCh := make(chan struct{})
-	statusQueryWorkerErrCh := make(chan error)
-	statusQueryWorkerCtx, statusQueryWorkerCancel := context.WithCancel(ctx)
-	go s.statusQueryWorker(statusQueryWorkerCtx, statusQueryWorkerErrCh)
-	defer func() {
-		logger.Info("Stopping status query worker")
-		statusQueryWorkerCancel()
-		if statusQueryErr := <-statusQueryWorkerErrCh; statusQueryErr != nil {
-			err = errors.Join(err, statusQueryErr)
-		}
-		logger.Info("Disconnecting")
-		err = errors.Join(err, s.grbl.Disconnect(ctx))
-		logger.Info("waiting for push message receiver")
-		<-pushMessageDoneCh
-	}()
 
-	app := tview.NewApplication()
-	app.EnableMouse(true)
+	ctx, cancel := context.WithCancel(ctx)
 
-	commandsTextView := s.getCommandsTextView(app)
-	realTimeTextView := s.getRealTimeTextView(app)
-	feedbackTextView := s.getFeedbackTextView(app)
-	stateTextView := s.getStateTextView(app)
-	statusTextView := s.getStatusTextView(app)
-	commandInputField := s.getCommandInputField(ctx, commandsTextView)
+	sendCommandCh := make(chan string, 10)
+	sendCommandWorkerErrCh := make(chan error)
 
-	go s.pushMessageReceiver(
+	sendRealTimeCommandCh := make(chan grblMod.RealTimeCommand, 10)
+	sendRealTimeCommandWorkerErrCh := make(chan error)
+
+	pushMessageErrCh := make(chan error)
+
+	statusQueryErrCh := make(chan error)
+
+	app,
+		commandsTextView,
+		realTimeTextView,
+		feedbackTextView,
+		stateTextView,
+		statusTextView := s.getApp(sendCommandCh, sendRealTimeCommandCh)
+
+	// FIXME cancel context if any worker fails
+	go s.sendCommandWorker(
 		ctx,
-		pushMessageDoneCh,
-		pushMessageCh,
+		commandsTextView,
+		sendCommandCh,
+		sendCommandWorkerErrCh,
+	)
+	go s.sendRealTimeCommandWorker(
+		ctx,
+		realTimeTextView,
+		sendRealTimeCommandCh,
+		sendRealTimeCommandWorkerErrCh,
+	)
+	go s.pushMessageWorker(
+		ctx,
 		realTimeTextView,
 		stateTextView,
 		statusTextView,
 		feedbackTextView,
+		pushMessageCh,
+		pushMessageErrCh,
+	)
+	go s.statusQueryWorker(
+		ctx,
+		statusQueryErrCh,
 	)
 
-	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyCtrlX {
-			if err := s.sendRealTimeCommand(ctx, grblMod.RealTimeCommandSoftReset, realTimeTextView); err != nil {
-				fmt.Fprintf(realTimeTextView, "[%s]Failed to send soft reset: %s[-]\n", tcell.ColorRed, err)
-			}
-			return nil
-		}
-		return event
-	})
+	defer func() {
+		cancel()
+		err = errors.Join(err, <-sendCommandWorkerErrCh)
+		err = errors.Join(err, <-sendRealTimeCommandWorkerErrCh)
+		err = errors.Join(err, <-pushMessageErrCh)
+		err = errors.Join(err, <-statusQueryErrCh)
+		err = errors.Join(err, s.grbl.Disconnect(ctx))
+	}()
 
-	rootFlex := tview.NewFlex().
-		AddItem(
-			tview.NewFlex().SetDirection(tview.FlexRow).
-				AddItem(
-					tview.NewFlex().
-						AddItem(
-							tview.NewFlex().SetDirection(tview.FlexRow).
-								AddItem(realTimeTextView, 0, 1, false).
-								AddItem(commandsTextView, 0, 1, false),
-							0, 3, false,
-						).
-						AddItem(tview.NewBox().SetBorder(true).SetTitle("G-Code Parser"), 0, 1, false).
-						AddItem(
-							tview.NewFlex().SetDirection(tview.FlexRow).
-								AddItem(stateTextView, 4, 0, false).
-								AddItem(statusTextView, 0, 1, false),
-							14, 0, false,
-						),
-					0, 1, false,
-				).
-				AddItem(feedbackTextView, 1, 0, false).
-				AddItem(commandInputField, 1, 0, false),
-			0, 1, false,
-		)
-
-	return app.SetRoot(rootFlex, true).SetFocus(commandInputField).Run()
+	return app.Run()
 }
