@@ -1,13 +1,16 @@
 shell.go
     shell
-        queue input commands: if sending blocks (ie: waiting for grbl response), the whole ui blocks
-        when port is closed externally, it freezes
         when ALARM:* push message is received, update State panel
         Implement G-Code Parser State panel
             on connect & soft-reset
             omit these commands / messages by default, add toggle to enable view
         Implement G-code Parameters panel
         Implement Send File
+        Implement jogging
+        Implement Grbl commands
+        Implement scripting
+            https://github.com/google/starlark-go
+            https://github.com/d5/tengo
     grbl
         implement stream
         implement jogging

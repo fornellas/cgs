@@ -507,14 +507,14 @@ func (s *Shell) Run(ctx context.Context) (err error) {
 	ctx, cancelFn := context.WithCancel(ctx)
 
 	sendCommandCh := make(chan string, 10)
-	sendCommandWorkerErrCh := make(chan error)
+	sendCommandWorkerErrCh := make(chan error, 1)
 
 	sendRealTimeCommandCh := make(chan grblMod.RealTimeCommand, 10)
-	sendRealTimeCommandWorkerErrCh := make(chan error)
+	sendRealTimeCommandWorkerErrCh := make(chan error, 1)
 
-	pushMessageErrCh := make(chan error)
+	pushMessageErrCh := make(chan error, 1)
 
-	statusQueryErrCh := make(chan error)
+	statusQueryErrCh := make(chan error, 1)
 
 	app,
 		commandsTextView,
@@ -525,24 +525,28 @@ func (s *Shell) Run(ctx context.Context) (err error) {
 
 	go func() {
 		defer cancelFn()
+		defer app.Stop()
 		sendCommandWorkerErrCh <- s.sendCommandWorker(
 			ctx, commandsTextView, sendCommandCh,
 		)
 	}()
 	go func() {
 		defer cancelFn()
+		defer app.Stop()
 		sendRealTimeCommandWorkerErrCh <- s.sendRealTimeCommandWorker(
 			ctx, realTimeTextView, sendRealTimeCommandCh,
 		)
 	}()
 	go func() {
 		defer cancelFn()
+		defer app.Stop()
 		pushMessageErrCh <- s.pushMessageWorker(
 			ctx, realTimeTextView, stateTextView, statusTextView, feedbackTextView, pushMessageCh,
 		)
 	}()
 	go func() {
 		defer cancelFn()
+		defer app.Stop()
 		statusQueryErrCh <- s.statusQueryWorker(ctx)
 	}()
 
