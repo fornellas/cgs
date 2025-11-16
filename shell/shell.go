@@ -197,13 +197,15 @@ func (s *Shell) sendCommandWorker(
 	ctx context.Context,
 	commandsTextView *tview.TextView,
 	sendCommandCh chan string,
-	sendCommandWorkerErrCh chan error,
-) {
+) error {
 	for {
 		select {
 		case <-ctx.Done():
-			sendCommandWorkerErrCh <- ctx.Err()
-			return
+			err := ctx.Err()
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
+			return err
 		case command := <-sendCommandCh:
 			fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(command))
 			// FIXME $H (and maybe others) require bigger timeout
@@ -244,13 +246,15 @@ func (s *Shell) sendRealTimeCommandWorker(
 	ctx context.Context,
 	realTimeTextView *tview.TextView,
 	sendRealTimeCommandCh chan grblMod.RealTimeCommand,
-	sendRealTimeCommandWorkerErrCh chan error,
-) {
+) error {
 	for {
 		select {
 		case <-ctx.Done():
-			sendRealTimeCommandWorkerErrCh <- ctx.Err()
-			return
+			err := ctx.Err()
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
+			return err
 		case realTimeCommand := <-sendRealTimeCommandCh:
 			if err := s.sendRealTimeCommand(ctx, realTimeCommand, realTimeTextView); err != nil {
 				fmt.Fprintf(realTimeTextView, "[%s]Failed to send soft reset: %s[-]\n", tcell.ColorRed, err)
@@ -419,16 +423,18 @@ func (s *Shell) pushMessageWorker(
 	statusTextView *tview.TextView,
 	feedbackTextView *tview.TextView,
 	pushMessageCh chan grblMod.Message,
-	pushMessageErrCh chan error,
-) {
-	defer func() { pushMessageErrCh <- nil }()
+) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			err := ctx.Err()
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
+			return err
 		case message, ok := <-pushMessageCh:
 			if !ok {
-				return
+				return fmt.Errorf("push message channel closed")
 			}
 
 			var color = tcell.ColorGreen
@@ -472,16 +478,18 @@ func (s *Shell) pushMessageWorker(
 	}
 }
 
-func (s *Shell) statusQueryWorker(ctx context.Context, statusQueryErrCh chan error) {
+func (s *Shell) statusQueryWorker(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			statusQueryErrCh <- nil
-			return
+			err := ctx.Err()
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
+			return err
 		case <-time.After(200 * time.Millisecond):
 			if err := s.grbl.SendRealTimeCommand(ctx, grblMod.RealTimeCommandStatusReportQuery); err != nil {
-				statusQueryErrCh <- fmt.Errorf("failed to send periodic status query real-time command: %w", err)
-				return
+				return fmt.Errorf("failed to send periodic status query real-time command: %w", err)
 			}
 		}
 	}
@@ -496,7 +504,7 @@ func (s *Shell) Run(ctx context.Context) (err error) {
 		return err
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancelFn := context.WithCancel(ctx)
 
 	sendCommandCh := make(chan string, 10)
 	sendCommandWorkerErrCh := make(chan error)
@@ -515,35 +523,31 @@ func (s *Shell) Run(ctx context.Context) (err error) {
 		stateTextView,
 		statusTextView := s.getApp(sendCommandCh, sendRealTimeCommandCh)
 
-	// FIXME cancel context if any worker fails
-	go s.sendCommandWorker(
-		ctx,
-		commandsTextView,
-		sendCommandCh,
-		sendCommandWorkerErrCh,
-	)
-	go s.sendRealTimeCommandWorker(
-		ctx,
-		realTimeTextView,
-		sendRealTimeCommandCh,
-		sendRealTimeCommandWorkerErrCh,
-	)
-	go s.pushMessageWorker(
-		ctx,
-		realTimeTextView,
-		stateTextView,
-		statusTextView,
-		feedbackTextView,
-		pushMessageCh,
-		pushMessageErrCh,
-	)
-	go s.statusQueryWorker(
-		ctx,
-		statusQueryErrCh,
-	)
+	go func() {
+		defer cancelFn()
+		sendCommandWorkerErrCh <- s.sendCommandWorker(
+			ctx, commandsTextView, sendCommandCh,
+		)
+	}()
+	go func() {
+		defer cancelFn()
+		sendRealTimeCommandWorkerErrCh <- s.sendRealTimeCommandWorker(
+			ctx, realTimeTextView, sendRealTimeCommandCh,
+		)
+	}()
+	go func() {
+		defer cancelFn()
+		pushMessageErrCh <- s.pushMessageWorker(
+			ctx, realTimeTextView, stateTextView, statusTextView, feedbackTextView, pushMessageCh,
+		)
+	}()
+	go func() {
+		defer cancelFn()
+		statusQueryErrCh <- s.statusQueryWorker(ctx)
+	}()
 
 	defer func() {
-		cancel()
+		cancelFn()
 		err = errors.Join(err, <-sendCommandWorkerErrCh)
 		err = errors.Join(err, <-sendRealTimeCommandWorkerErrCh)
 		err = errors.Join(err, <-pushMessageErrCh)
