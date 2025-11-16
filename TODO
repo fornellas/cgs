@@ -1,9 +1,11 @@
 shell.go
     shell
         Implement G-Code Parser State panel
-            clear on connect & soft-reset
             omit these commands / messages by default, add toggle to enable view
-            call $G after each sent command (as the may change the state)
+            call $G
+                on connect
+                on soft reset
+                on command send
         Implement G-code Parameters panel
         Implement Send File
         Implement jogging
