@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -91,6 +92,18 @@ func (s *Shell) getFeedbackTextView(app *tview.Application) *tview.TextView {
 	return feedbackTextView
 }
 
+func (s *Shell) getGcodeParserTextView(app *tview.Application) *tview.TextView {
+	view := tview.NewTextView().
+		SetDynamicColors(true).
+		SetScrollable(true).
+		SetWrap(true)
+	view.SetBorder(true).SetTitle("G-Code Parser")
+	view.SetChangedFunc(func() {
+		app.Draw()
+	})
+	return view
+}
+
 func (s *Shell) getStateTextView(app *tview.Application) *tview.TextView {
 	stateTextView := tview.NewTextView().
 		SetDynamicColors(true).
@@ -144,6 +157,7 @@ func (s *Shell) getApp(
 	*tview.TextView,
 	*tview.TextView,
 	*tview.TextView,
+	*tview.TextView,
 ) {
 	app := tview.NewApplication()
 	app.EnableMouse(true)
@@ -157,6 +171,7 @@ func (s *Shell) getApp(
 	commandsTextView := s.getCommandsTextView(app)
 	realTimeTextView := s.getRealTimeTextView(app)
 	feedbackTextView := s.getFeedbackTextView(app)
+	gcodeParserTextView := s.getGcodeParserTextView(app)
 	stateTextView := s.getStateTextView(app)
 	statusTextView := s.getStatusTextView(app)
 	commandInputField := s.getCommandInputField(sendCommandCh)
@@ -171,7 +186,7 @@ func (s *Shell) getApp(
 								AddItem(commandsTextView, 0, 1, false),
 							0, 3, false,
 						).
-						AddItem(tview.NewBox().SetBorder(true).SetTitle("G-Code Parser"), 0, 1, false).
+						AddItem(gcodeParserTextView, 0, 1, false).
 						AddItem(
 							tview.NewFlex().SetDirection(tview.FlexRow).
 								AddItem(stateTextView, 4, 0, false).
@@ -189,6 +204,7 @@ func (s *Shell) getApp(
 		commandsTextView,
 		realTimeTextView,
 		feedbackTextView,
+		gcodeParserTextView,
 		stateTextView,
 		statusTextView
 }
@@ -422,9 +438,56 @@ func (s *Shell) updateStatusReport(
 	}
 }
 
+func (s *Shell) processMessagePushGcodeState(
+	messagePushGcodeState *grblMod.MessagePushGcodeState,
+	gcodeParserTextView *tview.TextView,
+) (func(), tcell.Color) {
+	var buf bytes.Buffer
+
+	if messagePushGcodeState.ModalGroup.Motion != nil {
+		fmt.Fprintf(&buf, "%s:%s\n", messagePushGcodeState.ModalGroup.Motion.NormalizedString(), messagePushGcodeState.ModalGroup.Motion.Name())
+	}
+	if messagePushGcodeState.ModalGroup.PlaneSelection != nil {
+		fmt.Fprintf(&buf, "%s:%s\n", messagePushGcodeState.ModalGroup.PlaneSelection.NormalizedString(), messagePushGcodeState.ModalGroup.PlaneSelection.Name())
+	}
+	if messagePushGcodeState.ModalGroup.DistanceMode != nil {
+		fmt.Fprintf(&buf, "%s:%s\n", messagePushGcodeState.ModalGroup.DistanceMode.NormalizedString(), messagePushGcodeState.ModalGroup.DistanceMode.Name())
+	}
+	if messagePushGcodeState.ModalGroup.Units != nil {
+		fmt.Fprintf(&buf, "%s:%s\n", messagePushGcodeState.ModalGroup.Units.NormalizedString(), messagePushGcodeState.ModalGroup.Units.Name())
+	}
+	if messagePushGcodeState.ModalGroup.ToolLengthOffset != nil {
+		fmt.Fprintf(&buf, "%s:%s\n", messagePushGcodeState.ModalGroup.ToolLengthOffset.NormalizedString(), messagePushGcodeState.ModalGroup.ToolLengthOffset.Name())
+	}
+	if messagePushGcodeState.ModalGroup.CoordinateSystemSelection != nil {
+		fmt.Fprintf(&buf, "%s:%s\n", messagePushGcodeState.ModalGroup.CoordinateSystemSelection.NormalizedString(), messagePushGcodeState.ModalGroup.CoordinateSystemSelection.Name())
+	}
+	if messagePushGcodeState.ModalGroup.SpindleTurning != nil {
+		fmt.Fprintf(&buf, "%s:%s\n", messagePushGcodeState.ModalGroup.SpindleTurning.NormalizedString(), messagePushGcodeState.ModalGroup.SpindleTurning.Name())
+	}
+	for _, word := range messagePushGcodeState.ModalGroup.Coolant {
+		fmt.Fprintf(&buf, "%s:%s\n", word.NormalizedString(), word.Name())
+	}
+	if messagePushGcodeState.Tool != nil {
+		fmt.Fprintf(&buf, "Tool: %.0f\n", *messagePushGcodeState.Tool)
+	}
+	if messagePushGcodeState.FeedRate != nil {
+		fmt.Fprintf(&buf, "Feed Rate: %.0f\n", *messagePushGcodeState.FeedRate)
+	}
+	if messagePushGcodeState.SpindleSpeed != nil {
+		fmt.Fprintf(&buf, "Speed: %.0f\n", *messagePushGcodeState.SpindleSpeed)
+	}
+
+	gcodeParserTextView.Clear()
+	fmt.Fprint(gcodeParserTextView, tview.Escape(buf.String()))
+
+	return nil, tcell.ColorGreen
+}
+
 func (s *Shell) processMessagePushWelcome(
 	_ *grblMod.MessagePushWelcome,
 	realTimeTextView *tview.TextView,
+	gcodeParserTextView *tview.TextView,
 	stateTextView *tview.TextView,
 	statusTextView *tview.TextView,
 	feedbackTextView *tview.TextView,
@@ -433,6 +496,7 @@ func (s *Shell) processMessagePushWelcome(
 	detailsFn := func() {
 		fmt.Fprintf(realTimeTextView, "[%s]Soft-Reset detected[-]\n", color)
 	}
+	gcodeParserTextView.Clear()
 	stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 	stateTextView.Clear()
 	statusTextView.Clear()
@@ -474,6 +538,7 @@ func (s *Shell) processMessagePushFeedback(
 func (s *Shell) pushMessageWorker(
 	ctx context.Context,
 	realTimeTextView *tview.TextView,
+	gcodeParserTextView *tview.TextView,
 	stateTextView *tview.TextView,
 	statusTextView *tview.TextView,
 	feedbackTextView *tview.TextView,
@@ -494,9 +559,14 @@ func (s *Shell) pushMessageWorker(
 
 			var color = tcell.ColorGreen
 			var detailsFn func()
+			if messagePushGcodeState, ok := message.(*grblMod.MessagePushGcodeState); ok {
+				detailsFn, color = s.processMessagePushGcodeState(
+					messagePushGcodeState, gcodeParserTextView,
+				)
+			}
 			if messagePushWelcome, ok := message.(*grblMod.MessagePushWelcome); ok {
 				detailsFn, color = s.processMessagePushWelcome(
-					messagePushWelcome, realTimeTextView, stateTextView, statusTextView, feedbackTextView,
+					messagePushWelcome, realTimeTextView, gcodeParserTextView, stateTextView, statusTextView, feedbackTextView,
 				)
 			}
 			if messagePushAlarm, ok := message.(*grblMod.MessagePushAlarm); ok {
@@ -572,6 +642,7 @@ func (s *Shell) Run(ctx context.Context) (err error) {
 		commandsTextView,
 		realTimeTextView,
 		feedbackTextView,
+		gcodeParserTextView,
 		stateTextView,
 		statusTextView := s.getApp(sendCommandCh, sendRealTimeCommandCh)
 
@@ -593,7 +664,7 @@ func (s *Shell) Run(ctx context.Context) (err error) {
 		defer cancelFn()
 		defer app.Stop()
 		pushMessageErrCh <- s.pushMessageWorker(
-			ctx, realTimeTextView, stateTextView, statusTextView, feedbackTextView, pushMessageCh,
+			ctx, realTimeTextView, gcodeParserTextView, stateTextView, statusTextView, feedbackTextView, pushMessageCh,
 		)
 	}()
 	go func() {
