@@ -1,0 +1,28 @@
+$$ - View Grbl settings
+$x=val - Save Grbl setting
+$0 – Step pulse, microseconds
+$1 - Step idle delay, milliseconds
+$2 – Step port invert, mask
+$3 – Direction port invert, mask
+$4 - Step enable invert, boolean
+$5 -  Limit pins invert, boolean
+$6 -  Probe pin invert, boolean
+$10 - Status report, mask
+$11 - Junction deviation, mm
+$12 – Arc tolerance, mm
+$13 - Report inches, boolean
+$20 - Soft limits, boolean
+$21 - Hard limits, boolean
+$22 - Homing cycle, boolean
+$23 - Homing dir invert, mask
+$24 - Homing feed, mm/min
+$25 - Homing seek, mm/min
+$26 - Homing debounce, milliseconds
+$27 - Homing pull-off, mm
+$30 - Max spindle speed, RPM
+$31 - Min spindle speed, RPM
+$32 - Laser mode, boolean
+$100, $101 and $102 – [X,Y,Z] steps/mm
+$110, $111 and $112 – [X,Y,Z] Max rate, mm/min
+$120, $121, $122 – [X,Y,Z] Acceleration, mm/sec^2
+$130, $131, $132 – [X,Y,Z] Max travel, mm
