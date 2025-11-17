@@ -1,9 +1,6 @@
 
 shell.go
     shell
-        Reorg
-            Rename "Real-Time" panel to "Push Messages"
-            Move real-time commands to "Commands" panel
         send command fix
             $H needs bigger timeout
             Alarm state should cancel send command context
