@@ -37,17 +37,18 @@ type shellApp struct {
 	homingButton             *tview.Button
 	unlockButton             *tview.Button
 	resetButton              *tview.Button
-	// joggingButton            *tview.Button
-	// overridesButton          *tview.Button
-	checkButton  *tview.Button
-	doorButton   *tview.Button
-	sleepButton  *tview.Button
-	holdButton   *tview.Button
-	resumeButton *tview.Button
-	// settingsButton           *tview.Button
-	spindleButton *tview.Button
-	coolantButton *tview.Button
-	rootFlex      *tview.Flex
+	joggingButton            *tview.Button
+	overridesButton          *tview.Button
+	checkButton              *tview.Button
+	doorButton               *tview.Button
+	sleepButton              *tview.Button
+	holdButton               *tview.Button
+	resumeButton             *tview.Button
+	settingsButton           *tview.Button
+	spindleButton            *tview.Button
+	coolantButton            *tview.Button
+	exitButton               *tview.Button
+	rootFlex                 *tview.Flex
 }
 
 type Shell struct {
@@ -207,7 +208,7 @@ func (s *Shell) getCommandInputField(commandCh chan string) *tview.InputField {
 	return inputField
 }
 
-func (s *Shell) getshellApp(
+func (s *Shell) getShellApp(
 	sendCommandCh chan string,
 	sendRealTimeCommandCh chan grblMod.RealTimeCommand,
 ) *shellApp {
@@ -234,9 +235,11 @@ func (s *Shell) getshellApp(
 		SetSelectedFunc(func() { sendCommandCh <- "$X" })
 	resetButton := tview.NewButton("Reset").
 		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandSoftReset })
-	// joggingButton := tview.NewButton("Jogging").
+	joggingButton := tview.NewButton("Jogging").
+		SetDisabled(true)
 	// 	SetSelectedFunc(func() { sendCommandCh <- "TODO" })
-	// overridesButton := tview.NewButton("Overrides").
+	overridesButton := tview.NewButton("Overrides").
+		SetDisabled(true)
 	// 	SetSelectedFunc(func() { sendRealTimeCommandCh <- "TODO" })
 	checkButton := tview.NewButton("Check").
 		SetSelectedFunc(func() { sendCommandCh <- "$C" })
@@ -248,12 +251,15 @@ func (s *Shell) getshellApp(
 		SetSelectedFunc(func() { sendCommandCh <- "!" })
 	resumeButton := tview.NewButton("Resume").
 		SetSelectedFunc(func() { sendCommandCh <- "~" })
-	// settingsButton := tview.NewButton("Settings").
+	settingsButton := tview.NewButton("Settings").
+		SetDisabled(true)
 	// 	SetSelectedFunc(func() { sendCommandCh <- "TODO" })
 	spindleButton := tview.NewButton("Spindle").
 		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandToggleSpindleStop })
 	coolantButton := tview.NewButton("Coolant").
 		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandToggleMistCoolant })
+	exitButton := tview.NewButton("Exit").
+		SetSelectedFunc(func() { app.Stop() })
 	rootFlex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(
 			tview.NewFlex().SetDirection(tview.FlexRow).
@@ -286,22 +292,23 @@ func (s *Shell) getshellApp(
 		AddItem(
 			tview.NewFlex().
 				AddItem(homingButton, 0, 1, false).
-				AddItem(unlockButton, 0, 1, false).
 				AddItem(resetButton, 0, 1, false).
-				// AddItem(joggingButton, 0, 1, false).
-				// AddItem(overridesButton, 0, 1, false).
-				AddItem(checkButton, 0, 1, false),
+				AddItem(overridesButton, 0, 1, false).
+				AddItem(doorButton, 0, 1, false).
+				AddItem(holdButton, 0, 1, false).
+				AddItem(settingsButton, 0, 1, false).
+				AddItem(coolantButton, 0, 1, false),
 			1, 0, false,
 		).
 		AddItem(
 			tview.NewFlex().
-				AddItem(doorButton, 0, 1, false).
+				AddItem(unlockButton, 0, 1, false).
+				AddItem(joggingButton, 0, 1, false).
+				AddItem(checkButton, 0, 1, false).
 				AddItem(sleepButton, 0, 1, false).
-				AddItem(holdButton, 0, 1, false).
 				AddItem(resumeButton, 0, 1, false).
-				// AddItem(settingsButton, 0, 1, false).
 				AddItem(spindleButton, 0, 1, false).
-				AddItem(coolantButton, 0, 1, false),
+				AddItem(exitButton, 0, 1, false),
 			1, 0, false,
 		)
 	app.SetRoot(rootFlex, true).SetFocus(commandInputField)
@@ -318,17 +325,18 @@ func (s *Shell) getshellApp(
 		homingButton:             homingButton,
 		unlockButton:             unlockButton,
 		resetButton:              resetButton,
-		// joggingButton:            joggingButton,
-		// overridesButton:          overridesButton,
-		checkButton:  checkButton,
-		doorButton:   doorButton,
-		sleepButton:  sleepButton,
-		holdButton:   holdButton,
-		resumeButton: resumeButton,
-		// settingsButton:           settingsButton,
-		spindleButton: spindleButton,
-		coolantButton: coolantButton,
-		rootFlex:      rootFlex,
+		joggingButton:            joggingButton,
+		overridesButton:          overridesButton,
+		checkButton:              checkButton,
+		doorButton:               doorButton,
+		sleepButton:              sleepButton,
+		holdButton:               holdButton,
+		resumeButton:             resumeButton,
+		settingsButton:           settingsButton,
+		spindleButton:            spindleButton,
+		coolantButton:            coolantButton,
+		exitButton:               exitButton,
+		rootFlex:                 rootFlex,
 	}
 }
 
@@ -945,7 +953,7 @@ func (s *Shell) Run(ctx context.Context) (err error) {
 
 	statusQueryErrCh := make(chan error, 1)
 
-	s.shellApp = s.getshellApp(sendCommandCh, sendRealTimeCommandCh)
+	s.shellApp = s.getShellApp(sendCommandCh, sendRealTimeCommandCh)
 	defer func() { s.shellApp = nil }()
 
 	logger = slog.New(NewViewLogHandler(
