@@ -174,7 +174,6 @@ func (s *Shell) getCommandInputField(commandCh chan string) *tview.InputField {
 				return
 			}
 			commandCh <- command
-			inputField.SetDisabled(true)
 		}
 	})
 	inputField.SetBackgroundColor(tcell.ColorDefault)
@@ -212,7 +211,33 @@ func (s *Shell) getApp(
 	stateTextView := s.getStateTextView(app)
 	statusTextView := s.getStatusTextView(app)
 	commandInputField := s.getCommandInputField(sendCommandCh)
-	rootFlex := tview.NewFlex().
+	homingButton := tview.NewButton("Homing").
+		SetSelectedFunc(func() { sendCommandCh <- "$H" })
+	unlockButton := tview.NewButton("Unlock").
+		SetSelectedFunc(func() { sendCommandCh <- "$X" })
+	resetButton := tview.NewButton("Reset").
+		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandSoftReset })
+	// joggingButton := tview.NewButton("Jogging").
+	// 	SetSelectedFunc(func() { sendCommandCh <- "TODO" })
+	// overridesButton := tview.NewButton("Overrides").
+	// 	SetSelectedFunc(func() { sendCommandCh <- "TODO" })
+	checkButton := tview.NewButton("Check").
+		SetSelectedFunc(func() { sendCommandCh <- "$C" })
+	doorButton := tview.NewButton("Door").
+		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandSafetyDoor })
+	sleepButton := tview.NewButton("Sleep").
+		SetSelectedFunc(func() { sendCommandCh <- "$SLP" })
+	holdButton := tview.NewButton("Hold").
+		SetSelectedFunc(func() { sendCommandCh <- "!" })
+	resumeButton := tview.NewButton("Resume").
+		SetSelectedFunc(func() { sendCommandCh <- "~" })
+	// settingsButton := tview.NewButton("Settings").
+	// 	SetSelectedFunc(func() { sendCommandCh <- "TODO" })
+	spindleButton := tview.NewButton("Spindle").
+		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandToggleSpindleStop })
+	coolantButton := tview.NewButton("Coolant").
+		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandToggleMistCoolant })
+	rootFlex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(
 			tview.NewFlex().SetDirection(tview.FlexRow).
 				AddItem(
@@ -240,6 +265,27 @@ func (s *Shell) getApp(
 				AddItem(feedbackTextView, 1, 0, false).
 				AddItem(commandInputField, 1, 0, false),
 			0, 1, false,
+		).
+		AddItem(
+			tview.NewFlex().
+				AddItem(homingButton, 0, 1, false).
+				AddItem(unlockButton, 0, 1, false).
+				AddItem(resetButton, 0, 1, false).
+				// AddItem(joggingButton, 0, 1, false).
+				// AddItem(overridesButton, 0, 1, false).
+				AddItem(checkButton, 0, 1, false),
+			1, 0, false,
+		).
+		AddItem(
+			tview.NewFlex().
+				AddItem(doorButton, 0, 1, false).
+				AddItem(sleepButton, 0, 1, false).
+				AddItem(holdButton, 0, 1, false).
+				AddItem(resumeButton, 0, 1, false).
+				// AddItem(settingsButton, 0, 1, false).
+				AddItem(spindleButton, 0, 1, false).
+				AddItem(coolantButton, 0, 1, false),
+			1, 0, false,
 		)
 	app.SetRoot(rootFlex, true).SetFocus(commandInputField)
 	return app,
@@ -345,6 +391,7 @@ func (s *Shell) sendCommandWorker(
 			}
 			return err
 		case command := <-sendCommandCh:
+			commandInputField.SetDisabled(true)
 			s.sendCommand(ctx, commandsTextView, command)
 			// Sending $G enables tracking of G-Code parsing state
 			s.sendCommand(ctx, commandsTextView, "$G")
