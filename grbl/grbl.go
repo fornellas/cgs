@@ -269,7 +269,7 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 	go g.messageReceiverWorker(receiveCtx)
 
 	if err := g.waitForWelcomeMessage(ctx); err != nil {
-		return nil, errors.Join(err, g.Disconnect(ctx))
+		return nil, errors.Join(err, g.Disconnect())
 	}
 
 	return g.pushMessageCh, nil
@@ -292,7 +292,7 @@ func (g *Grbl) GetOverrideValues() *StatusReportOverrideValues {
 }
 
 // SendRealTimeCommand issues a real time command to Grbl.
-func (g *Grbl) SendRealTimeCommand(ctx context.Context, cmd RealTimeCommand) error {
+func (g *Grbl) SendRealTimeCommand(cmd RealTimeCommand) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if g.port == nil {
@@ -313,6 +313,23 @@ func (g *Grbl) SendRealTimeCommand(ctx context.Context, cmd RealTimeCommand) err
 
 // TODO Synchronization
 
+func (g *Grbl) sendCommandRaw(command string) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.port == nil {
+		return fmt.Errorf("grbl: disconnected")
+	}
+	line := append([]byte(command), '\n')
+	n, err := g.port.Write(line)
+	if err != nil {
+		return fmt.Errorf("grbl: write to serial port error: %w", err)
+	}
+	if n != len(line) {
+		return fmt.Errorf("grbl: write to serial port error: wrote %d bytes, expected %d", n, len(command))
+	}
+	return nil
+}
+
 // Send a command / system command to Grbl synchronously.
 // It waits for the response message and returns it.
 func (g *Grbl) SendCommand(ctx context.Context, command string) (*MessageResponse, error) {
@@ -320,20 +337,8 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (*MessageRespons
 		return nil, fmt.Errorf("command must be single line string: %#v", command)
 	}
 
-	{
-		g.mu.Lock()
-		defer g.mu.Unlock()
-		if g.port == nil {
-			return nil, fmt.Errorf("grbl: disconnected")
-		}
-		line := append([]byte(command), '\n')
-		n, err := g.port.Write(line)
-		if err != nil {
-			return nil, fmt.Errorf("grbl: write to serial port error: %w", err)
-		}
-		if n != len(line) {
-			return nil, fmt.Errorf("grbl: write to serial port error: wrote %d bytes, expected %d", n, len(command))
-		}
+	if err := g.sendCommandRaw(command); err != nil {
+		return nil, err
 	}
 
 	var ok bool
@@ -539,7 +544,7 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (*MessageRespons
 // }
 
 // Disconnect will stop all goroutines and close the serial port.
-func (g *Grbl) Disconnect(ctx context.Context) (err error) {
+func (g *Grbl) Disconnect() (err error) {
 	g.mu.Lock()
 	if g.port == nil {
 		g.mu.Unlock()

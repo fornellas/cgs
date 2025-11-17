@@ -1,9 +1,15 @@
 
 shell.go
     shell
+        Reorg
+            Rename "Real-Time" panel to "Push Messages"
+            Move real-time commands to "Commands" panel
+        send command fix
+            $H needs bigger timeout
+            Alarm state should cancel send command context
         Implement G-code Parameters panel
-        Implement Send File
         Implement jogging
+        Implement Send File
         Implement Grbl commands
         Implement scripting
             https://github.com/google/starlark-go

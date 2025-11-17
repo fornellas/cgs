@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -57,78 +58,78 @@ func getMachineStateColor(state string) tcell.Color {
 }
 
 func (s *Shell) getCommandsTextView(app *tview.Application) *tview.TextView {
-	commandsTextView := tview.NewTextView().
+	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
 		SetWrap(true)
-	commandsTextView.SetBorder(true).SetTitle("Commands")
-	commandsTextView.SetChangedFunc(func() {
-		commandsTextView.ScrollToEnd()
+	textView.SetBorder(true).SetTitle("Commands")
+	textView.SetChangedFunc(func() {
+		textView.ScrollToEnd()
 		app.Draw()
 	})
-	return commandsTextView
+	return textView
 }
 
-func (s *Shell) getRealTimeTextView(app *tview.Application) *tview.TextView {
-	realTimeTextView := tview.NewTextView().
+func (s *Shell) getPushMessagesLogsTextView(app *tview.Application) *tview.TextView {
+	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
 		SetWrap(true)
-	realTimeTextView.SetBorder(true).SetTitle("Real-Time")
-	realTimeTextView.SetChangedFunc(func() {
-		realTimeTextView.ScrollToEnd()
+	textView.SetBorder(true).SetTitle("Push Messages / Logs")
+	textView.SetChangedFunc(func() {
+		textView.ScrollToEnd()
 		app.Draw()
 	})
-	return realTimeTextView
+	return textView
 }
 
 func (s *Shell) getFeedbackTextView(app *tview.Application) *tview.TextView {
-	feedbackTextView := tview.NewTextView().
+	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
 		SetWrap(true)
-	feedbackTextView.SetTitle("Feedback Message")
-	feedbackTextView.SetChangedFunc(func() {
-		feedbackTextView.ScrollToEnd()
+	textView.SetTitle("Feedback Message")
+	textView.SetChangedFunc(func() {
+		textView.ScrollToEnd()
 		app.Draw()
 	})
-	return feedbackTextView
+	return textView
 }
 
 func (s *Shell) getGcodeParserTextView(app *tview.Application) *tview.TextView {
-	view := tview.NewTextView().
+	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
 		SetWrap(true)
-	view.SetBorder(true).SetTitle("G-Code Parser")
-	view.SetChangedFunc(func() {
+	textView.SetBorder(true).SetTitle("G-Code Parser")
+	textView.SetChangedFunc(func() {
 		app.Draw()
 	})
-	return view
+	return textView
 }
 
 func (s *Shell) getStateTextView(app *tview.Application) *tview.TextView {
-	stateTextView := tview.NewTextView().
+	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
 		SetWrap(true)
-	stateTextView.SetBorder(true).SetTitle("State")
-	stateTextView.SetChangedFunc(func() {
+	textView.SetBorder(true).SetTitle("State")
+	textView.SetChangedFunc(func() {
 		app.Draw()
 	})
-	return stateTextView
+	return textView
 }
 
 func (s *Shell) getStatusTextView(app *tview.Application) *tview.TextView {
-	statusTextView := tview.NewTextView().
+	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
 		SetWrap(true)
-	statusTextView.SetBorder(true).SetTitle("Status")
-	statusTextView.SetChangedFunc(func() {
+	textView.SetBorder(true).SetTitle("Status")
+	textView.SetChangedFunc(func() {
 		app.Draw()
 	})
-	return statusTextView
+	return textView
 }
 
 func (s *Shell) getCommandInputField(commandCh chan string) *tview.InputField {
@@ -172,7 +173,7 @@ func (s *Shell) getApp(
 		return event
 	})
 	commandsTextView := s.getCommandsTextView(app)
-	realTimeTextView := s.getRealTimeTextView(app)
+	pushMessagesLogsTextView := s.getPushMessagesLogsTextView(app)
 	feedbackTextView := s.getFeedbackTextView(app)
 	gcodeParserTextView := s.getGcodeParserTextView(app)
 	stateTextView := s.getStateTextView(app)
@@ -185,7 +186,7 @@ func (s *Shell) getApp(
 					tview.NewFlex().
 						AddItem(
 							tview.NewFlex().SetDirection(tview.FlexRow).
-								AddItem(realTimeTextView, 0, 1, false).
+								AddItem(pushMessagesLogsTextView, 0, 1, false).
 								AddItem(commandsTextView, 0, 1, false),
 							0, 3, false,
 						).
@@ -205,7 +206,7 @@ func (s *Shell) getApp(
 	app.SetRoot(rootFlex, true).SetFocus(commandInputField)
 	return app,
 		commandsTextView,
-		realTimeTextView,
+		pushMessagesLogsTextView,
 		feedbackTextView,
 		gcodeParserTextView,
 		stateTextView,
@@ -214,7 +215,6 @@ func (s *Shell) getApp(
 
 func (s *Shell) sendCommand(
 	ctx context.Context,
-	realTimeTextView *tview.TextView,
 	commandsTextView *tview.TextView,
 	command string,
 ) {
@@ -229,10 +229,14 @@ func (s *Shell) sendCommand(
 			}
 			buf.WriteByte(c)
 		} else {
-			s.sendRealTimeCommand(ctx, rtc, realTimeTextView)
+			s.sendRealTimeCommand(commandsTextView, rtc)
 		}
 	}
 	command = buf.String()
+
+	if len(command) == 0 {
+		return
+	}
 
 	// Verbosity
 	var quiet bool
@@ -276,7 +280,6 @@ func (s *Shell) sendCommand(
 
 func (s *Shell) sendCommandWorker(
 	ctx context.Context,
-	realTimeTextView *tview.TextView,
 	commandsTextView *tview.TextView,
 	sendCommandCh chan string,
 ) error {
@@ -289,34 +292,30 @@ func (s *Shell) sendCommandWorker(
 			}
 			return err
 		case command := <-sendCommandCh:
-			// FIXME $H (and maybe others) require bigger timeout
-			// FIXME ! (and maybe others) "sometimes" don't return message
-			ctx, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second))
+			ctx, cancel := context.WithDeadline(ctx, time.Now().Add(20*time.Second))
 			defer cancel()
-			s.sendCommand(ctx, realTimeTextView, commandsTextView, command)
+			s.sendCommand(ctx, commandsTextView, command)
 			// Sending $G enables tracking of G-Code parsing state
-			s.sendCommand(ctx, realTimeTextView, commandsTextView, "$G")
+			s.sendCommand(ctx, commandsTextView, "$G")
 		}
 	}
 }
 
 func (s *Shell) sendRealTimeCommand(
-	ctx context.Context,
+	commandsTextView *tview.TextView,
 	cmd grblMod.RealTimeCommand,
-	realTimeTextView *tview.TextView,
-) error {
-	if err := s.grbl.SendRealTimeCommand(ctx, cmd); err != nil {
-		return err
-	}
+) {
 	if s.displayStatusComms || cmd != grblMod.RealTimeCommandStatusReportQuery {
-		fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(cmd.String()))
+		fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(cmd.String()))
 	}
-	return nil
+	if err := s.grbl.SendRealTimeCommand(cmd); err != nil {
+		fmt.Fprintf(commandsTextView, "[%s]Failed to send soft reset: %s[-]\n", tcell.ColorRed, err)
+	}
 }
 
 func (s *Shell) sendRealTimeCommandWorker(
 	ctx context.Context,
-	realTimeTextView *tview.TextView,
+	commandsTextView *tview.TextView,
 	sendRealTimeCommandCh chan grblMod.RealTimeCommand,
 ) error {
 	for {
@@ -328,9 +327,7 @@ func (s *Shell) sendRealTimeCommandWorker(
 			}
 			return err
 		case realTimeCommand := <-sendRealTimeCommandCh:
-			if err := s.sendRealTimeCommand(ctx, realTimeCommand, realTimeTextView); err != nil {
-				fmt.Fprintf(realTimeTextView, "[%s]Failed to send soft reset: %s[-]\n", tcell.ColorRed, err)
-			}
+			s.sendRealTimeCommand(commandsTextView, realTimeCommand)
 		}
 	}
 }
@@ -543,7 +540,7 @@ func (s *Shell) processMessagePushGcodeState(
 func (s *Shell) processMessagePushWelcome(
 	ctx context.Context,
 	_ *grblMod.MessagePushWelcome,
-	realTimeTextView *tview.TextView,
+	pushMessagesLogsTextView *tview.TextView,
 	commandsTextView *tview.TextView,
 	gcodeParserTextView *tview.TextView,
 	stateTextView *tview.TextView,
@@ -552,7 +549,7 @@ func (s *Shell) processMessagePushWelcome(
 ) (func(), tcell.Color) {
 	color := tcell.ColorYellow
 	detailsFn := func() {
-		fmt.Fprintf(realTimeTextView, "[%s]Soft-Reset detected[-]\n", color)
+		fmt.Fprintf(pushMessagesLogsTextView, "[%s]Soft-Reset detected[-]\n", color)
 	}
 	gcodeParserTextView.Clear()
 	stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
@@ -560,18 +557,18 @@ func (s *Shell) processMessagePushWelcome(
 	statusTextView.Clear()
 	feedbackTextView.SetText("")
 	// Sending $G enables tracking of G-Code parsing state
-	s.sendCommand(ctx, realTimeTextView, commandsTextView, "$G")
+	s.sendCommand(ctx, commandsTextView, "$G")
 	return detailsFn, color
 }
 
 func (s *Shell) processMessagePushAlarm(
 	messagePushAlarm *grblMod.MessagePushAlarm,
-	realTimeTextView *tview.TextView,
+	pushMessagesLogsTextView *tview.TextView,
 	stateTextView *tview.TextView,
 ) (func(), tcell.Color) {
 	color := tcell.ColorRed
 	detailsFn := func() {
-		fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", color, tview.Escape(messagePushAlarm.Error().Error()))
+		fmt.Fprintf(pushMessagesLogsTextView, "[%s]%s[-]\n", color, tview.Escape(messagePushAlarm.Error().Error()))
 	}
 	s.updateState(stateTextView, "Alarm", "")
 	return detailsFn, color
@@ -598,7 +595,7 @@ func (s *Shell) processMessagePushFeedback(
 //gocyclo:ignore
 func (s *Shell) pushMessageWorker(
 	ctx context.Context,
-	realTimeTextView *tview.TextView,
+	pushMessagesLogsTextView *tview.TextView,
 	commandsTextView *tview.TextView,
 	gcodeParserTextView *tview.TextView,
 	stateTextView *tview.TextView,
@@ -630,7 +627,7 @@ func (s *Shell) pushMessageWorker(
 				detailsFn, color = s.processMessagePushWelcome(
 					ctx,
 					messagePushWelcome,
-					realTimeTextView,
+					pushMessagesLogsTextView,
 					commandsTextView,
 					gcodeParserTextView,
 					stateTextView,
@@ -640,7 +637,7 @@ func (s *Shell) pushMessageWorker(
 			}
 			if messagePushAlarm, ok := message.(*grblMod.MessagePushAlarm); ok {
 				detailsFn, color = s.processMessagePushAlarm(
-					messagePushAlarm, realTimeTextView, stateTextView,
+					messagePushAlarm, pushMessagesLogsTextView, stateTextView,
 				)
 			}
 			if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
@@ -664,9 +661,9 @@ func (s *Shell) pushMessageWorker(
 
 			text := message.String()
 			if len(text) == 0 {
-				fmt.Fprintf(realTimeTextView, "\n\n")
+				fmt.Fprintf(pushMessagesLogsTextView, "\n\n")
 			} else {
-				fmt.Fprintf(realTimeTextView, "[%s]%s[-]\n", color, tview.Escape(text))
+				fmt.Fprintf(pushMessagesLogsTextView, "[%s]%s[-]\n", color, tview.Escape(text))
 			}
 			if detailsFn != nil {
 				detailsFn()
@@ -685,7 +682,7 @@ func (s *Shell) statusQueryWorker(ctx context.Context) error {
 			}
 			return err
 		case <-time.After(200 * time.Millisecond):
-			if err := s.grbl.SendRealTimeCommand(ctx, grblMod.RealTimeCommandStatusReportQuery); err != nil {
+			if err := s.grbl.SendRealTimeCommand(grblMod.RealTimeCommandStatusReportQuery); err != nil {
 				return fmt.Errorf("failed to send periodic status query real-time command: %w", err)
 			}
 		}
@@ -715,34 +712,40 @@ func (s *Shell) Run(ctx context.Context) (err error) {
 
 	app,
 		commandsTextView,
-		realTimeTextView,
+		pushMessagesLogsTextView,
 		feedbackTextView,
 		gcodeParserTextView,
 		stateTextView,
 		statusTextView := s.getApp(sendCommandCh, sendRealTimeCommandCh)
 
+	logger = slog.New(NewViewLogHandler(
+		logger.Handler(),
+		pushMessagesLogsTextView,
+	))
+	ctx = log.WithLogger(ctx, logger)
+
 	go func() {
 		defer cancelFn()
 		defer app.Stop()
 		sendCommandWorkerErrCh <- s.sendCommandWorker(
-			ctx, realTimeTextView, commandsTextView, sendCommandCh,
+			ctx, commandsTextView, sendCommandCh,
 		)
 	}()
 	go func() {
 		defer cancelFn()
 		defer app.Stop()
 		sendRealTimeCommandWorkerErrCh <- s.sendRealTimeCommandWorker(
-			ctx, realTimeTextView, sendRealTimeCommandCh,
+			ctx, commandsTextView, sendRealTimeCommandCh,
 		)
 	}()
 	go func() {
 		defer cancelFn()
 		defer app.Stop()
 		// Sending $G enables tracking of G-Code parsing state
-		s.sendCommand(ctx, realTimeTextView, commandsTextView, "$G")
+		s.sendCommand(ctx, commandsTextView, "$G")
 		pushMessageErrCh <- s.pushMessageWorker(
 			ctx,
-			realTimeTextView,
+			pushMessagesLogsTextView,
 			commandsTextView,
 			gcodeParserTextView,
 			stateTextView,
@@ -763,7 +766,7 @@ func (s *Shell) Run(ctx context.Context) (err error) {
 		err = errors.Join(err, <-sendRealTimeCommandWorkerErrCh)
 		err = errors.Join(err, <-pushMessageErrCh)
 		err = errors.Join(err, <-statusQueryErrCh)
-		err = errors.Join(err, s.grbl.Disconnect(ctx))
+		err = errors.Join(err, s.grbl.Disconnect())
 	}()
 
 	return app.Run()
