@@ -546,36 +546,49 @@ func (s *Shell) updateStatusReport(
 	}
 }
 
+//gocyclo:ignore
 func (s *Shell) processMessagePushGcodeState(
 	messagePushGcodeState *grblMod.MessagePushGcodeState,
 	gcodeParserTextView *tview.TextView,
 ) (func(), tcell.Color) {
 	var buf bytes.Buffer
 
-	if messagePushGcodeState.ModalGroup.Motion != nil {
-		fmt.Fprintf(&buf, "%s:%s\n", messagePushGcodeState.ModalGroup.Motion.NormalizedString(), messagePushGcodeState.ModalGroup.Motion.Name())
+	if modalGroup := messagePushGcodeState.ModalGroup; modalGroup != nil {
+		if modalGroup.Motion != nil {
+			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.Motion.NormalizedString(), modalGroup.Motion.Name())
+		}
+		if modalGroup.PlaneSelection != nil {
+			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.PlaneSelection.NormalizedString(), modalGroup.PlaneSelection.Name())
+		}
+		if modalGroup.DistanceMode != nil {
+			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.DistanceMode.NormalizedString(), modalGroup.DistanceMode.Name())
+		}
+		if modalGroup.FeedRateMode != nil {
+			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.FeedRateMode.NormalizedString(), modalGroup.FeedRateMode.Name())
+		}
+		if modalGroup.Units != nil {
+			fmt.Fprintf(&buf, "%s:%s\n", messagePushGcodeState.ModalGroup.Units.NormalizedString(), messagePushGcodeState.ModalGroup.Units.Name())
+		}
+		if modalGroup.CutterRadiusCompensation != nil {
+			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.CutterRadiusCompensation.NormalizedString(), modalGroup.CutterRadiusCompensation.Name())
+		}
+		if modalGroup.ToolLengthOffset != nil {
+			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.ToolLengthOffset.NormalizedString(), modalGroup.ToolLengthOffset.Name())
+		}
+		if modalGroup.CoordinateSystemSelection != nil {
+			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.CoordinateSystemSelection.NormalizedString(), modalGroup.CoordinateSystemSelection.Name())
+		}
+		if modalGroup.Stopping != nil {
+			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.Stopping.NormalizedString(), modalGroup.Stopping.Name())
+		}
+		if modalGroup.SpindleTurning != nil {
+			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.SpindleTurning.NormalizedString(), modalGroup.SpindleTurning.Name())
+		}
+		for _, word := range modalGroup.Coolant {
+			fmt.Fprintf(&buf, "%s:%s\n", word.NormalizedString(), word.Name())
+		}
 	}
-	if messagePushGcodeState.ModalGroup.PlaneSelection != nil {
-		fmt.Fprintf(&buf, "%s:%s\n", messagePushGcodeState.ModalGroup.PlaneSelection.NormalizedString(), messagePushGcodeState.ModalGroup.PlaneSelection.Name())
-	}
-	if messagePushGcodeState.ModalGroup.DistanceMode != nil {
-		fmt.Fprintf(&buf, "%s:%s\n", messagePushGcodeState.ModalGroup.DistanceMode.NormalizedString(), messagePushGcodeState.ModalGroup.DistanceMode.Name())
-	}
-	if messagePushGcodeState.ModalGroup.Units != nil {
-		fmt.Fprintf(&buf, "%s:%s\n", messagePushGcodeState.ModalGroup.Units.NormalizedString(), messagePushGcodeState.ModalGroup.Units.Name())
-	}
-	if messagePushGcodeState.ModalGroup.ToolLengthOffset != nil {
-		fmt.Fprintf(&buf, "%s:%s\n", messagePushGcodeState.ModalGroup.ToolLengthOffset.NormalizedString(), messagePushGcodeState.ModalGroup.ToolLengthOffset.Name())
-	}
-	if messagePushGcodeState.ModalGroup.CoordinateSystemSelection != nil {
-		fmt.Fprintf(&buf, "%s:%s\n", messagePushGcodeState.ModalGroup.CoordinateSystemSelection.NormalizedString(), messagePushGcodeState.ModalGroup.CoordinateSystemSelection.Name())
-	}
-	if messagePushGcodeState.ModalGroup.SpindleTurning != nil {
-		fmt.Fprintf(&buf, "%s:%s\n", messagePushGcodeState.ModalGroup.SpindleTurning.NormalizedString(), messagePushGcodeState.ModalGroup.SpindleTurning.Name())
-	}
-	for _, word := range messagePushGcodeState.ModalGroup.Coolant {
-		fmt.Fprintf(&buf, "%s:%s\n", word.NormalizedString(), word.Name())
-	}
+
 	if messagePushGcodeState.Tool != nil {
 		fmt.Fprintf(&buf, "Tool: %.0f\n", *messagePushGcodeState.Tool)
 	}
