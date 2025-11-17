@@ -14,6 +14,9 @@ var defaultDisplayStatusComms = false
 var displayGcodeParserStateComms bool
 var defaultDisplayGcodeParserStateComms = false
 
+var displayGcodeParamStateComms bool
+var defaultDisplayGcodeParamStateComms = false
+
 var ShellCmd = &cobra.Command{
 	Use:   "shell",
 	Short: "Open Grbl serial connection and provide a shell prompt to send commands.",
@@ -33,7 +36,11 @@ var ShellCmd = &cobra.Command{
 
 		grbl := grblMod.NewGrbl(openPortFn)
 
-		shell := shellMod.NewShell(grbl, displayStatusComms, displayGcodeParserStateComms)
+		shell := shellMod.NewShell(grbl, &shellMod.Options{
+			DisplayStatusComms:           displayStatusComms,
+			DisplayGcodeParserStateComms: displayGcodeParserStateComms,
+			DisplayGcodeParamStateComms:  displayGcodeParamStateComms,
+		})
 
 		return shell.Run(ctx)
 	}),
@@ -53,7 +60,14 @@ func init() {
 		&displayGcodeParserStateComms,
 		"display-gcode-parser-state-comms",
 		defaultDisplayGcodeParserStateComms,
-		"Display G-Code Parser State real-time commands and report push messages; this is always automatically polled and can be noisy",
+		"Display G-Code Parser State commands and report push messages; this is always automatically polled and can be noisy",
+	)
+
+	ShellCmd.Flags().BoolVar(
+		&displayGcodeParamStateComms,
+		"display-gcode-param-state-comms",
+		defaultDisplayGcodeParamStateComms,
+		"Display G-Code Param State commands and report push messages; this is always automatically polled and can be noisy",
 	)
 
 	RootCmd.AddCommand(ShellCmd)

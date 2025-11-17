@@ -18,17 +18,24 @@ import (
 	grblMod "github.com/fornellas/cgs/grbl"
 )
 
-type Shell struct {
-	grbl                         *grblMod.Grbl
-	displayStatusComms           bool
-	displayGcodeParserStateComms bool
+type Options struct {
+	DisplayStatusComms           bool
+	DisplayGcodeParserStateComms bool
+	DisplayGcodeParamStateComms  bool
 }
 
-func NewShell(grbl *grblMod.Grbl, displayStatusComms, displayGcodeParserStateComms bool) *Shell {
+type Shell struct {
+	grbl    *grblMod.Grbl
+	options *Options
+}
+
+func NewShell(grbl *grblMod.Grbl, options *Options) *Shell {
+	if options == nil {
+		options = &Options{}
+	}
 	return &Shell{
-		grbl:                         grbl,
-		displayStatusComms:           displayStatusComms,
-		displayGcodeParserStateComms: displayGcodeParserStateComms,
+		grbl:    grbl,
+		options: options,
 	}
 }
 
@@ -246,6 +253,7 @@ func (s *Shell) getApp(
 		commandInputField
 }
 
+//gocyclo:ignore
 func (s *Shell) sendCommand(
 	ctx context.Context,
 	commandsTextView *tview.TextView,
@@ -271,22 +279,31 @@ func (s *Shell) sendCommand(
 		return
 	}
 
-	// Verbosity
+	// Verbosity & timeout
 	var quiet bool
-	if !s.displayGcodeParserStateComms {
-		parser := gcode.NewParser(strings.NewReader(command))
-		for {
-			block, err := parser.Next()
-			if err != nil {
-				fmt.Fprintf(commandsTextView, "[%s]Failed to parse: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
-				return
-			}
-			if block == nil {
-				break
-			}
-			if block.String() == "$G" {
-				quiet = true
-				break
+	timeout := 1 * time.Second
+	parser := gcode.NewParser(strings.NewReader(command))
+	for {
+		block, err := parser.Next()
+		if err != nil {
+			fmt.Fprintf(commandsTextView, "[%s]Failed to parse: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
+			return
+		}
+		if block == nil {
+			break
+		}
+		if block.IsSystem() {
+			switch block.String() {
+			case "$G":
+				if !s.options.DisplayGcodeParserStateComms {
+					quiet = true
+				}
+			case "$#":
+				if !s.options.DisplayGcodeParamStateComms {
+					quiet = true
+				}
+			case "$H":
+				timeout = 120 * time.Second
 			}
 		}
 	}
@@ -295,9 +312,11 @@ func (s *Shell) sendCommand(
 	if !quiet {
 		fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(command))
 	}
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(timeout))
+	defer cancel()
 	messageResponse, err := s.grbl.SendCommand(ctx, command)
 	if err != nil {
-		fmt.Fprintf(commandsTextView, "[%s]Failed to send: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
+		fmt.Fprintf(commandsTextView, "[%s]Send command failed: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
 		return
 	}
 	if quiet {
@@ -326,13 +345,11 @@ func (s *Shell) sendCommandWorker(
 			}
 			return err
 		case command := <-sendCommandCh:
-			ctx, cancel := context.WithDeadline(ctx, time.Now().Add(20*time.Second))
 			s.sendCommand(ctx, commandsTextView, command)
 			// Sending $G enables tracking of G-Code parsing state
 			s.sendCommand(ctx, commandsTextView, "$G")
 			// Sending $G enables tracking of G-Code parameters
 			s.sendCommand(ctx, commandsTextView, "$#")
-			cancel()
 			commandInputField.SetText("")
 			commandInputField.SetDisabled(false)
 		}
@@ -343,7 +360,7 @@ func (s *Shell) sendRealTimeCommand(
 	commandsTextView *tview.TextView,
 	cmd grblMod.RealTimeCommand,
 ) {
-	if s.displayStatusComms || cmd != grblMod.RealTimeCommandStatusReportQuery {
+	if s.options.DisplayStatusComms || cmd != grblMod.RealTimeCommandStatusReportQuery {
 		fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(cmd.String()))
 	}
 	if err := s.grbl.SendRealTimeCommand(cmd); err != nil {
@@ -770,9 +787,15 @@ func (s *Shell) pushMessageWorker(
 				detailsFn, color = s.processMessagePushGcodeState(
 					messagePushGcodeState, gcodeParserTextView,
 				)
+				if !s.options.DisplayGcodeParserStateComms {
+					continue
+				}
 			}
 			if _, ok := message.(*grblMod.MessagePushGcodeParam); ok {
 				detailsFn, color = s.processMessagePushGcodeParam(gcodeParamsTextView)
+				if !s.options.DisplayGcodeParamStateComms {
+					continue
+				}
 			}
 
 			if messagePushWelcome, ok := message.(*grblMod.MessagePushWelcome); ok {
@@ -797,7 +820,7 @@ func (s *Shell) pushMessageWorker(
 				detailsFn, color = s.processMessagePushStatusReport(
 					messagePushStatusReport, stateTextView, statusTextView,
 				)
-				if !s.displayStatusComms {
+				if !s.options.DisplayStatusComms {
 					continue
 				}
 			}
@@ -805,11 +828,6 @@ func (s *Shell) pushMessageWorker(
 				detailsFn, color = s.processMessagePushFeedback(
 					messagePushFeedback, feedbackTextView,
 				)
-			}
-			if _, ok := message.(*grblMod.MessagePushGcodeState); ok {
-				if !s.displayGcodeParserStateComms {
-					continue
-				}
 			}
 
 			text := message.String()
