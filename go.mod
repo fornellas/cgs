@@ -20,7 +20,6 @@ tool (
 require (
 	github.com/fornellas/slogxt v1.1.1
 	github.com/gdamore/tcell/v2 v2.8.1
-	github.com/jroimartin/gocui v0.5.0
 	github.com/rivo/tview v0.42.0
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/pflag v1.0.10
@@ -56,7 +55,6 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
-	github.com/nsf/termbox-go v1.1.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
