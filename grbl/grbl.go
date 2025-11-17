@@ -18,6 +18,7 @@ type Grbl struct {
 	port                       serial.Port
 	workCoordinateOffset       *StatusReportWorkCoordinateOffset
 	overrideValues             *StatusReportOverrideValues
+	gcodeParameters            *GcodeParameters
 	receiveCtxCancel           context.CancelFunc
 	pushMessageCh              chan Message
 	responseMessageCh          chan Message
@@ -64,6 +65,7 @@ func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
 	if _, ok := message.(*MessagePushWelcome); ok {
 		g.workCoordinateOffset = nil
 		g.overrideValues = nil
+		g.gcodeParameters = &GcodeParameters{}
 	}
 
 	if messagePushStatusReport, ok := message.(*MessagePushStatusReport); ok {
@@ -73,6 +75,10 @@ func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
 		if messagePushStatusReport.OverrideValues != nil {
 			g.overrideValues = messagePushStatusReport.OverrideValues
 		}
+	}
+
+	if messagePushGcodeParam, ok := message.(*MessagePushGcodeParam); ok {
+		g.gcodeParameters.Update(messagePushGcodeParam)
 	}
 
 	return message, nil
@@ -169,6 +175,7 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 
 	g.workCoordinateOffset = nil
 	g.overrideValues = nil
+	g.gcodeParameters = &GcodeParameters{}
 
 	var receiveCtx context.Context
 	receiveCtx, g.receiveCtxCancel = context.WithCancel(ctx)
@@ -198,6 +205,14 @@ func (g *Grbl) GetOverrideValues() *StatusReportOverrideValues {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.overrideValues
+}
+
+// GetGcodeParameters returns the newest value received via a push message gcode parameters.
+// Returns nil if no previous message was received.
+func (g *Grbl) GetGcodeParameters() *GcodeParameters {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.gcodeParameters
 }
 
 // SendRealTimeCommand issues a real time command to Grbl.
@@ -472,6 +487,7 @@ func (g *Grbl) Disconnect() (err error) {
 	g.port = nil
 	g.workCoordinateOffset = nil
 	g.overrideValues = nil
+	g.gcodeParameters = &GcodeParameters{}
 	g.receiveCtxCancel = nil
 	g.pushMessageCh = nil
 	g.responseMessageCh = nil

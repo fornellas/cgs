@@ -4,7 +4,6 @@ shell.go
         send command fix
             $H needs bigger timeout
             Alarm state should cancel send command context
-        Implement G-code Parameters panel
         Implement jogging
         Implement Send File
         Implement Grbl commands

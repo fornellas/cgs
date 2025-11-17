@@ -106,6 +106,21 @@ func (s *Shell) getGcodeParserTextView(app *tview.Application) *tview.TextView {
 		SetWrap(true)
 	textView.SetBorder(true).SetTitle("G-Code Parser")
 	textView.SetChangedFunc(func() {
+		textView.ScrollToBeginning()
+		app.Draw()
+	})
+	textView.SetBackgroundColor(tcell.ColorDefault)
+	return textView
+}
+
+func (s *Shell) getGcodeParamsTextView(app *tview.Application) *tview.TextView {
+	textView := tview.NewTextView().
+		SetDynamicColors(true).
+		SetScrollable(true).
+		SetWrap(true)
+	textView.SetBorder(true).SetTitle("G-Code Parameters")
+	textView.SetChangedFunc(func() {
+		textView.ScrollToBeginning()
 		app.Draw()
 	})
 	textView.SetBackgroundColor(tcell.ColorDefault)
@@ -132,6 +147,7 @@ func (s *Shell) getStatusTextView(app *tview.Application) *tview.TextView {
 		SetWrap(true)
 	textView.SetBorder(true).SetTitle("Status")
 	textView.SetChangedFunc(func() {
+		textView.ScrollToBeginning()
 		app.Draw()
 	})
 	textView.SetBackgroundColor(tcell.ColorDefault)
@@ -169,6 +185,7 @@ func (s *Shell) getApp(
 	*tview.TextView,
 	*tview.TextView,
 	*tview.TextView,
+	*tview.TextView,
 	*tview.InputField,
 ) {
 	app := tview.NewApplication()
@@ -184,6 +201,7 @@ func (s *Shell) getApp(
 	pushMessagesLogsTextView := s.getPushMessagesLogsTextView(app)
 	feedbackTextView := s.getFeedbackTextView(app)
 	gcodeParserTextView := s.getGcodeParserTextView(app)
+	gcodeParamsTextView := s.getGcodeParamsTextView(app)
 	stateTextView := s.getStateTextView(app)
 	statusTextView := s.getStatusTextView(app)
 	commandInputField := s.getCommandInputField(sendCommandCh)
@@ -198,7 +216,12 @@ func (s *Shell) getApp(
 								AddItem(commandsTextView, 0, 1, false),
 							0, 3, false,
 						).
-						AddItem(gcodeParserTextView, 0, 2, false).
+						AddItem(
+							tview.NewFlex().SetDirection(tview.FlexRow).
+								AddItem(gcodeParserTextView, 0, 1, false).
+								AddItem(gcodeParamsTextView, 0, 1, false),
+							0, 2, false,
+						).
 						AddItem(
 							tview.NewFlex().SetDirection(tview.FlexRow).
 								AddItem(stateTextView, 4, 0, false).
@@ -217,6 +240,7 @@ func (s *Shell) getApp(
 		pushMessagesLogsTextView,
 		feedbackTextView,
 		gcodeParserTextView,
+		gcodeParamsTextView,
 		stateTextView,
 		statusTextView,
 		commandInputField
@@ -306,6 +330,8 @@ func (s *Shell) sendCommandWorker(
 			s.sendCommand(ctx, commandsTextView, command)
 			// Sending $G enables tracking of G-Code parsing state
 			s.sendCommand(ctx, commandsTextView, "$G")
+			// Sending $G enables tracking of G-Code parameters
+			s.sendCommand(ctx, commandsTextView, "$#")
 			cancel()
 			commandInputField.SetText("")
 			commandInputField.SetDisabled(false)
@@ -549,12 +575,118 @@ func (s *Shell) processMessagePushGcodeState(
 	return nil, tcell.ColorGreen
 }
 
+//gocyclo:ignore
+func (s *Shell) processMessagePushGcodeParam(
+	gcodeParamsTextView *tview.TextView,
+) (func(), tcell.Color) {
+	color := tcell.ColorGreen
+
+	params := s.grbl.GetGcodeParameters()
+	if params == nil {
+		return nil, color
+	}
+
+	var buf bytes.Buffer
+
+	if params.CoordinateSystem1 != nil {
+		fmt.Fprintf(&buf, "G54:Coordinate System 1\n")
+		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.CoordinateSystem1.X, params.CoordinateSystem1.Y, params.CoordinateSystem1.Z)
+		if params.CoordinateSystem1.A != nil {
+			fmt.Fprintf(&buf, " A:%.4f", *params.CoordinateSystem1.A)
+		}
+		fmt.Fprintf(&buf, "\n")
+	}
+	if params.CoordinateSystem2 != nil {
+		fmt.Fprintf(&buf, "G55:Coordinate System 2\n")
+		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.CoordinateSystem2.X, params.CoordinateSystem2.Y, params.CoordinateSystem2.Z)
+		if params.CoordinateSystem2.A != nil {
+			fmt.Fprintf(&buf, " A:%.4f", *params.CoordinateSystem2.A)
+		}
+		fmt.Fprintf(&buf, "\n")
+	}
+	if params.CoordinateSystem3 != nil {
+		fmt.Fprintf(&buf, "G56:Coordinate System 3\n")
+		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.CoordinateSystem3.X, params.CoordinateSystem3.Y, params.CoordinateSystem3.Z)
+		if params.CoordinateSystem3.A != nil {
+			fmt.Fprintf(&buf, " A:%.4f", *params.CoordinateSystem3.A)
+		}
+		fmt.Fprintf(&buf, "\n")
+	}
+	if params.CoordinateSystem4 != nil {
+		fmt.Fprintf(&buf, "G57:Coordinate System 4\n")
+		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.CoordinateSystem4.X, params.CoordinateSystem4.Y, params.CoordinateSystem4.Z)
+		if params.CoordinateSystem4.A != nil {
+			fmt.Fprintf(&buf, " A:%.4f", *params.CoordinateSystem4.A)
+		}
+		fmt.Fprintf(&buf, "\n")
+	}
+	if params.CoordinateSystem5 != nil {
+		fmt.Fprintf(&buf, "G58:Coordinate System 5\n")
+		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.CoordinateSystem5.X, params.CoordinateSystem5.Y, params.CoordinateSystem5.Z)
+		if params.CoordinateSystem5.A != nil {
+			fmt.Fprintf(&buf, " A:%.4f", *params.CoordinateSystem5.A)
+		}
+		fmt.Fprintf(&buf, "\n")
+	}
+	if params.CoordinateSystem6 != nil {
+		fmt.Fprintf(&buf, "G59:Coordinate System 6\n")
+		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.CoordinateSystem6.X, params.CoordinateSystem6.Y, params.CoordinateSystem6.Z)
+		if params.CoordinateSystem6.A != nil {
+			fmt.Fprintf(&buf, " A:%.4f", *params.CoordinateSystem6.A)
+		}
+		fmt.Fprintf(&buf, "\n")
+	}
+	if params.PrimaryPreDefinedPosition != nil {
+		fmt.Fprintf(&buf, "G28:Primary Pre-Defined Position\n")
+		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.PrimaryPreDefinedPosition.X, params.PrimaryPreDefinedPosition.Y, params.PrimaryPreDefinedPosition.Z)
+		if params.PrimaryPreDefinedPosition.A != nil {
+			fmt.Fprintf(&buf, " A:%.4f", *params.PrimaryPreDefinedPosition.A)
+		}
+		fmt.Fprintf(&buf, "\n")
+	}
+	if params.SecondaryPreDefinedPosition != nil {
+		fmt.Fprintf(&buf, "G30:Secondary Pre-Defined Position\n")
+		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.SecondaryPreDefinedPosition.X, params.SecondaryPreDefinedPosition.Y, params.SecondaryPreDefinedPosition.Z)
+		if params.SecondaryPreDefinedPosition.A != nil {
+			fmt.Fprintf(&buf, " A:%.4f", *params.SecondaryPreDefinedPosition.A)
+		}
+		fmt.Fprintf(&buf, "\n")
+	}
+	if params.CoordinateOffset != nil {
+		fmt.Fprintf(&buf, "G92:Coordinate Offset\n")
+		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.CoordinateOffset.X, params.CoordinateOffset.Y, params.CoordinateOffset.Z)
+		if params.CoordinateOffset.A != nil {
+			fmt.Fprintf(&buf, " A:%.4f", *params.CoordinateOffset.A)
+		}
+		fmt.Fprintf(&buf, "\n")
+	}
+	if params.ToolLengthOffset != nil {
+		fmt.Fprintf(&buf, "Tool Length Offset\n")
+		fmt.Fprintf(&buf, "Z:%.4f\n", *params.ToolLengthOffset)
+	}
+	if params.Probe != nil {
+		fmt.Fprintf(&buf, "Last Probing Cycle\n")
+		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.Probe.Coordinates.X, params.Probe.Coordinates.Y, params.Probe.Coordinates.Z)
+		if params.Probe.Coordinates.A != nil {
+			fmt.Fprintf(&buf, " A:%.4f", *params.Probe.Coordinates.A)
+		}
+		fmt.Fprintf(&buf, "\n")
+		fmt.Fprintf(&buf, "Successful: %v\n", params.Probe.Successful)
+	}
+
+	gcodeParamsTextView.Clear()
+	fmt.Fprint(gcodeParamsTextView, tview.Escape(buf.String()))
+
+	return nil, color
+}
+
 func (s *Shell) processMessagePushWelcome(
 	ctx context.Context,
 	_ *grblMod.MessagePushWelcome,
 	pushMessagesLogsTextView *tview.TextView,
 	commandsTextView *tview.TextView,
 	gcodeParserTextView *tview.TextView,
+	gcodeParamsTextView *tview.TextView,
 	stateTextView *tview.TextView,
 	statusTextView *tview.TextView,
 	feedbackTextView *tview.TextView,
@@ -564,12 +696,15 @@ func (s *Shell) processMessagePushWelcome(
 		fmt.Fprintf(pushMessagesLogsTextView, "[%s]Soft-Reset detected[-]\n", color)
 	}
 	gcodeParserTextView.Clear()
+	gcodeParamsTextView.Clear()
 	stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 	stateTextView.Clear()
 	statusTextView.Clear()
 	feedbackTextView.SetText("")
 	// Sending $G enables tracking of G-Code parsing state
 	s.sendCommand(ctx, commandsTextView, "$G")
+	// Sending $G enables tracking of G-Code parameters
+	s.sendCommand(ctx, commandsTextView, "$#")
 	return detailsFn, color
 }
 
@@ -610,6 +745,7 @@ func (s *Shell) pushMessageWorker(
 	pushMessagesLogsTextView *tview.TextView,
 	commandsTextView *tview.TextView,
 	gcodeParserTextView *tview.TextView,
+	gcodeParamsTextView *tview.TextView,
 	stateTextView *tview.TextView,
 	statusTextView *tview.TextView,
 	feedbackTextView *tview.TextView,
@@ -635,6 +771,10 @@ func (s *Shell) pushMessageWorker(
 					messagePushGcodeState, gcodeParserTextView,
 				)
 			}
+			if _, ok := message.(*grblMod.MessagePushGcodeParam); ok {
+				detailsFn, color = s.processMessagePushGcodeParam(gcodeParamsTextView)
+			}
+
 			if messagePushWelcome, ok := message.(*grblMod.MessagePushWelcome); ok {
 				detailsFn, color = s.processMessagePushWelcome(
 					ctx,
@@ -642,6 +782,7 @@ func (s *Shell) pushMessageWorker(
 					pushMessagesLogsTextView,
 					commandsTextView,
 					gcodeParserTextView,
+					gcodeParamsTextView,
 					stateTextView,
 					statusTextView,
 					feedbackTextView,
@@ -727,6 +868,7 @@ func (s *Shell) Run(ctx context.Context) (err error) {
 		pushMessagesLogsTextView,
 		feedbackTextView,
 		gcodeParserTextView,
+		gcodeParamsTextView,
 		stateTextView,
 		statusTextView,
 		commandInputField := s.getApp(sendCommandCh, sendRealTimeCommandCh)
@@ -756,11 +898,14 @@ func (s *Shell) Run(ctx context.Context) (err error) {
 		defer app.Stop()
 		// Sending $G enables tracking of G-Code parsing state
 		s.sendCommand(ctx, commandsTextView, "$G")
+		// Sending $G enables tracking of G-Code parameters
+		s.sendCommand(ctx, commandsTextView, "$#")
 		pushMessageErrCh <- s.pushMessageWorker(
 			ctx,
 			pushMessagesLogsTextView,
 			commandsTextView,
 			gcodeParserTextView,
+			gcodeParamsTextView,
 			stateTextView,
 			statusTextView,
 			feedbackTextView,

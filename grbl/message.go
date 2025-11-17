@@ -10,6 +10,50 @@ import (
 	"github.com/fornellas/cgs/gcode"
 )
 
+type Coordinates struct {
+	X float64
+	Y float64
+	Z float64
+	A *float64
+}
+
+// NewCoordinates creates a Coordinates string values for X, Y, Z and A (optional).
+func NewCoordinatesFromStrValues(dataValues []string) (*Coordinates, error) {
+	coordinates := &Coordinates{}
+
+	if len(dataValues) < 3 || len(dataValues) > 4 {
+		return nil, fmt.Errorf("machine position field malformed: %#v", dataValues)
+	}
+
+	var err error
+
+	coordinates.X, err = strconv.ParseFloat(dataValues[0], 64)
+	if err != nil {
+		return nil, fmt.Errorf("machine position X invalid: %#v", dataValues[0])
+	}
+	coordinates.Y, err = strconv.ParseFloat(dataValues[1], 64)
+	if err != nil {
+		return nil, fmt.Errorf("machine position Y invalid: %#v", dataValues[1])
+	}
+	coordinates.Z, err = strconv.ParseFloat(dataValues[2], 64)
+	if err != nil {
+		return nil, fmt.Errorf("machine position Z invalid: %#v", dataValues[2])
+	}
+	if len(dataValues) > 3 {
+		a, err := strconv.ParseFloat(dataValues[3], 64)
+		if err != nil {
+			return nil, fmt.Errorf("machine position a invalid: %#v", dataValues[3])
+		}
+		coordinates.A = &a
+	}
+	return coordinates, nil
+}
+
+// NewCoordinates creates a Coordinates struct from a string CSV: X,Y,Z,A (A is optional)
+func NewCoordinatesFromCSV(s string) (*Coordinates, error) {
+	return NewCoordinatesFromStrValues(strings.Split(s, ","))
+}
+
 type MessageType int
 
 const (
@@ -246,22 +290,10 @@ func NewMessagePush(message string) (Message, error) {
 	if strings.HasPrefix(message, "[HLP:") {
 		return &MessagePushHelp{Message: message}, nil
 	}
-	gcodeParamPrefixes := []string{
-		"[G54:",
-		"[G55:",
-		"[G56:",
-		"[G57:",
-		"[G58:",
-		"[G59:",
-		"[G28:",
-		"[G30:",
-		"[G92:",
-		"[TLO:",
-		"[PRB:",
-	}
-	for _, prefix := range gcodeParamPrefixes {
+
+	for prefix := range gcodeParamPrefixes {
 		if strings.HasPrefix(message, prefix) {
-			return &MessagePushGcodeParam{Message: message}, nil
+			return NewMessagePushGcodeParam(message)
 		}
 	}
 	if strings.HasPrefix(message, "[VER:") {
@@ -368,8 +400,214 @@ func (m *MessagePushHelp) String() string {
 	return m.Message
 }
 
+type Probe struct {
+	Coordinates Coordinates
+	Successful  bool
+}
+
+func NewProbe(message string) (*Probe, error) {
+	if !strings.HasPrefix(message, "[PRB:") || !strings.HasSuffix(message, "]") {
+		return nil, fmt.Errorf("probe message malformed: %#v", message)
+	}
+
+	content := message[5 : len(message)-1]
+
+	lastColonIdx := strings.LastIndex(content, ":")
+	if lastColonIdx == -1 {
+		return nil, fmt.Errorf("probe message missing success flag: %#v", message)
+	}
+
+	coordStr := content[:lastColonIdx]
+	successStr := content[lastColonIdx+1:]
+
+	coordinates, err := NewCoordinatesFromCSV(coordStr)
+	if err != nil {
+		return nil, fmt.Errorf("probe message coordinates invalid: %#v: %w", message, err)
+	}
+
+	if successStr != "0" && successStr != "1" {
+		return nil, fmt.Errorf("probe message success flag invalid: %#v", message)
+	}
+
+	return &Probe{
+		Coordinates: *coordinates,
+		Successful:  successStr == "1",
+	}, nil
+}
+
+var gcodeParamPrefixes = map[string]bool{
+	"[G54:": true,
+	"[G55:": true,
+	"[G56:": true,
+	"[G57:": true,
+	"[G58:": true,
+	"[G59:": true,
+	"[G28:": true,
+	"[G30:": true,
+	"[G92:": true,
+	"[TLO:": true,
+	"[PRB:": true,
+}
+
+// G-Code parameters, as reported by Grbl via $#.
+type GcodeParameters struct {
+	// Coordinate system 1 (G54)
+	CoordinateSystem1 *Coordinates
+	// Coordinate system 2 (G55)
+	CoordinateSystem2 *Coordinates
+	// Coordinate system 3 (G56)
+	CoordinateSystem3 *Coordinates
+	// Coordinate system 4 (G57)
+	CoordinateSystem4 *Coordinates
+	// Coordinate system 5 (G58)
+	CoordinateSystem5 *Coordinates
+	// Coordinate system 6 (G59)
+	CoordinateSystem6 *Coordinates
+	// Primary Pre-Defined Position (G28)
+	PrimaryPreDefinedPosition *Coordinates
+	// Secondary Pre-Defined Position (G30)
+	SecondaryPreDefinedPosition *Coordinates
+	// Coordinate Offset (G92)
+	CoordinateOffset *Coordinates
+	// Tool length offset (for the default z-axis)
+	ToolLengthOffset *float64
+	// Last probing cycle
+	Probe *Probe
+}
+
+// Updates GcodeParameters from given MessagePushGcodeParam.
+func (g *GcodeParameters) Update(messagePushGcodeParam *MessagePushGcodeParam) {
+	if messagePushGcodeParam.GcodeParameters.CoordinateSystem1 != nil {
+		g.CoordinateSystem1 = messagePushGcodeParam.GcodeParameters.CoordinateSystem1
+	}
+	if messagePushGcodeParam.GcodeParameters.CoordinateSystem2 != nil {
+		g.CoordinateSystem2 = messagePushGcodeParam.GcodeParameters.CoordinateSystem2
+	}
+	if messagePushGcodeParam.GcodeParameters.CoordinateSystem3 != nil {
+		g.CoordinateSystem3 = messagePushGcodeParam.GcodeParameters.CoordinateSystem3
+	}
+	if messagePushGcodeParam.GcodeParameters.CoordinateSystem4 != nil {
+		g.CoordinateSystem4 = messagePushGcodeParam.GcodeParameters.CoordinateSystem4
+	}
+	if messagePushGcodeParam.GcodeParameters.CoordinateSystem5 != nil {
+		g.CoordinateSystem5 = messagePushGcodeParam.GcodeParameters.CoordinateSystem5
+	}
+	if messagePushGcodeParam.GcodeParameters.CoordinateSystem6 != nil {
+		g.CoordinateSystem6 = messagePushGcodeParam.GcodeParameters.CoordinateSystem6
+	}
+	if messagePushGcodeParam.GcodeParameters.PrimaryPreDefinedPosition != nil {
+		g.PrimaryPreDefinedPosition = messagePushGcodeParam.GcodeParameters.PrimaryPreDefinedPosition
+	}
+	if messagePushGcodeParam.GcodeParameters.SecondaryPreDefinedPosition != nil {
+		g.SecondaryPreDefinedPosition = messagePushGcodeParam.GcodeParameters.SecondaryPreDefinedPosition
+	}
+	if messagePushGcodeParam.GcodeParameters.CoordinateOffset != nil {
+		g.CoordinateOffset = messagePushGcodeParam.GcodeParameters.CoordinateOffset
+	}
+	if messagePushGcodeParam.GcodeParameters.ToolLengthOffset != nil {
+		g.ToolLengthOffset = messagePushGcodeParam.GcodeParameters.ToolLengthOffset
+	}
+	if messagePushGcodeParam.GcodeParameters.Probe != nil {
+		g.Probe = messagePushGcodeParam.GcodeParameters.Probe
+	}
+}
+
 type MessagePushGcodeParam struct {
-	Message string
+	Message         string
+	GcodeParameters GcodeParameters
+}
+
+//gocyclo:ignore
+func NewMessagePushGcodeParam(message string) (*MessagePushGcodeParam, error) {
+	m := &MessagePushGcodeParam{
+		Message: message,
+	}
+
+	if !strings.HasPrefix(message, "[") || !strings.HasSuffix(message, "]") {
+		return nil, fmt.Errorf("gcode param message malformed: not surrounded by []: %#v", message)
+	}
+
+	content := message[1 : len(message)-1]
+	colonIdx := strings.Index(content, ":")
+	if colonIdx == -1 {
+		return nil, fmt.Errorf("gcode param message malformed: missing colon: %#v", message)
+	}
+
+	paramType := content[:colonIdx]
+	paramValue := content[colonIdx+1:]
+
+	switch paramType {
+	case "G54":
+		coordinates, err := NewCoordinatesFromCSV(paramValue)
+		if err != nil {
+			return nil, fmt.Errorf("gcode param G54 invalid: %#v: %w", message, err)
+		}
+		m.GcodeParameters.CoordinateSystem1 = coordinates
+	case "G55":
+		coordinates, err := NewCoordinatesFromCSV(paramValue)
+		if err != nil {
+			return nil, fmt.Errorf("gcode param G55 invalid: %#v: %w", message, err)
+		}
+		m.GcodeParameters.CoordinateSystem2 = coordinates
+	case "G56":
+		coordinates, err := NewCoordinatesFromCSV(paramValue)
+		if err != nil {
+			return nil, fmt.Errorf("gcode param G56 invalid: %#v: %w", message, err)
+		}
+		m.GcodeParameters.CoordinateSystem3 = coordinates
+	case "G57":
+		coordinates, err := NewCoordinatesFromCSV(paramValue)
+		if err != nil {
+			return nil, fmt.Errorf("gcode param G57 invalid: %#v: %w", message, err)
+		}
+		m.GcodeParameters.CoordinateSystem4 = coordinates
+	case "G58":
+		coordinates, err := NewCoordinatesFromCSV(paramValue)
+		if err != nil {
+			return nil, fmt.Errorf("gcode param G58 invalid: %#v: %w", message, err)
+		}
+		m.GcodeParameters.CoordinateSystem5 = coordinates
+	case "G59":
+		coordinates, err := NewCoordinatesFromCSV(paramValue)
+		if err != nil {
+			return nil, fmt.Errorf("gcode param G59 invalid: %#v: %w", message, err)
+		}
+		m.GcodeParameters.CoordinateSystem6 = coordinates
+	case "G28":
+		coordinates, err := NewCoordinatesFromCSV(paramValue)
+		if err != nil {
+			return nil, fmt.Errorf("gcode param G28 invalid: %#v: %w", message, err)
+		}
+		m.GcodeParameters.PrimaryPreDefinedPosition = coordinates
+	case "G30":
+		coordinates, err := NewCoordinatesFromCSV(paramValue)
+		if err != nil {
+			return nil, fmt.Errorf("gcode param G30 invalid: %#v: %w", message, err)
+		}
+		m.GcodeParameters.SecondaryPreDefinedPosition = coordinates
+	case "G92":
+		coordinates, err := NewCoordinatesFromCSV(paramValue)
+		if err != nil {
+			return nil, fmt.Errorf("gcode param G92 invalid: %#v: %w", message, err)
+		}
+		m.GcodeParameters.CoordinateOffset = coordinates
+	case "TLO":
+		offset, err := strconv.ParseFloat(paramValue, 64)
+		if err != nil {
+			return nil, fmt.Errorf("gcode param TLO invalid: %#v: %w", message, err)
+		}
+		m.GcodeParameters.ToolLengthOffset = &offset
+	case "PRB":
+		probe, err := NewProbe(message)
+		if err != nil {
+			return nil, fmt.Errorf("gcode param PRB invalid: %#v: %w", message, err)
+		}
+		m.GcodeParameters.Probe = probe
+	default:
+		return nil, fmt.Errorf("gcode param message unknown type: %#v", message)
+	}
+
+	return m, nil
 }
 
 func (m *MessagePushGcodeParam) Type() MessageType {
@@ -479,120 +717,36 @@ func (m *StatusReportMachineState) SubStateString() string {
 	return fmt.Sprintf("unknown (%d)", *m.SubState)
 }
 
-type StatusReportMachinePosition struct {
-	X float64
-	Y float64
-	Z float64
-	A *float64
-}
+type StatusReportMachinePosition Coordinates
 
 func NewStatusReportMachinePosition(dataValues []string) (*StatusReportMachinePosition, error) {
-	machinePosition := &StatusReportMachinePosition{}
-
-	if len(dataValues) < 3 || len(dataValues) > 4 {
-		return nil, fmt.Errorf("machine position field malformed: %#v", dataValues)
-	}
-
-	var err error
-
-	machinePosition.X, err = strconv.ParseFloat(dataValues[0], 64)
+	coordinates, err := NewCoordinatesFromStrValues(dataValues)
 	if err != nil {
-		return nil, fmt.Errorf("machine position X invalid: %#v", dataValues[0])
+		return nil, err
 	}
-	machinePosition.Y, err = strconv.ParseFloat(dataValues[1], 64)
-	if err != nil {
-		return nil, fmt.Errorf("machine position Y invalid: %#v", dataValues[1])
-	}
-	machinePosition.Z, err = strconv.ParseFloat(dataValues[2], 64)
-	if err != nil {
-		return nil, fmt.Errorf("machine position Z invalid: %#v", dataValues[2])
-	}
-	if len(dataValues) > 3 {
-		a, err := strconv.ParseFloat(dataValues[3], 64)
-		if err != nil {
-			return nil, fmt.Errorf("machine position a invalid: %#v", dataValues[3])
-		}
-		machinePosition.A = &a
-	}
-	return machinePosition, nil
+	return (*StatusReportMachinePosition)(coordinates), nil
 }
 
-type StatusReportWorkPosition struct {
-	X float64
-	Y float64
-	Z float64
-	A *float64
-}
+type StatusReportWorkPosition Coordinates
 
 func NewStatusReportWorkPosition(dataValues []string) (*StatusReportWorkPosition, error) {
-	workPosition := &StatusReportWorkPosition{}
-
-	if len(dataValues) < 3 || len(dataValues) > 4 {
-		return nil, fmt.Errorf("work position field malformed: %#v", dataValues)
-	}
-
-	var err error
-
-	workPosition.X, err = strconv.ParseFloat(dataValues[0], 64)
+	coordinates, err := NewCoordinatesFromStrValues(dataValues)
 	if err != nil {
-		return nil, fmt.Errorf("work position X invalid: %#v", dataValues[0])
+		return nil, err
 	}
-	workPosition.Y, err = strconv.ParseFloat(dataValues[1], 64)
-	if err != nil {
-		return nil, fmt.Errorf("work position Y invalid: %#v", dataValues[1])
-	}
-	workPosition.Z, err = strconv.ParseFloat(dataValues[2], 64)
-	if err != nil {
-		return nil, fmt.Errorf("work position Z invalid: %#v", dataValues[2])
-	}
-	if len(dataValues) > 3 {
-		a, err := strconv.ParseFloat(dataValues[3], 64)
-		if err != nil {
-			return nil, fmt.Errorf("work position A invalid: %#v", dataValues[3])
-		}
-		workPosition.A = &a
-	}
-	return workPosition, nil
+	return (*StatusReportWorkPosition)(coordinates), nil
 }
 
 // Work coordinate offset is the current work coordinate offset of the g-code parser, which is the
 // sum of the current work coordinate system, G92 offsets, and G43.1 tool length offset.
-type StatusReportWorkCoordinateOffset struct {
-	X float64
-	Y float64
-	Z float64
-	A *float64
-}
+type StatusReportWorkCoordinateOffset Coordinates
 
 func NewStatusReportWorkCoordinateOffset(dataValues []string) (*StatusReportWorkCoordinateOffset, error) {
-	wco := &StatusReportWorkCoordinateOffset{}
-
-	if len(dataValues) < 3 || len(dataValues) > 4 {
-		return nil, fmt.Errorf("work coordinate offset field malformed: %#v", dataValues)
-	}
-
-	var err error
-
-	wco.X, err = strconv.ParseFloat(dataValues[0], 64)
+	coordinates, err := NewCoordinatesFromStrValues(dataValues)
 	if err != nil {
-		return nil, fmt.Errorf("work coordinate offset X invalid: %#v", dataValues[0])
+		return nil, err
 	}
-	wco.Y, err = strconv.ParseFloat(dataValues[1], 64)
-	if err != nil {
-		return nil, fmt.Errorf("work coordinate offset Y invalid: %#v", dataValues[1])
-	}
-	wco.Z, err = strconv.ParseFloat(dataValues[2], 64)
-	if err != nil {
-		return nil, fmt.Errorf("work coordinate offset Z invalid: %#v", dataValues[2])
-	}
-	if len(dataValues) > 3 {
-		a, err := strconv.ParseFloat(dataValues[3], 64)
-		if err != nil {
-			return nil, fmt.Errorf("work coordinate offset A invalid: %#v", dataValues[3])
-		}
-		wco.A = &a
-	}
-	return wco, nil
+	return (*StatusReportWorkCoordinateOffset)(coordinates), nil
 }
 
 type StatusReportBufferState struct {
