@@ -67,6 +67,7 @@ func (s *Shell) getCommandsTextView(app *tview.Application) *tview.TextView {
 		textView.ScrollToEnd()
 		app.Draw()
 	})
+	textView.SetBackgroundColor(tcell.ColorDefault)
 	return textView
 }
 
@@ -80,6 +81,7 @@ func (s *Shell) getPushMessagesLogsTextView(app *tview.Application) *tview.TextV
 		textView.ScrollToEnd()
 		app.Draw()
 	})
+	textView.SetBackgroundColor(tcell.ColorDefault)
 	return textView
 }
 
@@ -93,6 +95,7 @@ func (s *Shell) getFeedbackTextView(app *tview.Application) *tview.TextView {
 		textView.ScrollToEnd()
 		app.Draw()
 	})
+	textView.SetBackgroundColor(tcell.ColorDefault)
 	return textView
 }
 
@@ -105,6 +108,7 @@ func (s *Shell) getGcodeParserTextView(app *tview.Application) *tview.TextView {
 	textView.SetChangedFunc(func() {
 		app.Draw()
 	})
+	textView.SetBackgroundColor(tcell.ColorDefault)
 	return textView
 }
 
@@ -117,6 +121,7 @@ func (s *Shell) getStateTextView(app *tview.Application) *tview.TextView {
 	textView.SetChangedFunc(func() {
 		app.Draw()
 	})
+	textView.SetBackgroundColor(tcell.ColorDefault)
 	return textView
 }
 
@@ -129,26 +134,28 @@ func (s *Shell) getStatusTextView(app *tview.Application) *tview.TextView {
 	textView.SetChangedFunc(func() {
 		app.Draw()
 	})
+	textView.SetBackgroundColor(tcell.ColorDefault)
 	return textView
 }
 
 func (s *Shell) getCommandInputField(commandCh chan string) *tview.InputField {
-	commandInputField := tview.NewInputField().
+	inputField := tview.NewInputField().
 		SetLabel("Command: ")
-	commandInputField.SetDoneFunc(func(key tcell.Key) {
+	inputField.SetDoneFunc(func(key tcell.Key) {
 		switch key {
 		case tcell.KeyEscape:
-			commandInputField.SetText("")
+			inputField.SetText("")
 		case tcell.KeyEnter:
-			command := commandInputField.GetText()
+			command := inputField.GetText()
 			if command == "" {
 				return
 			}
 			commandCh <- command
-			commandInputField.SetText("")
+			inputField.SetDisabled(true)
 		}
 	})
-	return commandInputField
+	inputField.SetBackgroundColor(tcell.ColorDefault)
+	return inputField
 }
 
 func (s *Shell) getApp(
@@ -162,6 +169,7 @@ func (s *Shell) getApp(
 	*tview.TextView,
 	*tview.TextView,
 	*tview.TextView,
+	*tview.InputField,
 ) {
 	app := tview.NewApplication()
 	app.EnableMouse(true)
@@ -210,7 +218,8 @@ func (s *Shell) getApp(
 		feedbackTextView,
 		gcodeParserTextView,
 		stateTextView,
-		statusTextView
+		statusTextView,
+		commandInputField
 }
 
 func (s *Shell) sendCommand(
@@ -281,6 +290,7 @@ func (s *Shell) sendCommand(
 func (s *Shell) sendCommandWorker(
 	ctx context.Context,
 	commandsTextView *tview.TextView,
+	commandInputField *tview.InputField,
 	sendCommandCh chan string,
 ) error {
 	for {
@@ -293,10 +303,12 @@ func (s *Shell) sendCommandWorker(
 			return err
 		case command := <-sendCommandCh:
 			ctx, cancel := context.WithDeadline(ctx, time.Now().Add(20*time.Second))
-			defer cancel()
 			s.sendCommand(ctx, commandsTextView, command)
 			// Sending $G enables tracking of G-Code parsing state
 			s.sendCommand(ctx, commandsTextView, "$G")
+			cancel()
+			commandInputField.SetText("")
+			commandInputField.SetDisabled(false)
 		}
 	}
 }
@@ -716,7 +728,8 @@ func (s *Shell) Run(ctx context.Context) (err error) {
 		feedbackTextView,
 		gcodeParserTextView,
 		stateTextView,
-		statusTextView := s.getApp(sendCommandCh, sendRealTimeCommandCh)
+		statusTextView,
+		commandInputField := s.getApp(sendCommandCh, sendRealTimeCommandCh)
 
 	logger = slog.New(NewViewLogHandler(
 		logger.Handler(),
@@ -728,7 +741,7 @@ func (s *Shell) Run(ctx context.Context) (err error) {
 		defer cancelFn()
 		defer app.Stop()
 		sendCommandWorkerErrCh <- s.sendCommandWorker(
-			ctx, commandsTextView, sendCommandCh,
+			ctx, commandsTextView, commandInputField, sendCommandCh,
 		)
 	}()
 	go func() {
