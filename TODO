@@ -1,11 +1,6 @@
+
 shell.go
     shell
-        Implement G-Code Parser State panel
-            omit these commands / messages by default, add toggle to enable view
-            call $G
-                on connect
-                on soft reset
-                on command send
         Implement G-code Parameters panel
         Implement Send File
         Implement jogging
@@ -17,3 +12,5 @@ shell.go
     grbl
         implement stream
         implement jogging
+        fix
+            when sendCommand times out before response message comes, it is discarded

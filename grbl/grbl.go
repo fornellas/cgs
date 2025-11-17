@@ -12,6 +12,8 @@ import (
 	"go.bug.st/serial"
 )
 
+var ErrNotRealTimeCommand = errors.New("not a real time command")
+
 type RealTimeCommand byte
 
 var realTimeCommandStringsMap = map[RealTimeCommand]string{
@@ -37,6 +39,14 @@ var realTimeCommandStringsMap = map[RealTimeCommand]string{
 	RealTimeCommandToggleSpindleStop:                                  "Toggle Spindle Stop",
 	RealTimeCommandToggleFloodCoolant:                                 "Toggle Flood Coolant",
 	RealTimeCommandToggleMistCoolant:                                  "Toggle Mist Coolant",
+}
+
+func NewRealTimeCommand(b byte) (RealTimeCommand, error) {
+	rtc := RealTimeCommand(b)
+	if _, ok := realTimeCommandStringsMap[rtc]; ok {
+		return rtc, nil
+	}
+	return 0, ErrNotRealTimeCommand
 }
 
 func (c RealTimeCommand) String() string {
@@ -305,7 +315,7 @@ func (g *Grbl) SendRealTimeCommand(ctx context.Context, cmd RealTimeCommand) err
 
 // Send a command / system command to Grbl synchronously.
 // It waits for the response message and returns it.
-func (g *Grbl) SendCommand(ctx context.Context, command string) (Message, error) {
+func (g *Grbl) SendCommand(ctx context.Context, command string) (*MessageResponse, error) {
 	if strings.Contains(command, "\n") {
 		return nil, fmt.Errorf("command must be single line string: %#v", command)
 	}

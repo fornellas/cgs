@@ -13,18 +13,21 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
+	"github.com/fornellas/cgs/gcode"
 	grblMod "github.com/fornellas/cgs/grbl"
 )
 
 type Shell struct {
-	grbl               *grblMod.Grbl
-	displayStatusComms bool
+	grbl                         *grblMod.Grbl
+	displayStatusComms           bool
+	displayGcodeParserStateComms bool
 }
 
-func NewShell(grbl *grblMod.Grbl, displayStatusComms bool) *Shell {
+func NewShell(grbl *grblMod.Grbl, displayStatusComms, displayGcodeParserStateComms bool) *Shell {
 	return &Shell{
-		grbl:               grbl,
-		displayStatusComms: displayStatusComms,
+		grbl:                         grbl,
+		displayStatusComms:           displayStatusComms,
+		displayGcodeParserStateComms: displayGcodeParserStateComms,
 	}
 }
 
@@ -186,7 +189,7 @@ func (s *Shell) getApp(
 								AddItem(commandsTextView, 0, 1, false),
 							0, 3, false,
 						).
-						AddItem(gcodeParserTextView, 0, 1, false).
+						AddItem(gcodeParserTextView, 0, 2, false).
 						AddItem(
 							tview.NewFlex().SetDirection(tview.FlexRow).
 								AddItem(stateTextView, 4, 0, false).
@@ -209,8 +212,71 @@ func (s *Shell) getApp(
 		statusTextView
 }
 
+func (s *Shell) sendCommand(
+	ctx context.Context,
+	realTimeTextView *tview.TextView,
+	commandsTextView *tview.TextView,
+	command string,
+) {
+	// Extract and send real-time commands
+	var buf bytes.Buffer
+	for _, c := range []byte(command) {
+		rtc, err := grblMod.NewRealTimeCommand(c)
+		if err != nil {
+			if !errors.Is(err, grblMod.ErrNotRealTimeCommand) {
+				fmt.Fprintf(commandsTextView, "[%s]Real time command parsing fail: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
+				return
+			}
+			buf.WriteByte(c)
+		} else {
+			s.sendRealTimeCommand(ctx, rtc, realTimeTextView)
+		}
+	}
+	command = buf.String()
+
+	// Verbosity
+	var quiet bool
+	if !s.displayGcodeParserStateComms {
+		parser := gcode.NewParser(strings.NewReader(command))
+		for {
+			block, err := parser.Next()
+			if err != nil {
+				fmt.Fprintf(commandsTextView, "[%s]Failed to parse: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
+				return
+			}
+			if block == nil {
+				break
+			}
+			if block.String() == "$G" {
+				quiet = true
+				break
+			}
+		}
+	}
+
+	// send command
+	if !quiet {
+		fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(command))
+	}
+	messageResponse, err := s.grbl.SendCommand(ctx, command)
+	if err != nil {
+		fmt.Fprintf(commandsTextView, "[%s]Failed to send: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
+		return
+	}
+	if quiet {
+		return
+	}
+	if messageResponse.Error() == nil {
+		fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorGreen, tview.Escape(messageResponse.String()))
+	} else {
+		fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.String()))
+		fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.Error().Error()))
+	}
+}
+
 func (s *Shell) sendCommandWorker(
 	ctx context.Context,
+	realTimeTextView *tview.TextView,
 	commandsTextView *tview.TextView,
 	sendCommandCh chan string,
 ) error {
@@ -223,23 +289,13 @@ func (s *Shell) sendCommandWorker(
 			}
 			return err
 		case command := <-sendCommandCh:
-			fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(command))
 			// FIXME $H (and maybe others) require bigger timeout
 			// FIXME ! (and maybe others) "sometimes" don't return message
 			ctx, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second))
 			defer cancel()
-			message, err := s.grbl.SendCommand(ctx, command)
-			if err != nil {
-				fmt.Fprintf(commandsTextView, "[%s]Failed to send: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
-			} else {
-				messageResponse := message.(*grblMod.MessageResponse)
-				if messageResponse.Error() == nil {
-					fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorGreen, tview.Escape(messageResponse.String()))
-				} else {
-					fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.String()))
-					fmt.Fprintf(commandsTextView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.Error().Error()))
-				}
-			}
+			s.sendCommand(ctx, realTimeTextView, commandsTextView, command)
+			// Sending $G enables tracking of G-Code parsing state
+			s.sendCommand(ctx, realTimeTextView, commandsTextView, "$G")
 		}
 	}
 }
@@ -485,8 +541,10 @@ func (s *Shell) processMessagePushGcodeState(
 }
 
 func (s *Shell) processMessagePushWelcome(
+	ctx context.Context,
 	_ *grblMod.MessagePushWelcome,
 	realTimeTextView *tview.TextView,
+	commandsTextView *tview.TextView,
 	gcodeParserTextView *tview.TextView,
 	stateTextView *tview.TextView,
 	statusTextView *tview.TextView,
@@ -501,6 +559,8 @@ func (s *Shell) processMessagePushWelcome(
 	stateTextView.Clear()
 	statusTextView.Clear()
 	feedbackTextView.SetText("")
+	// Sending $G enables tracking of G-Code parsing state
+	s.sendCommand(ctx, realTimeTextView, commandsTextView, "$G")
 	return detailsFn, color
 }
 
@@ -535,9 +595,11 @@ func (s *Shell) processMessagePushFeedback(
 	return nil, tcell.ColorGreen
 }
 
+//gocyclo:ignore
 func (s *Shell) pushMessageWorker(
 	ctx context.Context,
 	realTimeTextView *tview.TextView,
+	commandsTextView *tview.TextView,
 	gcodeParserTextView *tview.TextView,
 	stateTextView *tview.TextView,
 	statusTextView *tview.TextView,
@@ -566,7 +628,14 @@ func (s *Shell) pushMessageWorker(
 			}
 			if messagePushWelcome, ok := message.(*grblMod.MessagePushWelcome); ok {
 				detailsFn, color = s.processMessagePushWelcome(
-					messagePushWelcome, realTimeTextView, gcodeParserTextView, stateTextView, statusTextView, feedbackTextView,
+					ctx,
+					messagePushWelcome,
+					realTimeTextView,
+					commandsTextView,
+					gcodeParserTextView,
+					stateTextView,
+					statusTextView,
+					feedbackTextView,
 				)
 			}
 			if messagePushAlarm, ok := message.(*grblMod.MessagePushAlarm); ok {
@@ -587,6 +656,12 @@ func (s *Shell) pushMessageWorker(
 					messagePushFeedback, feedbackTextView,
 				)
 			}
+			if _, ok := message.(*grblMod.MessagePushGcodeState); ok {
+				if !s.displayGcodeParserStateComms {
+					continue
+				}
+			}
+
 			text := message.String()
 			if len(text) == 0 {
 				fmt.Fprintf(realTimeTextView, "\n\n")
@@ -650,7 +725,7 @@ func (s *Shell) Run(ctx context.Context) (err error) {
 		defer cancelFn()
 		defer app.Stop()
 		sendCommandWorkerErrCh <- s.sendCommandWorker(
-			ctx, commandsTextView, sendCommandCh,
+			ctx, realTimeTextView, commandsTextView, sendCommandCh,
 		)
 	}()
 	go func() {
@@ -663,8 +738,17 @@ func (s *Shell) Run(ctx context.Context) (err error) {
 	go func() {
 		defer cancelFn()
 		defer app.Stop()
+		// Sending $G enables tracking of G-Code parsing state
+		s.sendCommand(ctx, realTimeTextView, commandsTextView, "$G")
 		pushMessageErrCh <- s.pushMessageWorker(
-			ctx, realTimeTextView, gcodeParserTextView, stateTextView, statusTextView, feedbackTextView, pushMessageCh,
+			ctx,
+			realTimeTextView,
+			commandsTextView,
+			gcodeParserTextView,
+			stateTextView,
+			statusTextView,
+			feedbackTextView,
+			pushMessageCh,
 		)
 	}()
 	go func() {
