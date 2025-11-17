@@ -4,43 +4,51 @@ shell.go
         Alarm state should cancel send command context
         Send File
         Grbl
-            Commands
-                Settings ($$, $x=val)
-                View build info ($I)
-                Startup Blocks ($N, $Nx=)
-                Check ($C)
-                Kill alarm lock ($X)
-                Run homing cycle ($H)
-                Jogging ($J=*)
-                Restore Grbl settings and data to defaults ($RST=$, $RST=#, $RST=*)
-                Enable Sleep Mode ($SLP)
-            Real Time Commands
-                Soft-reset (0x18)
-                Status Report Query (?)
-                Cycle Start / Resume (~)
-                Feed Hold (!)
-                Safety Door (0x84)
-                Jog Cancel (0x85)
-                Overrides
-                    Feed
-                        Set 100% of programmed rate. (0x90)
-                        Increase 10% (0x91)
-                        Decrease 10% (0x92)
-                        Increase 1% (0x93)
-                        Decrease 1% (0x94)
-                    Rapid
-                        Set to 100% full rapid rate. (0x95)
-                        Set to 50% of rapid rate. (0x96)
-                        Set to 25% of rapid rate. (0x97)
-                    Spindle Speed
-                        Set 100% of programmed spindle speed (0x99)
-                        Increase 10% (0x9A)
-                        Decrease 10% (0x9B)
-                        Increase 1% (0x9C)
-                        Decrease 1% (0x9D)
-                Toggle Spindle Stop (0x9E)
-                Toggle Flood Coolant (0xA0)
-                Toggle Mist Coolant (0xA1)
+        View build info ($I)
+        Settings
+            Settings ($$, $x=val)
+            Startup Blocks ($N, $Nx=)
+            Restore Grbl settings and data to defaults ($RST=$, $RST=#, $RST=*)
+        Check
+            Check ($C)
+        Unlock
+            Kill alarm lock ($X)
+        Homing
+            Run homing cycle ($H)
+        Jogging
+            Jogging ($J=*)
+            Jog Cancel (0x85)
+        Sleep
+            Enable Sleep Mode ($SLP)
+        Reset
+            Soft-reset (0x18)
+        Hold/Resume
+            Cycle Start / Resume (~)
+            Feed Hold (!)
+        Door
+            Safety Door (0x84)
+        Overrides
+            Feed
+                Set 100% of programmed rate. (0x90)
+                Increase 10% (0x91)
+                Decrease 10% (0x92)
+                Increase 1% (0x93)
+                Decrease 1% (0x94)
+            Rapid
+                Set to 100% full rapid rate. (0x95)
+                Set to 50% of rapid rate. (0x96)
+                Set to 25% of rapid rate. (0x97)
+            Spindle Speed
+                Set 100% of programmed spindle speed (0x99)
+                Increase 10% (0x9A)
+                Decrease 10% (0x9B)
+                Increase 1% (0x9C)
+                Decrease 1% (0x9D)
+        Spindle
+            Toggle Spindle Stop (0x9E)
+        Coolant
+            Toggle Flood Coolant (0xA0)
+            Toggle Mist Coolant (0xA1)
         Scripting
             https://github.com/google/starlark-go
             https://github.com/d5/tengo
