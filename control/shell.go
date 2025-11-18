@@ -39,31 +39,6 @@ func NewControl(grbl *grblMod.Grbl, options *ControlOptions) *Control {
 	}
 }
 
-func getMachineStateColor(state string) tcell.Color {
-	switch state {
-	case "Idle":
-		return tcell.ColorGreen
-	case "Run":
-		return tcell.ColorLightCyan
-	case "Hold":
-		return tcell.ColorYellow
-	case "Jog":
-		return tcell.ColorBlue
-	case "Alarm":
-		return tcell.ColorRed
-	case "Door":
-		return tcell.ColorOrange
-	case "Check":
-		return tcell.ColorBlue
-	case "Home":
-		return tcell.ColorLime
-	case "Sleep":
-		return tcell.ColorSilver
-	default:
-		return tcell.ColorWhite
-	}
-}
-
 //gocyclo:ignore
 func (s *Control) sendCommand(
 	ctx context.Context,
