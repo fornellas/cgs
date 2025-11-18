@@ -24,37 +24,10 @@ type ControlOptions struct {
 	DisplayGcodeParamStateComms  bool
 }
 
-type shellApp struct {
-	app                      *tview.Application
-	commandsTextView         *tview.TextView
-	pushMessagesLogsTextView *tview.TextView
-	feedbackTextView         *tview.TextView
-	gcodeParserTextView      *tview.TextView
-	gcodeParamsTextView      *tview.TextView
-	stateTextView            *tview.TextView
-	statusTextView           *tview.TextView
-	commandInputField        *tview.InputField
-	homingButton             *tview.Button
-	unlockButton             *tview.Button
-	resetButton              *tview.Button
-	joggingButton            *tview.Button
-	overridesButton          *tview.Button
-	checkButton              *tview.Button
-	doorButton               *tview.Button
-	sleepButton              *tview.Button
-	holdButton               *tview.Button
-	resumeButton             *tview.Button
-	settingsButton           *tview.Button
-	spindleButton            *tview.Button
-	coolantButton            *tview.Button
-	exitButton               *tview.Button
-	rootFlex                 *tview.Flex
-}
-
 type Control struct {
-	grbl     *grblMod.Grbl
-	options  *ControlOptions
-	shellApp *shellApp
+	grbl       *grblMod.Grbl
+	options    *ControlOptions
+	AppManager *AppManager
 }
 
 func NewControl(grbl *grblMod.Grbl, options *ControlOptions) *Control {
@@ -92,254 +65,6 @@ func getMachineStateColor(state string) tcell.Color {
 	}
 }
 
-func (s *Control) getCommandsTextView(app *tview.Application) *tview.TextView {
-	textView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-	textView.SetBorder(true).SetTitle("Commands")
-	textView.SetChangedFunc(func() {
-		textView.ScrollToEnd()
-		app.Draw()
-	})
-	textView.SetBackgroundColor(tcell.ColorDefault)
-	return textView
-}
-
-func (s *Control) getPushMessagesLogsTextView(app *tview.Application) *tview.TextView {
-	textView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-	textView.SetBorder(true).SetTitle("Push Messages / Logs")
-	textView.SetChangedFunc(func() {
-		textView.ScrollToEnd()
-		app.Draw()
-	})
-	textView.SetBackgroundColor(tcell.ColorDefault)
-	return textView
-}
-
-func (s *Control) getFeedbackTextView(app *tview.Application) *tview.TextView {
-	textView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-	textView.SetTitle("Feedback Message")
-	textView.SetChangedFunc(func() {
-		textView.ScrollToEnd()
-		app.Draw()
-	})
-	textView.SetBackgroundColor(tcell.ColorDefault)
-	return textView
-}
-
-func (s *Control) getGcodeParserTextView(app *tview.Application) *tview.TextView {
-	textView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-	textView.SetBorder(true).SetTitle("G-Code Parser")
-	textView.SetChangedFunc(func() {
-		textView.ScrollToBeginning()
-		app.Draw()
-	})
-	textView.SetBackgroundColor(tcell.ColorDefault)
-	return textView
-}
-
-func (s *Control) getGcodeParamsTextView(app *tview.Application) *tview.TextView {
-	textView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-	textView.SetBorder(true).SetTitle("G-Code Parameters")
-	textView.SetChangedFunc(func() {
-		textView.ScrollToBeginning()
-		app.Draw()
-	})
-	textView.SetBackgroundColor(tcell.ColorDefault)
-	return textView
-}
-
-func (s *Control) getStateTextView(app *tview.Application) *tview.TextView {
-	textView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-	textView.SetBorder(true).SetTitle("State")
-	textView.SetChangedFunc(func() {
-		app.Draw()
-	})
-	textView.SetBackgroundColor(tcell.ColorDefault)
-	return textView
-}
-
-func (s *Control) getStatusTextView(app *tview.Application) *tview.TextView {
-	textView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-	textView.SetBorder(true).SetTitle("Status")
-	textView.SetChangedFunc(func() {
-		textView.ScrollToBeginning()
-		app.Draw()
-	})
-	textView.SetBackgroundColor(tcell.ColorDefault)
-	return textView
-}
-
-func (s *Control) getCommandInputField(commandCh chan string) *tview.InputField {
-	inputField := tview.NewInputField().
-		SetLabel("Command: ")
-	inputField.SetDoneFunc(func(key tcell.Key) {
-		switch key {
-		case tcell.KeyEscape:
-			inputField.SetText("")
-		case tcell.KeyEnter:
-			command := inputField.GetText()
-			if command == "" {
-				return
-			}
-			commandCh <- command
-		}
-	})
-	inputField.SetBackgroundColor(tcell.ColorDefault)
-	return inputField
-}
-
-func (s *Control) getShellApp(
-	sendCommandCh chan string,
-	sendRealTimeCommandCh chan grblMod.RealTimeCommand,
-) *shellApp {
-	app := tview.NewApplication()
-	app.EnableMouse(true)
-	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyCtrlX {
-			sendRealTimeCommandCh <- grblMod.RealTimeCommandSoftReset
-			return nil
-		}
-		return event
-	})
-	commandsTextView := s.getCommandsTextView(app)
-	pushMessagesLogsTextView := s.getPushMessagesLogsTextView(app)
-	feedbackTextView := s.getFeedbackTextView(app)
-	gcodeParserTextView := s.getGcodeParserTextView(app)
-	gcodeParamsTextView := s.getGcodeParamsTextView(app)
-	stateTextView := s.getStateTextView(app)
-	statusTextView := s.getStatusTextView(app)
-	commandInputField := s.getCommandInputField(sendCommandCh)
-	homingButton := tview.NewButton("Homing").
-		SetSelectedFunc(func() { sendCommandCh <- "$H" })
-	unlockButton := tview.NewButton("Unlock").
-		SetSelectedFunc(func() { sendCommandCh <- "$X" })
-	resetButton := tview.NewButton("Reset").
-		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandSoftReset })
-	joggingButton := tview.NewButton("Jogging").
-		SetDisabled(true)
-	// 	SetSelectedFunc(func() { sendCommandCh <- "TODO" })
-	overridesButton := tview.NewButton("Overrides").
-		SetDisabled(true)
-	// 	SetSelectedFunc(func() { sendRealTimeCommandCh <- "TODO" })
-	checkButton := tview.NewButton("Check").
-		SetSelectedFunc(func() { sendCommandCh <- "$C" })
-	doorButton := tview.NewButton("Door").
-		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandSafetyDoor })
-	sleepButton := tview.NewButton("Sleep").
-		SetSelectedFunc(func() { sendCommandCh <- "$SLP" })
-	holdButton := tview.NewButton("Hold").
-		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandFeedHold })
-	resumeButton := tview.NewButton("Resume").
-		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandCycleStartResume })
-	settingsButton := tview.NewButton("Settings").
-		SetDisabled(true)
-	// 	SetSelectedFunc(func() { sendCommandCh <- "TODO" })
-	spindleButton := tview.NewButton("Spindle").
-		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandToggleSpindleStop })
-	coolantButton := tview.NewButton("Coolant").
-		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandToggleMistCoolant })
-	exitButton := tview.NewButton("Exit").
-		SetSelectedFunc(func() { app.Stop() })
-	rootFlex := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(
-			tview.NewFlex().SetDirection(tview.FlexRow).
-				AddItem(
-					tview.NewFlex().
-						AddItem(
-							tview.NewFlex().SetDirection(tview.FlexRow).
-								AddItem(pushMessagesLogsTextView, 0, 1, false).
-								AddItem(commandsTextView, 0, 1, false),
-							0, 3, false,
-						).
-						AddItem(
-							tview.NewFlex().SetDirection(tview.FlexRow).
-								AddItem(gcodeParserTextView, 0, 1, false).
-								AddItem(gcodeParamsTextView, 0, 1, false),
-							0, 2, false,
-						).
-						AddItem(
-							tview.NewFlex().SetDirection(tview.FlexRow).
-								AddItem(stateTextView, 4, 0, false).
-								AddItem(statusTextView, 0, 1, false),
-							14, 0, false,
-						),
-					0, 1, false,
-				).
-				AddItem(feedbackTextView, 1, 0, false).
-				AddItem(commandInputField, 1, 0, false),
-			0, 1, false,
-		).
-		AddItem(
-			tview.NewFlex().
-				AddItem(homingButton, 0, 1, false).
-				AddItem(resetButton, 0, 1, false).
-				AddItem(overridesButton, 0, 1, false).
-				AddItem(doorButton, 0, 1, false).
-				AddItem(holdButton, 0, 1, false).
-				AddItem(settingsButton, 0, 1, false).
-				AddItem(coolantButton, 0, 1, false),
-			1, 0, false,
-		).
-		AddItem(
-			tview.NewFlex().
-				AddItem(unlockButton, 0, 1, false).
-				AddItem(joggingButton, 0, 1, false).
-				AddItem(checkButton, 0, 1, false).
-				AddItem(sleepButton, 0, 1, false).
-				AddItem(resumeButton, 0, 1, false).
-				AddItem(spindleButton, 0, 1, false).
-				AddItem(exitButton, 0, 1, false),
-			1, 0, false,
-		)
-	app.SetRoot(rootFlex, true).SetFocus(commandInputField)
-	return &shellApp{
-		app:                      app,
-		commandsTextView:         commandsTextView,
-		pushMessagesLogsTextView: pushMessagesLogsTextView,
-		feedbackTextView:         feedbackTextView,
-		gcodeParserTextView:      gcodeParserTextView,
-		gcodeParamsTextView:      gcodeParamsTextView,
-		stateTextView:            stateTextView,
-		statusTextView:           statusTextView,
-		commandInputField:        commandInputField,
-		homingButton:             homingButton,
-		unlockButton:             unlockButton,
-		resetButton:              resetButton,
-		joggingButton:            joggingButton,
-		overridesButton:          overridesButton,
-		checkButton:              checkButton,
-		doorButton:               doorButton,
-		sleepButton:              sleepButton,
-		holdButton:               holdButton,
-		resumeButton:             resumeButton,
-		settingsButton:           settingsButton,
-		spindleButton:            spindleButton,
-		coolantButton:            coolantButton,
-		exitButton:               exitButton,
-		rootFlex:                 rootFlex,
-	}
-}
-
 //gocyclo:ignore
 func (s *Control) sendCommand(
 	ctx context.Context,
@@ -351,7 +76,7 @@ func (s *Control) sendCommand(
 		rtc, err := grblMod.NewRealTimeCommand(c)
 		if err != nil {
 			if !errors.Is(err, grblMod.ErrNotRealTimeCommand) {
-				fmt.Fprintf(s.shellApp.commandsTextView, "[%s]Real time command parsing fail: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
+				fmt.Fprintf(s.AppManager.CommandsTextView, "[%s]Real time command parsing fail: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
 				return
 			}
 			buf.WriteByte(c)
@@ -372,7 +97,7 @@ func (s *Control) sendCommand(
 	for {
 		block, err := parser.Next()
 		if err != nil {
-			fmt.Fprintf(s.shellApp.commandsTextView, "[%s]Failed to parse: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
+			fmt.Fprintf(s.AppManager.CommandsTextView, "[%s]Failed to parse: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
 			return
 		}
 		if block == nil {
@@ -396,23 +121,23 @@ func (s *Control) sendCommand(
 
 	// send command
 	if !quiet {
-		fmt.Fprintf(s.shellApp.commandsTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(command))
+		fmt.Fprintf(s.AppManager.CommandsTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(command))
 	}
 	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(timeout))
 	defer cancel()
 	messageResponse, err := s.grbl.SendCommand(ctx, command)
 	if err != nil {
-		fmt.Fprintf(s.shellApp.commandsTextView, "[%s]Send command failed: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
+		fmt.Fprintf(s.AppManager.CommandsTextView, "[%s]Send command failed: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
 		return
 	}
 	if quiet {
 		return
 	}
 	if messageResponse.Error() == nil {
-		fmt.Fprintf(s.shellApp.commandsTextView, "[%s]%s[-]\n", tcell.ColorGreen, tview.Escape(messageResponse.String()))
+		fmt.Fprintf(s.AppManager.CommandsTextView, "[%s]%s[-]\n", tcell.ColorGreen, tview.Escape(messageResponse.String()))
 	} else {
-		fmt.Fprintf(s.shellApp.commandsTextView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.String()))
-		fmt.Fprintf(s.shellApp.commandsTextView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.Error().Error()))
+		fmt.Fprintf(s.AppManager.CommandsTextView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.String()))
+		fmt.Fprintf(s.AppManager.CommandsTextView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.Error().Error()))
 	}
 }
 
@@ -429,25 +154,25 @@ func (s *Control) sendCommandWorker(
 			}
 			return err
 		case command := <-sendCommandCh:
-			s.shellApp.commandInputField.SetDisabled(true)
-			s.shellApp.homingButton.SetDisabled(true)
-			s.shellApp.unlockButton.SetDisabled(true)
+			s.AppManager.CommandInputField.SetDisabled(true)
+			s.AppManager.HomingButton.SetDisabled(true)
+			s.AppManager.UnlockButton.SetDisabled(true)
 			// s.shellApp.joggingButton.SetDisabled(true)
-			s.shellApp.checkButton.SetDisabled(true)
-			s.shellApp.sleepButton.SetDisabled(true)
+			s.AppManager.CheckButton.SetDisabled(true)
+			s.AppManager.SleepButton.SetDisabled(true)
 			// s.shellApp.settingsButton.SetDisabled(true)
 			s.sendCommand(ctx, command)
 			// Sending $G enables tracking of G-Code parsing state
 			s.sendCommand(ctx, "$G")
 			// Sending $G enables tracking of G-Code parameters
 			s.sendCommand(ctx, "$#")
-			s.shellApp.commandInputField.SetText("")
-			s.shellApp.commandInputField.SetDisabled(false)
-			s.shellApp.homingButton.SetDisabled(false)
-			s.shellApp.unlockButton.SetDisabled(false)
+			s.AppManager.CommandInputField.SetText("")
+			s.AppManager.CommandInputField.SetDisabled(false)
+			s.AppManager.HomingButton.SetDisabled(false)
+			s.AppManager.UnlockButton.SetDisabled(false)
 			// s.shellApp.joggingButton.SetDisabled(false)
-			s.shellApp.checkButton.SetDisabled(false)
-			s.shellApp.sleepButton.SetDisabled(false)
+			s.AppManager.CheckButton.SetDisabled(false)
+			s.AppManager.SleepButton.SetDisabled(false)
 			// s.shellApp.settingsButton.SetDisabled(false)
 		}
 	}
@@ -457,10 +182,10 @@ func (s *Control) sendRealTimeCommand(
 	cmd grblMod.RealTimeCommand,
 ) {
 	if s.options.DisplayStatusComms || cmd != grblMod.RealTimeCommandStatusReportQuery {
-		fmt.Fprintf(s.shellApp.commandsTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(cmd.String()))
+		fmt.Fprintf(s.AppManager.CommandsTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(cmd.String()))
 	}
 	if err := s.grbl.SendRealTimeCommand(cmd); err != nil {
-		fmt.Fprintf(s.shellApp.commandsTextView, "[%s]Failed to send soft reset: %s[-]\n", tcell.ColorRed, err)
+		fmt.Fprintf(s.AppManager.CommandsTextView, "[%s]Failed to send soft reset: %s[-]\n", tcell.ColorRed, err)
 	}
 }
 
@@ -564,17 +289,17 @@ func (s *Control) updateState(
 ) {
 	stateColor := getMachineStateColor(state)
 
-	s.shellApp.stateTextView.Clear()
-	s.shellApp.stateTextView.SetBackgroundColor(stateColor)
-	_, _, stateViewWidth, _ := s.shellApp.stateTextView.GetRect()
+	s.AppManager.StateTextView.Clear()
+	s.AppManager.StateTextView.SetBackgroundColor(stateColor)
+	_, _, stateViewWidth, _ := s.AppManager.StateTextView.GetRect()
 	fmt.Fprintf(
-		s.shellApp.stateTextView, "%s%s\n",
+		s.AppManager.StateTextView, "%s%s\n",
 		strings.Repeat(" ", (stateViewWidth-2-len(state))/2),
 		tview.Escape(state),
 	)
 	if len(subState) > 0 {
 		fmt.Fprintf(
-			s.shellApp.stateTextView, "%s(%s)\n",
+			s.AppManager.StateTextView, "%s(%s)\n",
 			strings.Repeat(" ", (stateViewWidth-4-len(subState))/2),
 			tview.Escape(subState),
 		)
@@ -587,53 +312,53 @@ func (s *Control) updateStatusReport(
 ) {
 	s.updateState(statusReport.MachineState.State, statusReport.MachineState.SubStateString())
 
-	s.shellApp.statusTextView.Clear()
+	s.AppManager.StatusTextView.Clear()
 
-	s.writePositionStatus(s.shellApp.statusTextView, statusReport)
+	s.writePositionStatus(s.AppManager.StatusTextView, statusReport)
 
 	if statusReport.BufferState != nil {
-		fmt.Fprint(s.shellApp.statusTextView, "\nBuffer\n")
-		fmt.Fprintf(s.shellApp.statusTextView, "Blocks:%d\n", statusReport.BufferState.AvailableBlocks)
-		fmt.Fprintf(s.shellApp.statusTextView, "Bytes:%d\n", statusReport.BufferState.AvailableBytes)
+		fmt.Fprint(s.AppManager.StatusTextView, "\nBuffer\n")
+		fmt.Fprintf(s.AppManager.StatusTextView, "Blocks:%d\n", statusReport.BufferState.AvailableBlocks)
+		fmt.Fprintf(s.AppManager.StatusTextView, "Bytes:%d\n", statusReport.BufferState.AvailableBytes)
 	}
 
 	if statusReport.LineNumber != nil {
-		fmt.Fprintf(s.shellApp.statusTextView, "\nLine:%d\n", *statusReport.LineNumber)
+		fmt.Fprintf(s.AppManager.StatusTextView, "\nLine:%d\n", *statusReport.LineNumber)
 	}
 
 	if statusReport.Feed != nil {
-		fmt.Fprintf(s.shellApp.statusTextView, "\nFeed:%.1f\n", *statusReport.Feed)
+		fmt.Fprintf(s.AppManager.StatusTextView, "\nFeed:%.1f\n", *statusReport.Feed)
 	}
 
 	if statusReport.FeedSpindle != nil {
-		fmt.Fprintf(s.shellApp.statusTextView, "\nFeed:%.0f\n", statusReport.FeedSpindle.Feed)
-		fmt.Fprintf(s.shellApp.statusTextView, "Speed:%.0f\n", statusReport.FeedSpindle.Speed)
+		fmt.Fprintf(s.AppManager.StatusTextView, "\nFeed:%.0f\n", statusReport.FeedSpindle.Feed)
+		fmt.Fprintf(s.AppManager.StatusTextView, "Speed:%.0f\n", statusReport.FeedSpindle.Speed)
 	}
 
 	if statusReport.PinState != nil {
-		fmt.Fprintf(s.shellApp.statusTextView, "\nPin:%s\n", statusReport.PinState)
+		fmt.Fprintf(s.AppManager.StatusTextView, "\nPin:%s\n", statusReport.PinState)
 	}
 
 	if s.grbl.GetOverrideValues() != nil {
-		fmt.Fprint(s.shellApp.statusTextView, "\nOverrides\n")
-		fmt.Fprintf(s.shellApp.statusTextView, "Feed:%.0f%%\n", s.grbl.GetOverrideValues().Feed)
-		fmt.Fprintf(s.shellApp.statusTextView, "Rapids:%.0f%%\n", s.grbl.GetOverrideValues().Rapids)
-		fmt.Fprintf(s.shellApp.statusTextView, "Spindle:%.0f%%\n", s.grbl.GetOverrideValues().Spindle)
+		fmt.Fprint(s.AppManager.StatusTextView, "\nOverrides\n")
+		fmt.Fprintf(s.AppManager.StatusTextView, "Feed:%.0f%%\n", s.grbl.GetOverrideValues().Feed)
+		fmt.Fprintf(s.AppManager.StatusTextView, "Rapids:%.0f%%\n", s.grbl.GetOverrideValues().Rapids)
+		fmt.Fprintf(s.AppManager.StatusTextView, "Spindle:%.0f%%\n", s.grbl.GetOverrideValues().Spindle)
 	}
 
 	if statusReport.AccessoryState != nil {
-		fmt.Fprint(s.shellApp.statusTextView, "\nAccessory\n")
+		fmt.Fprint(s.AppManager.StatusTextView, "\nAccessory\n")
 		if statusReport.AccessoryState.SpindleCW != nil && *statusReport.AccessoryState.SpindleCW {
-			fmt.Fprint(s.shellApp.statusTextView, "Spindle: CW")
+			fmt.Fprint(s.AppManager.StatusTextView, "Spindle: CW")
 		}
 		if statusReport.AccessoryState.SpindleCCW != nil && *statusReport.AccessoryState.SpindleCCW {
-			fmt.Fprint(s.shellApp.statusTextView, "Spindle: CCW")
+			fmt.Fprint(s.AppManager.StatusTextView, "Spindle: CCW")
 		}
 		if statusReport.AccessoryState.FloodCoolant != nil && *statusReport.AccessoryState.FloodCoolant {
-			fmt.Fprint(s.shellApp.statusTextView, "Flood Coolant")
+			fmt.Fprint(s.AppManager.StatusTextView, "Flood Coolant")
 		}
 		if statusReport.AccessoryState.MistCoolant != nil && *statusReport.AccessoryState.MistCoolant {
-			fmt.Fprint(s.shellApp.statusTextView, "Mist Coolant")
+			fmt.Fprint(s.AppManager.StatusTextView, "Mist Coolant")
 		}
 	}
 }
@@ -690,8 +415,8 @@ func (s *Control) processMessagePushGcodeState(
 		fmt.Fprintf(&buf, "Speed: %.0f\n", *messagePushGcodeState.SpindleSpeed)
 	}
 
-	s.shellApp.gcodeParserTextView.Clear()
-	fmt.Fprint(s.shellApp.gcodeParserTextView, tview.Escape(buf.String()))
+	s.AppManager.GcodeParserTextView.Clear()
+	fmt.Fprint(s.AppManager.GcodeParserTextView, tview.Escape(buf.String()))
 
 	return nil, tcell.ColorGreen
 }
@@ -793,8 +518,8 @@ func (s *Control) processMessagePushGcodeParam() (func(), tcell.Color) {
 		fmt.Fprintf(&buf, "Successful: %v\n", params.Probe.Successful)
 	}
 
-	s.shellApp.gcodeParamsTextView.Clear()
-	fmt.Fprint(s.shellApp.gcodeParamsTextView, tview.Escape(buf.String()))
+	s.AppManager.GcodeParamsTextView.Clear()
+	fmt.Fprint(s.AppManager.GcodeParamsTextView, tview.Escape(buf.String()))
 
 	return nil, color
 }
@@ -805,14 +530,14 @@ func (s *Control) processMessagePushWelcome(
 ) (func(), tcell.Color) {
 	color := tcell.ColorYellow
 	detailsFn := func() {
-		fmt.Fprintf(s.shellApp.pushMessagesLogsTextView, "[%s]Soft-Reset detected[-]\n", color)
+		fmt.Fprintf(s.AppManager.PushMessagesLogsTextView, "[%s]Soft-Reset detected[-]\n", color)
 	}
-	s.shellApp.gcodeParserTextView.Clear()
-	s.shellApp.gcodeParamsTextView.Clear()
-	s.shellApp.stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
-	s.shellApp.stateTextView.Clear()
-	s.shellApp.statusTextView.Clear()
-	s.shellApp.feedbackTextView.SetText("")
+	s.AppManager.GcodeParserTextView.Clear()
+	s.AppManager.GcodeParamsTextView.Clear()
+	s.AppManager.StateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+	s.AppManager.StateTextView.Clear()
+	s.AppManager.StatusTextView.Clear()
+	s.AppManager.FeedbackTextView.SetText("")
 	// Sending $G enables tracking of G-Code parsing state
 	s.sendCommand(ctx, "$G")
 	// Sending $G enables tracking of G-Code parameters
@@ -825,7 +550,7 @@ func (s *Control) processMessagePushAlarm(
 ) (func(), tcell.Color) {
 	color := tcell.ColorRed
 	detailsFn := func() {
-		fmt.Fprintf(s.shellApp.pushMessagesLogsTextView, "[%s]%s[-]\n", color, tview.Escape(messagePushAlarm.Error().Error()))
+		fmt.Fprintf(s.AppManager.PushMessagesLogsTextView, "[%s]%s[-]\n", color, tview.Escape(messagePushAlarm.Error().Error()))
 	}
 	s.updateState("Alarm", "")
 	return detailsFn, color
@@ -842,7 +567,7 @@ func (s *Control) processMessagePushStatusReport(
 func (s *Control) processMessagePushFeedback(
 	messagePushFeedback *grblMod.MessagePushFeedback,
 ) (func(), tcell.Color) {
-	s.shellApp.feedbackTextView.SetText(messagePushFeedback.Text())
+	s.AppManager.FeedbackTextView.SetText(messagePushFeedback.Text())
 	return nil, tcell.ColorGreen
 }
 
@@ -900,9 +625,9 @@ func (s *Control) pushMessageWorker(
 
 			text := message.String()
 			if len(text) == 0 {
-				fmt.Fprintf(s.shellApp.pushMessagesLogsTextView, "\n\n")
+				fmt.Fprintf(s.AppManager.PushMessagesLogsTextView, "\n\n")
 			} else {
-				fmt.Fprintf(s.shellApp.pushMessagesLogsTextView, "[%s]%s[-]\n", color, tview.Escape(text))
+				fmt.Fprintf(s.AppManager.PushMessagesLogsTextView, "[%s]%s[-]\n", color, tview.Escape(text))
 			}
 			if detailsFn != nil {
 				detailsFn()
@@ -949,30 +674,30 @@ func (s *Control) Run(ctx context.Context) (err error) {
 
 	statusQueryErrCh := make(chan error, 1)
 
-	s.shellApp = s.getShellApp(sendCommandCh, sendRealTimeCommandCh)
-	defer func() { s.shellApp = nil }()
+	s.AppManager = NewAppManager(sendCommandCh, sendRealTimeCommandCh)
+	defer func() { s.AppManager = nil }()
 
 	logger = slog.New(NewViewLogHandler(
 		logger.Handler(),
-		s.shellApp.pushMessagesLogsTextView,
+		s.AppManager.PushMessagesLogsTextView,
 	))
 	ctx = log.WithLogger(ctx, logger)
 
 	go func() {
 		defer cancelFn()
-		defer s.shellApp.app.Stop()
+		defer s.AppManager.App.Stop()
 		sendCommandWorkerErrCh <- s.sendCommandWorker(ctx, sendCommandCh)
 	}()
 	go func() {
 		defer cancelFn()
-		defer s.shellApp.app.Stop()
+		defer s.AppManager.App.Stop()
 		sendRealTimeCommandWorkerErrCh <- s.sendRealTimeCommandWorker(
 			ctx, sendRealTimeCommandCh,
 		)
 	}()
 	go func() {
 		defer cancelFn()
-		defer s.shellApp.app.Stop()
+		defer s.AppManager.App.Stop()
 		// Sending $G enables tracking of G-Code parsing state
 		s.sendCommand(ctx, "$G")
 		// Sending $G enables tracking of G-Code parameters
@@ -981,7 +706,7 @@ func (s *Control) Run(ctx context.Context) (err error) {
 	}()
 	go func() {
 		defer cancelFn()
-		defer s.shellApp.app.Stop()
+		defer s.AppManager.App.Stop()
 		statusQueryErrCh <- s.statusQueryWorker(ctx)
 	}()
 
@@ -993,5 +718,5 @@ func (s *Control) Run(ctx context.Context) (err error) {
 		err = errors.Join(err, <-statusQueryErrCh)
 		err = errors.Join(err, s.grbl.Disconnect())
 	}()
-	return s.shellApp.app.Run()
+	return s.AppManager.App.Run()
 }
