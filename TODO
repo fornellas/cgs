@@ -1,5 +1,68 @@
 shell.go
     shell
+        Pages
+            Control
+                View build info
+                    View build info ($I)
+                        [VER:v1.1f.20170131:Some string]
+                            build version and date
+                            string ID
+                        [OPT:VL,16,128]
+                            compile-time options
+                                Variable spindle enabled (V)
+                                Line numbers enabled (N)
+                                Mist coolant enabled (M)
+                                CoreXY enabled (C)
+                                Parking motion enabled (P)
+                                Homing force origin enabled (Z)
+                                Homing single axis enabled (H)
+                                Two limit switches on axis enabled (T)
+                                Spindle direction pin used as enable pin (D)
+                                Spindle enable off when speed is zero enabled (0)
+                                Software limit pin debouncing enabled (S)
+                                Parking override control enabled (R)
+                                Allow feed rate overrides in probe cycles (A)
+                                Safety door input pin enabled (+)
+                                Restore all EEPROM disabled (*)
+                                Restore EEPROM `$` settings disabled ($)
+                                Restore EEPROM parameter data disabled (#)
+                                Build info write user string disabled (I)
+                                Force sync upon EEPROM write disabled (E)
+                                Force sync upon work coordinate offset change disabled (W)
+                                Homing initialization auto-lock disabled (L)
+                            total usable planner blocks
+                            serial RX buffer bytes
+                    Set id string ($I=xxx)
+                G-Code Parser
+                    Use DropDown to select group modes
+                Jogging
+                    Jogging ($J=*)
+                    Jog Cancel (0x85)
+                Overrides
+                    Feed
+                        Set 100% of programmed rate. (0x90)
+                        Increase 10% (0x91)
+                        Decrease 10% (0x92)
+                        Increase 1% (0x93)
+                        Decrease 1% (0x94)
+                    Rapid
+                        Set to 100% full rapid rate. (0x95)
+                        Set to 50% of rapid rate. (0x96)
+                        Set to 25% of rapid rate. (0x97)
+                    Spindle Speed
+                        Set 100% of programmed spindle speed (0x99)
+                        Increase 10% (0x9A)
+                        Decrease 10% (0x9B)
+                        Increase 1% (0x9C)
+                        Decrease 1% (0x9D)
+            Settings
+                Settings ($$, $x=val)
+                Startup Blocks ($N, $Nx=)
+                Restore Grbl settings and data to defaults ($RST=$, $RST=#, $RST=*)
+            Stream Program
+            Script
+                https://github.com/google/starlark-go
+                https://github.com/d5/tengo
         Navigate across buttons / input with tab / btab
         selectively disable buttons based on context
             ~ only when Hold and Door states
@@ -14,36 +77,6 @@ shell.go
                 feed hold
             don't wait for response for M0
         Alarm state should cancel send command context
-        Send File
-        Grbl
-            View build info ($I)
-            Jogging
-                Jogging ($J=*)
-                Jog Cancel (0x85)
-            Overrides
-                Feed
-                    Set 100% of programmed rate. (0x90)
-                    Increase 10% (0x91)
-                    Decrease 10% (0x92)
-                    Increase 1% (0x93)
-                    Decrease 1% (0x94)
-                Rapid
-                    Set to 100% full rapid rate. (0x95)
-                    Set to 50% of rapid rate. (0x96)
-                    Set to 25% of rapid rate. (0x97)
-                Spindle Speed
-                    Set 100% of programmed spindle speed (0x99)
-                    Increase 10% (0x9A)
-                    Decrease 10% (0x9B)
-                    Increase 1% (0x9C)
-                    Decrease 1% (0x9D)
-            Settings
-                Settings ($$, $x=val)
-                Startup Blocks ($N, $Nx=)
-                Restore Grbl settings and data to defaults ($RST=$, $RST=#, $RST=*)
-        Scripting
-            https://github.com/google/starlark-go
-            https://github.com/d5/tengo
         Log handling
             use ANSI escape functions
     grbl
