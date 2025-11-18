@@ -62,14 +62,6 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	ctx, cancelFn := context.WithCancel(ctx)
 
-	sendCommandWorkerErrCh := make(chan error, 1)
-
-	sendRealTimeCommandWorkerErrCh := make(chan error, 1)
-
-	pushMessageErrCh := make(chan error, 1)
-
-	statusQueryErrCh := make(chan error, 1)
-
 	c.AppManager = NewAppManager()
 	defer func() { c.AppManager = nil }()
 
@@ -88,16 +80,21 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	))
 	ctx = log.WithLogger(ctx, logger)
 
+	sendCommandWorkerErrCh := make(chan error, 1)
 	go func() {
 		defer cancelFn()
 		defer c.AppManager.App.Stop()
 		sendCommandWorkerErrCh <- commandDispatcher.RunSendCommandWorker(ctx)
 	}()
+
+	sendRealTimeCommandWorkerErrCh := make(chan error, 1)
 	go func() {
 		defer cancelFn()
 		defer c.AppManager.App.Stop()
 		sendRealTimeCommandWorkerErrCh <- commandDispatcher.RunSendRealTimeCommandWorker(ctx)
 	}()
+
+	pushMessageErrCh := make(chan error, 1)
 	go func() {
 		defer cancelFn()
 		defer c.AppManager.App.Stop()
@@ -116,6 +113,8 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		)
 		pushMessageErrCh <- messageProcessor.Run(ctx)
 	}()
+
+	statusQueryErrCh := make(chan error, 1)
 	go func() {
 		defer cancelFn()
 		defer c.AppManager.App.Stop()
