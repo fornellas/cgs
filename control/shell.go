@@ -62,7 +62,6 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	ctx, cancelFn := context.WithCancel(ctx)
 
-	sendCommandCh := make(chan string, 10)
 	sendCommandWorkerErrCh := make(chan error, 1)
 
 	sendRealTimeCommandCh := make(chan grblMod.RealTimeCommand, 10)
@@ -72,14 +71,8 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	statusQueryErrCh := make(chan error, 1)
 
-	c.AppManager = NewAppManager(sendCommandCh, sendRealTimeCommandCh)
+	c.AppManager = NewAppManager(sendRealTimeCommandCh)
 	defer func() { c.AppManager = nil }()
-
-	logger = slog.New(NewViewLogHandler(
-		logger.Handler(),
-		c.AppManager.PushMessagesLogsTextView,
-	))
-	ctx = log.WithLogger(ctx, logger)
 
 	commandDispatcher := NewCommandDispatcher(
 		c.grbl,
@@ -88,10 +81,18 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		!c.options.DisplayGcodeParamStateComms,
 		!c.options.DisplayStatusComms,
 	)
+	c.AppManager.CommandDispatcher = commandDispatcher
+
+	logger = slog.New(NewViewLogHandler(
+		logger.Handler(),
+		c.AppManager.PushMessagesLogsTextView,
+	))
+	ctx = log.WithLogger(ctx, logger)
+
 	go func() {
 		defer cancelFn()
 		defer c.AppManager.App.Stop()
-		sendCommandWorkerErrCh <- commandDispatcher.RunSendCommandWorker(ctx, sendCommandCh)
+		sendCommandWorkerErrCh <- commandDispatcher.RunSendCommandWorker(ctx)
 	}()
 	go func() {
 		defer cancelFn()
@@ -104,14 +105,14 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		defer cancelFn()
 		defer c.AppManager.App.Stop()
 		// Sending $G enables tracking of G-Code parsing state
-		commandDispatcher.SendCommand(ctx, "$G")
+		commandDispatcher.QueueCommand("$G")
 		// Sending $G enables tracking of G-Code parameters
-		commandDispatcher.SendCommand(ctx, "$#")
+		commandDispatcher.QueueCommand("$#")
 		messageProcessor := NewMessageProcessor(
 			c.grbl,
 			c.AppManager,
 			pushMessageCh,
-			commandDispatcher.SendCommand,
+			commandDispatcher.QueueCommand,
 			!c.options.DisplayGcodeParserStateComms,
 			!c.options.DisplayGcodeParamStateComms,
 			!c.options.DisplayStatusComms,

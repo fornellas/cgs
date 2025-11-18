@@ -21,6 +21,7 @@ type CommandDispatcher struct {
 	quietGcodeParserStateComms bool
 	quietGcodeParamStateComms  bool
 	quietStatusComms           bool
+	sendCommandCh              chan string
 }
 
 func NewCommandDispatcher(
@@ -36,11 +37,12 @@ func NewCommandDispatcher(
 		quietGcodeParserStateComms: quietGcodeParserStateComms,
 		quietGcodeParamStateComms:  quietGcodeParamStateComms,
 		quietStatusComms:           quietStatusComms,
+		sendCommandCh:              make(chan string, 10),
 	}
 }
 
 //gocyclo:ignore
-func (cd *CommandDispatcher) SendCommand(
+func (cd *CommandDispatcher) sendCommand(
 	ctx context.Context,
 	command string,
 ) {
@@ -115,7 +117,7 @@ func (cd *CommandDispatcher) SendCommand(
 	}
 }
 
-func (cd *CommandDispatcher) RunSendCommandWorker(ctx context.Context, sendCommandCh chan string) error {
+func (cd *CommandDispatcher) RunSendCommandWorker(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -124,7 +126,7 @@ func (cd *CommandDispatcher) RunSendCommandWorker(ctx context.Context, sendComma
 				err = nil
 			}
 			return err
-		case command := <-sendCommandCh:
+		case command := <-cd.sendCommandCh:
 			cd.appManager.CommandInputField.SetDisabled(true)
 			cd.appManager.HomingButton.SetDisabled(true)
 			cd.appManager.UnlockButton.SetDisabled(true)
@@ -132,11 +134,11 @@ func (cd *CommandDispatcher) RunSendCommandWorker(ctx context.Context, sendComma
 			cd.appManager.CheckButton.SetDisabled(true)
 			cd.appManager.SleepButton.SetDisabled(true)
 			// s.shellApp.settingsButton.SetDisabled(true)
-			cd.SendCommand(ctx, command)
+			cd.sendCommand(ctx, command)
 			// Sending $G enables tracking of G-Code parsing state
-			cd.SendCommand(ctx, "$G")
+			cd.sendCommand(ctx, "$G")
 			// Sending $G enables tracking of G-Code parameters
-			cd.SendCommand(ctx, "$#")
+			cd.sendCommand(ctx, "$#")
 			cd.appManager.CommandInputField.SetText("")
 			cd.appManager.CommandInputField.SetDisabled(false)
 			cd.appManager.HomingButton.SetDisabled(false)
@@ -147,6 +149,12 @@ func (cd *CommandDispatcher) RunSendCommandWorker(ctx context.Context, sendComma
 			// s.shellApp.settingsButton.SetDisabled(false)
 		}
 	}
+}
+
+func (cd *CommandDispatcher) QueueCommand(
+	command string,
+) {
+	cd.sendCommandCh <- command
 }
 
 func (cd *CommandDispatcher) sendRealTimeCommand(

@@ -8,6 +8,7 @@ import (
 )
 
 type AppManager struct {
+	CommandDispatcher        *CommandDispatcher
 	App                      *tview.Application
 	CommandsTextView         *tview.TextView
 	PushMessagesLogsTextView *tview.TextView
@@ -35,7 +36,6 @@ type AppManager struct {
 }
 
 func NewAppManager(
-	sendCommandCh chan string,
 	sendRealTimeCommandCh chan grblMod.RealTimeCommand,
 ) *AppManager {
 	am := &AppManager{}
@@ -65,33 +65,33 @@ func NewAppManager(
 
 	am.newStatusTextView()
 
-	am.newCommandInputField(sendCommandCh)
+	am.newCommandInputField()
 
 	am.HomingButton = tview.NewButton("Homing").
-		SetSelectedFunc(func() { sendCommandCh <- "$H" })
+		SetSelectedFunc(func() { am.CommandDispatcher.QueueCommand("$H") })
 
 	am.UnlockButton = tview.NewButton("Unlock").
-		SetSelectedFunc(func() { sendCommandCh <- "$X" })
+		SetSelectedFunc(func() { am.CommandDispatcher.QueueCommand("$X") })
 
 	am.ResetButton = tview.NewButton("Reset").
 		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandSoftReset })
 
 	am.JoggingButton = tview.NewButton("Jogging").
 		SetDisabled(true)
-	// 	SetSelectedFunc(func() { sendCommandCh <- "TODO" })
+	// 	SetSelectedFunc(func() { am.commandDispatcher.QueueCommand("TODO") })
 
 	am.OverridesButton = tview.NewButton("Overrides").
 		SetDisabled(true)
 	// 	SetSelectedFunc(func() { sendRealTimeCommandCh <- "TODO" })
 
 	am.CheckButton = tview.NewButton("Check").
-		SetSelectedFunc(func() { sendCommandCh <- "$C" })
+		SetSelectedFunc(func() { am.CommandDispatcher.QueueCommand("$C") })
 
 	am.DoorButton = tview.NewButton("Door").
 		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandSafetyDoor })
 
 	am.SleepButton = tview.NewButton("Sleep").
-		SetSelectedFunc(func() { sendCommandCh <- "$SLP" })
+		SetSelectedFunc(func() { am.CommandDispatcher.QueueCommand("$SLP") })
 
 	am.HoldButton = tview.NewButton("Hold").
 		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandFeedHold })
@@ -101,7 +101,7 @@ func NewAppManager(
 
 	am.SettingsButton = tview.NewButton("Settings").
 		SetDisabled(true)
-	// 	SetSelectedFunc(func() { sendCommandCh <- "TODO" })
+	// 	SetSelectedFunc(func() { am.commandDispatcher.QueueCommand("TODO") })
 
 	am.SpindleButton = tview.NewButton("Spindle").
 		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandToggleSpindleStop })
@@ -110,11 +110,11 @@ func NewAppManager(
 		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandToggleMistCoolant })
 
 	am.ExitButton = tview.NewButton("Exit").
-		SetSelectedFunc(func() { tviewApp.Stop() })
+		SetSelectedFunc(func() { am.App.Stop() })
 
 	am.newRootFlex()
 
-	tviewApp.SetRoot(am.RootFlex, true).SetFocus(am.CommandInputField)
+	am.App.SetRoot(am.RootFlex, true).SetFocus(am.CommandInputField)
 
 	return am
 }
@@ -216,7 +216,7 @@ func (am *AppManager) newStatusTextView() {
 	am.StatusTextView = textView
 }
 
-func (am *AppManager) newCommandInputField(commandCh chan string) {
+func (am *AppManager) newCommandInputField() {
 	inputField := tview.NewInputField().
 		SetLabel("Command: ")
 	inputField.SetDoneFunc(func(key tcell.Key) {
@@ -228,7 +228,7 @@ func (am *AppManager) newCommandInputField(commandCh chan string) {
 			if command == "" {
 				return
 			}
-			commandCh <- command
+			am.CommandDispatcher.QueueCommand(command)
 		}
 	})
 	inputField.SetBackgroundColor(tcell.ColorDefault)

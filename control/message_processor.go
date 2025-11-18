@@ -18,7 +18,7 @@ type MessageProcessor struct {
 	grbl                       *grblMod.Grbl
 	appManager                 *AppManager
 	pushMessageCh              chan grblMod.Message
-	sendCommandFn              func(context.Context, string)
+	queueCommandFn             func(string)
 	quietGcodeParserStateComms bool
 	quietGcodeParamStateComms  bool
 	quietStatusComms           bool
@@ -28,7 +28,7 @@ func NewMessageProcessor(
 	grbl *grblMod.Grbl,
 	appManager *AppManager,
 	pushMessageCh chan grblMod.Message,
-	sendCommandFn func(context.Context, string),
+	queueCommandFn func(string),
 	quietGcodeParserStateComms bool,
 	quietGcodeParamStateComms bool,
 	quietStatusComms bool,
@@ -37,7 +37,7 @@ func NewMessageProcessor(
 		grbl:                       grbl,
 		appManager:                 appManager,
 		pushMessageCh:              pushMessageCh,
-		sendCommandFn:              sendCommandFn,
+		queueCommandFn:             queueCommandFn,
 		quietGcodeParserStateComms: quietGcodeParserStateComms,
 		quietGcodeParamStateComms:  quietGcodeParamStateComms,
 		quietStatusComms:           quietStatusComms,
@@ -387,7 +387,6 @@ func (mp *MessageProcessor) processMessagePushGcodeParam() (func(), tcell.Color)
 }
 
 func (mp *MessageProcessor) processMessagePushWelcome(
-	ctx context.Context,
 	_ *grblMod.MessagePushWelcome,
 ) (func(), tcell.Color) {
 	color := tcell.ColorYellow
@@ -401,9 +400,9 @@ func (mp *MessageProcessor) processMessagePushWelcome(
 	mp.appManager.StatusTextView.Clear()
 	mp.appManager.FeedbackTextView.SetText("")
 	// Sending $G enables tracking of G-Code parsing state
-	mp.sendCommandFn(ctx, "$G")
+	mp.queueCommandFn("$G")
 	// Sending $G enables tracking of G-Code parameters
-	mp.sendCommandFn(ctx, "$#")
+	mp.queueCommandFn("$#")
 	return detailsFn, color
 }
 
@@ -464,10 +463,7 @@ func (mp *MessageProcessor) Run(ctx context.Context) error {
 			}
 
 			if messagePushWelcome, ok := message.(*grblMod.MessagePushWelcome); ok {
-				detailsFn, color = mp.processMessagePushWelcome(
-					ctx,
-					messagePushWelcome,
-				)
+				detailsFn, color = mp.processMessagePushWelcome(messagePushWelcome)
 			}
 			if messagePushAlarm, ok := message.(*grblMod.MessagePushAlarm); ok {
 				detailsFn, color = mp.processMessagePushAlarm(messagePushAlarm)
