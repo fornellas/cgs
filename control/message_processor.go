@@ -18,7 +18,7 @@ type MessageProcessor struct {
 	grbl                       *grblMod.Grbl
 	appManager                 *AppManager
 	pushMessageCh              chan grblMod.Message
-	queueCommandFn             func(string)
+	commandDispatcher          *CommandDispatcher
 	quietGcodeParserStateComms bool
 	quietGcodeParamStateComms  bool
 	quietStatusComms           bool
@@ -28,7 +28,7 @@ func NewMessageProcessor(
 	grbl *grblMod.Grbl,
 	appManager *AppManager,
 	pushMessageCh chan grblMod.Message,
-	queueCommandFn func(string),
+	commandDispatcher *CommandDispatcher,
 	quietGcodeParserStateComms bool,
 	quietGcodeParamStateComms bool,
 	quietStatusComms bool,
@@ -37,7 +37,7 @@ func NewMessageProcessor(
 		grbl:                       grbl,
 		appManager:                 appManager,
 		pushMessageCh:              pushMessageCh,
-		queueCommandFn:             queueCommandFn,
+		commandDispatcher:          commandDispatcher,
 		quietGcodeParserStateComms: quietGcodeParserStateComms,
 		quietGcodeParamStateComms:  quietGcodeParamStateComms,
 		quietStatusComms:           quietStatusComms,
@@ -400,9 +400,9 @@ func (mp *MessageProcessor) processMessagePushWelcome(
 	mp.appManager.StatusTextView.Clear()
 	mp.appManager.FeedbackTextView.SetText("")
 	// Sending $G enables tracking of G-Code parsing state
-	mp.queueCommandFn("$G")
+	mp.commandDispatcher.QueueCommand("$G")
 	// Sending $G enables tracking of G-Code parameters
-	mp.queueCommandFn("$#")
+	mp.commandDispatcher.QueueCommand("$#")
 	return detailsFn, color
 }
 

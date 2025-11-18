@@ -109,7 +109,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 			c.grbl,
 			c.AppManager,
 			pushMessageCh,
-			commandDispatcher.QueueCommand,
+			commandDispatcher,
 			!c.options.DisplayGcodeParserStateComms,
 			!c.options.DisplayGcodeParamStateComms,
 			!c.options.DisplayStatusComms,
