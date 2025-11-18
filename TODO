@@ -1,6 +1,18 @@
-
 shell.go
     shell
+        Navigate across buttons / input with tab / btab
+        selectively disable buttons based on context
+            ~ only when Hold and Door states
+            ! only with Idle, Run, Jog states
+            0x85 jog cancel only for Jog state
+            0x9E spindle stop only on Hold state
+            0xA0 flood coolant only on Idle, Run or Hold states.
+            0x45 mist coolang only on Idle, Run or Hold states.
+        fix
+            omit $G and $G for
+                M0
+                feed hold
+            don't wait for response for M0
         Alarm state should cancel send command context
         Send File
         Grbl

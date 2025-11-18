@@ -248,9 +248,9 @@ func (s *Shell) getShellApp(
 	sleepButton := tview.NewButton("Sleep").
 		SetSelectedFunc(func() { sendCommandCh <- "$SLP" })
 	holdButton := tview.NewButton("Hold").
-		SetSelectedFunc(func() { sendCommandCh <- "!" })
+		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandFeedHold })
 	resumeButton := tview.NewButton("Resume").
-		SetSelectedFunc(func() { sendCommandCh <- "~" })
+		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandCycleStartResume })
 	settingsButton := tview.NewButton("Settings").
 		SetDisabled(true)
 	// 	SetSelectedFunc(func() { sendCommandCh <- "TODO" })
@@ -435,8 +435,6 @@ func (s *Shell) sendCommandWorker(
 			// s.shellApp.joggingButton.SetDisabled(true)
 			s.shellApp.checkButton.SetDisabled(true)
 			s.shellApp.sleepButton.SetDisabled(true)
-			s.shellApp.holdButton.SetDisabled(true)
-			s.shellApp.resumeButton.SetDisabled(true)
 			// s.shellApp.settingsButton.SetDisabled(true)
 			s.sendCommand(ctx, command)
 			// Sending $G enables tracking of G-Code parsing state
@@ -450,8 +448,6 @@ func (s *Shell) sendCommandWorker(
 			// s.shellApp.joggingButton.SetDisabled(false)
 			s.shellApp.checkButton.SetDisabled(false)
 			s.shellApp.sleepButton.SetDisabled(false)
-			s.shellApp.holdButton.SetDisabled(false)
-			s.shellApp.resumeButton.SetDisabled(false)
 			// s.shellApp.settingsButton.SetDisabled(false)
 		}
 	}
