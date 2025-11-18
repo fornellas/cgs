@@ -1,4 +1,4 @@
-package shell
+package control
 
 import (
 	"bytes"
@@ -18,7 +18,7 @@ import (
 	grblMod "github.com/fornellas/cgs/grbl"
 )
 
-type Options struct {
+type ControlOptions struct {
 	DisplayStatusComms           bool
 	DisplayGcodeParserStateComms bool
 	DisplayGcodeParamStateComms  bool
@@ -51,17 +51,17 @@ type shellApp struct {
 	rootFlex                 *tview.Flex
 }
 
-type Shell struct {
+type Control struct {
 	grbl     *grblMod.Grbl
-	options  *Options
+	options  *ControlOptions
 	shellApp *shellApp
 }
 
-func NewShell(grbl *grblMod.Grbl, options *Options) *Shell {
+func NewControl(grbl *grblMod.Grbl, options *ControlOptions) *Control {
 	if options == nil {
-		options = &Options{}
+		options = &ControlOptions{}
 	}
-	return &Shell{
+	return &Control{
 		grbl:    grbl,
 		options: options,
 	}
@@ -92,7 +92,7 @@ func getMachineStateColor(state string) tcell.Color {
 	}
 }
 
-func (s *Shell) getCommandsTextView(app *tview.Application) *tview.TextView {
+func (s *Control) getCommandsTextView(app *tview.Application) *tview.TextView {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
@@ -106,7 +106,7 @@ func (s *Shell) getCommandsTextView(app *tview.Application) *tview.TextView {
 	return textView
 }
 
-func (s *Shell) getPushMessagesLogsTextView(app *tview.Application) *tview.TextView {
+func (s *Control) getPushMessagesLogsTextView(app *tview.Application) *tview.TextView {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
@@ -120,7 +120,7 @@ func (s *Shell) getPushMessagesLogsTextView(app *tview.Application) *tview.TextV
 	return textView
 }
 
-func (s *Shell) getFeedbackTextView(app *tview.Application) *tview.TextView {
+func (s *Control) getFeedbackTextView(app *tview.Application) *tview.TextView {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
@@ -134,7 +134,7 @@ func (s *Shell) getFeedbackTextView(app *tview.Application) *tview.TextView {
 	return textView
 }
 
-func (s *Shell) getGcodeParserTextView(app *tview.Application) *tview.TextView {
+func (s *Control) getGcodeParserTextView(app *tview.Application) *tview.TextView {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
@@ -148,7 +148,7 @@ func (s *Shell) getGcodeParserTextView(app *tview.Application) *tview.TextView {
 	return textView
 }
 
-func (s *Shell) getGcodeParamsTextView(app *tview.Application) *tview.TextView {
+func (s *Control) getGcodeParamsTextView(app *tview.Application) *tview.TextView {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
@@ -162,7 +162,7 @@ func (s *Shell) getGcodeParamsTextView(app *tview.Application) *tview.TextView {
 	return textView
 }
 
-func (s *Shell) getStateTextView(app *tview.Application) *tview.TextView {
+func (s *Control) getStateTextView(app *tview.Application) *tview.TextView {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
@@ -175,7 +175,7 @@ func (s *Shell) getStateTextView(app *tview.Application) *tview.TextView {
 	return textView
 }
 
-func (s *Shell) getStatusTextView(app *tview.Application) *tview.TextView {
+func (s *Control) getStatusTextView(app *tview.Application) *tview.TextView {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
@@ -189,7 +189,7 @@ func (s *Shell) getStatusTextView(app *tview.Application) *tview.TextView {
 	return textView
 }
 
-func (s *Shell) getCommandInputField(commandCh chan string) *tview.InputField {
+func (s *Control) getCommandInputField(commandCh chan string) *tview.InputField {
 	inputField := tview.NewInputField().
 		SetLabel("Command: ")
 	inputField.SetDoneFunc(func(key tcell.Key) {
@@ -208,7 +208,7 @@ func (s *Shell) getCommandInputField(commandCh chan string) *tview.InputField {
 	return inputField
 }
 
-func (s *Shell) getShellApp(
+func (s *Control) getShellApp(
 	sendCommandCh chan string,
 	sendRealTimeCommandCh chan grblMod.RealTimeCommand,
 ) *shellApp {
@@ -341,7 +341,7 @@ func (s *Shell) getShellApp(
 }
 
 //gocyclo:ignore
-func (s *Shell) sendCommand(
+func (s *Control) sendCommand(
 	ctx context.Context,
 	command string,
 ) {
@@ -416,7 +416,7 @@ func (s *Shell) sendCommand(
 	}
 }
 
-func (s *Shell) sendCommandWorker(
+func (s *Control) sendCommandWorker(
 	ctx context.Context,
 	sendCommandCh chan string,
 ) error {
@@ -453,7 +453,7 @@ func (s *Shell) sendCommandWorker(
 	}
 }
 
-func (s *Shell) sendRealTimeCommand(
+func (s *Control) sendRealTimeCommand(
 	cmd grblMod.RealTimeCommand,
 ) {
 	if s.options.DisplayStatusComms || cmd != grblMod.RealTimeCommandStatusReportQuery {
@@ -464,7 +464,7 @@ func (s *Shell) sendRealTimeCommand(
 	}
 }
 
-func (s *Shell) sendRealTimeCommandWorker(
+func (s *Control) sendRealTimeCommandWorker(
 	ctx context.Context,
 	sendRealTimeCommandCh chan grblMod.RealTimeCommand,
 ) error {
@@ -483,7 +483,7 @@ func (s *Shell) sendRealTimeCommandWorker(
 }
 
 //gocyclo:ignore
-func (s *Shell) writePositionStatus(w io.Writer, statusReport *grblMod.MessagePushStatusReport) {
+func (s *Control) writePositionStatus(w io.Writer, statusReport *grblMod.MessagePushStatusReport) {
 	var mx, my, mz, ma, wx, wy, wz, wa *float64
 	if statusReport.MachinePosition != nil {
 		mx = &statusReport.MachinePosition.X
@@ -558,7 +558,7 @@ func (s *Shell) writePositionStatus(w io.Writer, statusReport *grblMod.MessagePu
 	}
 }
 
-func (s *Shell) updateState(
+func (s *Control) updateState(
 	state string,
 	subState string,
 ) {
@@ -582,7 +582,7 @@ func (s *Shell) updateState(
 }
 
 //gocyclo:ignore
-func (s *Shell) updateStatusReport(
+func (s *Control) updateStatusReport(
 	statusReport *grblMod.MessagePushStatusReport,
 ) {
 	s.updateState(statusReport.MachineState.State, statusReport.MachineState.SubStateString())
@@ -639,7 +639,7 @@ func (s *Shell) updateStatusReport(
 }
 
 //gocyclo:ignore
-func (s *Shell) processMessagePushGcodeState(
+func (s *Control) processMessagePushGcodeState(
 	messagePushGcodeState *grblMod.MessagePushGcodeState,
 ) (func(), tcell.Color) {
 	var buf bytes.Buffer
@@ -697,7 +697,7 @@ func (s *Shell) processMessagePushGcodeState(
 }
 
 //gocyclo:ignore
-func (s *Shell) processMessagePushGcodeParam() (func(), tcell.Color) {
+func (s *Control) processMessagePushGcodeParam() (func(), tcell.Color) {
 	color := tcell.ColorGreen
 
 	params := s.grbl.GetGcodeParameters()
@@ -799,7 +799,7 @@ func (s *Shell) processMessagePushGcodeParam() (func(), tcell.Color) {
 	return nil, color
 }
 
-func (s *Shell) processMessagePushWelcome(
+func (s *Control) processMessagePushWelcome(
 	ctx context.Context,
 	_ *grblMod.MessagePushWelcome,
 ) (func(), tcell.Color) {
@@ -820,7 +820,7 @@ func (s *Shell) processMessagePushWelcome(
 	return detailsFn, color
 }
 
-func (s *Shell) processMessagePushAlarm(
+func (s *Control) processMessagePushAlarm(
 	messagePushAlarm *grblMod.MessagePushAlarm,
 ) (func(), tcell.Color) {
 	color := tcell.ColorRed
@@ -831,7 +831,7 @@ func (s *Shell) processMessagePushAlarm(
 	return detailsFn, color
 }
 
-func (s *Shell) processMessagePushStatusReport(
+func (s *Control) processMessagePushStatusReport(
 	messagePushStatusReport *grblMod.MessagePushStatusReport,
 ) (func(), tcell.Color) {
 	color := getMachineStateColor(messagePushStatusReport.MachineState.State)
@@ -839,7 +839,7 @@ func (s *Shell) processMessagePushStatusReport(
 	return nil, color
 }
 
-func (s *Shell) processMessagePushFeedback(
+func (s *Control) processMessagePushFeedback(
 	messagePushFeedback *grblMod.MessagePushFeedback,
 ) (func(), tcell.Color) {
 	s.shellApp.feedbackTextView.SetText(messagePushFeedback.Text())
@@ -847,7 +847,7 @@ func (s *Shell) processMessagePushFeedback(
 }
 
 //gocyclo:ignore
-func (s *Shell) pushMessageWorker(
+func (s *Control) pushMessageWorker(
 	ctx context.Context,
 	pushMessageCh chan grblMod.Message,
 ) error {
@@ -911,7 +911,7 @@ func (s *Shell) pushMessageWorker(
 	}
 }
 
-func (s *Shell) statusQueryWorker(ctx context.Context) error {
+func (s *Control) statusQueryWorker(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -928,7 +928,7 @@ func (s *Shell) statusQueryWorker(ctx context.Context) error {
 	}
 }
 
-func (s *Shell) Run(ctx context.Context) (err error) {
+func (s *Control) Run(ctx context.Context) (err error) {
 	logger := log.MustLogger(ctx)
 	logger.Info("Connecting")
 

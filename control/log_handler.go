@@ -1,4 +1,4 @@
-package shell
+package control
 
 import (
 	"context"

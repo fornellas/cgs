@@ -4,8 +4,8 @@ import (
 	"github.com/fornellas/slogxt/log"
 	"github.com/spf13/cobra"
 
+	controlMod "github.com/fornellas/cgs/control"
 	grblMod "github.com/fornellas/cgs/grbl"
-	shellMod "github.com/fornellas/cgs/shell"
 )
 
 var displayStatusComms bool
@@ -17,9 +17,9 @@ var defaultDisplayGcodeParserStateComms = false
 var displayGcodeParamStateComms bool
 var defaultDisplayGcodeParamStateComms = false
 
-var ShellCmd = &cobra.Command{
-	Use:   "shell",
-	Short: "Open Grbl serial connection and provide a shell prompt to send commands.",
+var ControlCmd = &cobra.Command{
+	Use:   "control",
+	Short: "Open Grbl serial connection and provide a terminal control interface.",
 	Args:  cobra.NoArgs,
 	Run: GetRunFn(func(cmd *cobra.Command, args []string) (err error) {
 		ctx, _ := log.MustWithAttrs(
@@ -36,41 +36,41 @@ var ShellCmd = &cobra.Command{
 
 		grbl := grblMod.NewGrbl(openPortFn)
 
-		shell := shellMod.NewShell(grbl, &shellMod.Options{
+		control := controlMod.NewControl(grbl, &controlMod.ControlOptions{
 			DisplayStatusComms:           displayStatusComms,
 			DisplayGcodeParserStateComms: displayGcodeParserStateComms,
 			DisplayGcodeParamStateComms:  displayGcodeParamStateComms,
 		})
 
-		return shell.Run(ctx)
+		return control.Run(ctx)
 	}),
 }
 
 func init() {
-	AddPortFlags(ShellCmd)
+	AddPortFlags(ControlCmd)
 
-	ShellCmd.Flags().BoolVar(
+	ControlCmd.Flags().BoolVar(
 		&displayStatusComms,
 		"display-status-comms",
 		defaultDisplayStatusComms,
 		"Display status report query real-time commands and status report push messages; this is always automatically polled and can be noisy",
 	)
 
-	ShellCmd.Flags().BoolVar(
+	ControlCmd.Flags().BoolVar(
 		&displayGcodeParserStateComms,
 		"display-gcode-parser-state-comms",
 		defaultDisplayGcodeParserStateComms,
 		"Display G-Code Parser State commands and report push messages; this is always automatically polled and can be noisy",
 	)
 
-	ShellCmd.Flags().BoolVar(
+	ControlCmd.Flags().BoolVar(
 		&displayGcodeParamStateComms,
 		"display-gcode-param-state-comms",
 		defaultDisplayGcodeParamStateComms,
 		"Display G-Code Param State commands and report push messages; this is always automatically polled and can be noisy",
 	)
 
-	RootCmd.AddCommand(ShellCmd)
+	RootCmd.AddCommand(ControlCmd)
 
 	resetFlagsFns = append(resetFlagsFns, func() {
 		displayStatusComms = defaultDisplayStatusComms
