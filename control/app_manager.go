@@ -35,16 +35,14 @@ type AppManager struct {
 	RootFlex                 *tview.Flex
 }
 
-func NewAppManager(
-	sendRealTimeCommandCh chan grblMod.RealTimeCommand,
-) *AppManager {
+func NewAppManager() *AppManager {
 	am := &AppManager{}
 
 	tviewApp := tview.NewApplication()
 	tviewApp.EnableMouse(true)
 	tviewApp.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyCtrlX {
-			sendRealTimeCommandCh <- grblMod.RealTimeCommandSoftReset
+			am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset)
 			return nil
 		}
 		return event
@@ -74,7 +72,7 @@ func NewAppManager(
 		SetSelectedFunc(func() { am.CommandDispatcher.QueueCommand("$X") })
 
 	am.ResetButton = tview.NewButton("Reset").
-		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandSoftReset })
+		SetSelectedFunc(func() { am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset) })
 
 	am.JoggingButton = tview.NewButton("Jogging").
 		SetDisabled(true)
@@ -82,32 +80,32 @@ func NewAppManager(
 
 	am.OverridesButton = tview.NewButton("Overrides").
 		SetDisabled(true)
-	// 	SetSelectedFunc(func() { sendRealTimeCommandCh <- "TODO" })
+	// 	SetSelectedFunc(func() { am.CommandDispatcher.QueueRealTimeCommand("TODO") })
 
 	am.CheckButton = tview.NewButton("Check").
 		SetSelectedFunc(func() { am.CommandDispatcher.QueueCommand("$C") })
 
 	am.DoorButton = tview.NewButton("Door").
-		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandSafetyDoor })
+		SetSelectedFunc(func() { am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSafetyDoor) })
 
 	am.SleepButton = tview.NewButton("Sleep").
 		SetSelectedFunc(func() { am.CommandDispatcher.QueueCommand("$SLP") })
 
 	am.HoldButton = tview.NewButton("Hold").
-		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandFeedHold })
+		SetSelectedFunc(func() { am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandFeedHold) })
 
 	am.ResumeButton = tview.NewButton("Resume").
-		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandCycleStartResume })
+		SetSelectedFunc(func() { am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandCycleStartResume) })
 
 	am.SettingsButton = tview.NewButton("Settings").
 		SetDisabled(true)
 	// 	SetSelectedFunc(func() { am.commandDispatcher.QueueCommand("TODO") })
 
 	am.SpindleButton = tview.NewButton("Spindle").
-		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandToggleSpindleStop })
+		SetSelectedFunc(func() { am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandToggleSpindleStop) })
 
 	am.CoolantButton = tview.NewButton("Coolant").
-		SetSelectedFunc(func() { sendRealTimeCommandCh <- grblMod.RealTimeCommandToggleMistCoolant })
+		SetSelectedFunc(func() { am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandToggleMistCoolant) })
 
 	am.ExitButton = tview.NewButton("Exit").
 		SetSelectedFunc(func() { am.App.Stop() })

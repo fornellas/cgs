@@ -64,14 +64,13 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	sendCommandWorkerErrCh := make(chan error, 1)
 
-	sendRealTimeCommandCh := make(chan grblMod.RealTimeCommand, 10)
 	sendRealTimeCommandWorkerErrCh := make(chan error, 1)
 
 	pushMessageErrCh := make(chan error, 1)
 
 	statusQueryErrCh := make(chan error, 1)
 
-	c.AppManager = NewAppManager(sendRealTimeCommandCh)
+	c.AppManager = NewAppManager()
 	defer func() { c.AppManager = nil }()
 
 	commandDispatcher := NewCommandDispatcher(
@@ -97,9 +96,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	go func() {
 		defer cancelFn()
 		defer c.AppManager.App.Stop()
-		sendRealTimeCommandWorkerErrCh <- commandDispatcher.RunSendRealTimeCommandWorker(
-			ctx, sendRealTimeCommandCh,
-		)
+		sendRealTimeCommandWorkerErrCh <- commandDispatcher.RunSendRealTimeCommandWorker(ctx)
 	}()
 	go func() {
 		defer cancelFn()

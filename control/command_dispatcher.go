@@ -22,6 +22,7 @@ type CommandDispatcher struct {
 	quietGcodeParamStateComms  bool
 	quietStatusComms           bool
 	sendCommandCh              chan string
+	sendRealTimeCommandCh      chan grblMod.RealTimeCommand
 }
 
 func NewCommandDispatcher(
@@ -38,6 +39,7 @@ func NewCommandDispatcher(
 		quietGcodeParamStateComms:  quietGcodeParamStateComms,
 		quietStatusComms:           quietStatusComms,
 		sendCommandCh:              make(chan string, 10),
+		sendRealTimeCommandCh:      make(chan grblMod.RealTimeCommand, 10),
 	}
 }
 
@@ -168,10 +170,11 @@ func (cd *CommandDispatcher) sendRealTimeCommand(
 	}
 }
 
-func (cd *CommandDispatcher) RunSendRealTimeCommandWorker(
-	ctx context.Context,
-	sendRealTimeCommandCh chan grblMod.RealTimeCommand,
-) error {
+func (cd *CommandDispatcher) QueueRealTimeCommand(rtc grblMod.RealTimeCommand) {
+	cd.sendRealTimeCommandCh <- rtc
+}
+
+func (cd *CommandDispatcher) RunSendRealTimeCommandWorker(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -180,7 +183,7 @@ func (cd *CommandDispatcher) RunSendRealTimeCommandWorker(
 				err = nil
 			}
 			return err
-		case realTimeCommand := <-sendRealTimeCommandCh:
+		case realTimeCommand := <-cd.sendRealTimeCommandCh:
 			cd.sendRealTimeCommand(realTimeCommand)
 		}
 	}
