@@ -1,6 +1,4 @@
 Common
-    Build Info
-        $I (Print build info)
     State / Status
         ? (Status report)
             [MSG:
@@ -40,11 +38,14 @@ Common
             $SLP (Sleep mode)
         Hold
             ! (Feed Hold)
+                Enable only with Idle, Run, Jog states
         Resume
             ~ (Cycle start)
+                Enable only when Hold and Door states
 Modes
     Control
         G-Code Parser
+            Use DropDown to select group modes
             $G (Prints gcode parser state)
                 Motion Mode
                 Coordinate System Selection
@@ -84,6 +85,7 @@ Modes
     Jogging
         $J=line (Jogging)
         0x85 (Jog cancel)
+            Enable only for Jog state
     Overrides
         Feed
             0x90 (Feed override 100%)
@@ -102,10 +104,44 @@ Modes
             0x9c (Spindle override +1%)
             0x9d (Spindle override -1%)
             0x9e (Spindle override stop)
+                Enable only on Hold state
         Coolant
             0xa0 (Flood Coolant Override Toggle)
+                Enable only on Idle, Run or Hold states.
             0xa1 (Mist Cooland Override Toggle)
+                Enable only on Idle, Run or Hold states.
     Settings
+        Build Info
+            View build info ($I)
+                [VER:v1.1f.20170131:Some string]
+                    build version and date
+                    string ID
+                [OPT:VL,16,128]
+                    compile-time options
+                        Variable spindle enabled (V)
+                        Line numbers enabled (N)
+                        Mist coolant enabled (M)
+                        CoreXY enabled (C)
+                        Parking motion enabled (P)
+                        Homing force origin enabled (Z)
+                        Homing single axis enabled (H)
+                        Two limit switches on axis enabled (T)
+                        Spindle direction pin used as enable pin (D)
+                        Spindle enable off when speed is zero enabled (0)
+                        Software limit pin debouncing enabled (S)
+                        Parking override control enabled (R)
+                        Allow feed rate overrides in probe cycles (A)
+                        Safety door input pin enabled (+)
+                        Restore all EEPROM disabled (*)
+                        Restore EEPROM `$` settings disabled ($)
+                        Restore EEPROM parameter data disabled (#)
+                        Build info write user string disabled (I)
+                        Force sync upon EEPROM write disabled (E)
+                        Force sync upon work coordinate offset change disabled (W)
+                        Homing initialization auto-lock disabled (L)
+                    total usable planner blocks
+                    serial RX buffer bytes
+            Set id string ($I=xxx)
         Startup Lines
             $N (Print startup lines)
             $Nn=<gcode> (Store startup line, where n is the line number)
@@ -145,4 +181,5 @@ Modes
     Stream
         TBD
     Script
-        TBD
+        https://github.com/google/starlark-go
+        https://github.com/d5/tengo
