@@ -71,8 +71,6 @@ func (c *Control) messageProcessorWorker(
 			}
 			c.AppManager.ProcessMessage(message)
 			controlPrimitive.ProcessMessage(message)
-			logger := log.MustLogger(ctx)
-			logger.Info("overridesPrimitive.ProcessMessage()", "message", message, "overridesPrimitive", overridesPrimitive)
 			overridesPrimitive.ProcessMessage(message)
 		}
 	}
