@@ -62,11 +62,9 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	ctx, cancelFn := context.WithCancel(ctx)
 
-	logger.Info("NewAppManager")
 	c.AppManager = NewAppManager()
 	defer func() { c.AppManager = nil }()
 
-	logger.Info("NewCommandDispatcher")
 	commandDispatcher := NewCommandDispatcher(
 		c.grbl,
 		c.AppManager,
@@ -76,7 +74,6 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	)
 	c.AppManager.CommandDispatcher = commandDispatcher
 
-	logger.Info("Log")
 	logger = slog.New(NewViewLogHandler(
 		logger.Handler(),
 		c.AppManager.PushMessagesLogsTextView,
@@ -86,25 +83,21 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	sendCommandWorkerErrCh := make(chan error, 1)
 	go func() {
 		defer cancelFn()
-		// defer c.AppManager.App.Stop()
-		e := commandDispatcher.RunSendCommandWorker(ctx)
-		logger.Info("RunSendCommandWorker", "err", e)
-		sendCommandWorkerErrCh <- e
+		defer c.AppManager.App.Stop()
+		sendCommandWorkerErrCh <- commandDispatcher.RunSendCommandWorker(ctx)
 	}()
 
 	sendRealTimeCommandWorkerErrCh := make(chan error, 1)
 	go func() {
 		defer cancelFn()
-		// defer c.AppManager.App.Stop()
-		e := commandDispatcher.RunSendRealTimeCommandWorker(ctx)
-		logger.Info("RunSendRealTimeCommandWorker", "err", e)
-		sendRealTimeCommandWorkerErrCh <- e
+		defer c.AppManager.App.Stop()
+		sendRealTimeCommandWorkerErrCh <- commandDispatcher.RunSendRealTimeCommandWorker(ctx)
 	}()
 
 	pushMessageErrCh := make(chan error, 1)
 	go func() {
 		defer cancelFn()
-		// defer c.AppManager.App.Stop()
+		defer c.AppManager.App.Stop()
 		// Sending $G enables tracking of G-Code parsing state
 		commandDispatcher.QueueCommand("$G")
 		// Sending $G enables tracking of G-Code parameters
@@ -118,15 +111,13 @@ func (c *Control) Run(ctx context.Context) (err error) {
 			!c.options.DisplayGcodeParamStateComms,
 			!c.options.DisplayStatusComms,
 		)
-		e := messageProcessor.Run(ctx)
-		logger.Info("messageProcessor.Run", "err", e)
-		pushMessageErrCh <- e
+		pushMessageErrCh <- messageProcessor.Run(ctx)
 	}()
 
 	statusQueryErrCh := make(chan error, 1)
 	go func() {
 		defer cancelFn()
-		// defer c.AppManager.App.Stop()
+		defer c.AppManager.App.Stop()
 		statusQueryErrCh <- c.statusQueryWorker(ctx)
 	}()
 
@@ -136,9 +127,8 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		err = errors.Join(err, <-sendRealTimeCommandWorkerErrCh)
 		err = errors.Join(err, <-pushMessageErrCh)
 		err = errors.Join(err, <-statusQueryErrCh)
-		logger.Info("Disconnecting")
 		err = errors.Join(err, c.grbl.Disconnect())
 	}()
-	logger.Info("App.Run")
+
 	return c.AppManager.App.Run()
 }
