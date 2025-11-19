@@ -2,6 +2,7 @@ package control
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -10,102 +11,76 @@ import (
 )
 
 type AppManager struct {
-	CommandDispatcher        *CommandDispatcher
-	App                      *tview.Application
-	CommandsTextView         *tview.TextView
-	PushMessagesLogsTextView *tview.TextView
-	FeedbackTextView         *tview.TextView
-	GcodeParserTextView      *tview.TextView
-	GcodeParamsTextView      *tview.TextView
-	StateTextView            *tview.TextView
-	StatusTextView           *tview.TextView
-	CommandInputField        *tview.InputField
-	HomingButton             *tview.Button
-	UnlockButton             *tview.Button
-	ResetButton              *tview.Button
-	CheckButton              *tview.Button
-	DoorButton               *tview.Button
-	SleepButton              *tview.Button
-	HelpButton               *tview.Button
-	HoldButton               *tview.Button
-	ResumeButton             *tview.Button
-	RootFlex                 *tview.Flex
-	disableCommandInput      bool
-	machineState             *grblMod.StatusReportMachineState
+	App              *tview.Application
+	grbl             *grblMod.Grbl
+	controlPrimitive *ControlPrimitive
+	// Common
+	FeedbackTextView *tview.TextView
+	StateTextView    *tview.TextView
+	StatusTextView   *tview.TextView
+	HomingButton     *tview.Button
+	UnlockButton     *tview.Button
+	ResetButton      *tview.Button
+	CheckButton      *tview.Button
+	DoorButton       *tview.Button
+	SleepButton      *tview.Button
+	HelpButton       *tview.Button
+	HoldButton       *tview.Button
+	ResumeButton     *tview.Button
+	RootFlex         *tview.Flex
+
+	machineState *grblMod.StatusReportMachineState
 }
 
-func NewAppManager() *AppManager {
-	am := &AppManager{}
+func NewAppManager(
+	grbl *grblMod.Grbl,
+	controlPrimitive *ControlPrimitive,
+) *AppManager {
+	am := &AppManager{
+		grbl:             grbl,
+		controlPrimitive: controlPrimitive,
+	}
 
 	tviewApp := tview.NewApplication()
 	tviewApp.EnableMouse(true)
 	tviewApp.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyCtrlX {
-			am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset)
+			am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset)
 			return nil
 		}
 		return event
 	})
 	am.App = tviewApp
 
-	am.newCommandsTextView()
-	am.newPushMessagesLogsTextView()
 	am.newFeedbackTextView()
-	am.newGcodeParserTextView()
-	am.newGcodeParamsTextView()
 	am.newStateTextView()
 	am.newStatusTextView()
-	am.newCommandInputField()
 	am.HomingButton = tview.NewButton("Homing").
-		SetSelectedFunc(func() { am.CommandDispatcher.QueueCommand("$H") })
+		SetSelectedFunc(func() { am.controlPrimitive.QueueCommand("$H") })
 	am.UnlockButton = tview.NewButton("Unlock").
-		SetSelectedFunc(func() { am.CommandDispatcher.QueueCommand("$X") })
+		SetSelectedFunc(func() { am.controlPrimitive.QueueCommand("$X") })
 	am.ResetButton = tview.NewButton("Reset").
-		SetSelectedFunc(func() { am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset) })
+		SetSelectedFunc(func() { am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset) })
 	am.CheckButton = tview.NewButton("Check").
-		SetSelectedFunc(func() { am.CommandDispatcher.QueueCommand("$C") })
+		SetSelectedFunc(func() { am.controlPrimitive.QueueCommand("$C") })
 	am.DoorButton = tview.NewButton("Door").
-		SetSelectedFunc(func() { am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSafetyDoor) })
+		SetSelectedFunc(func() { am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSafetyDoor) })
 	am.SleepButton = tview.NewButton("Sleep").
-		SetSelectedFunc(func() { am.CommandDispatcher.QueueCommand("$SLP") })
+		SetSelectedFunc(func() { am.controlPrimitive.QueueCommand("$SLP") })
 	am.HelpButton = tview.NewButton("Help").
-		SetSelectedFunc(func() { am.CommandDispatcher.QueueCommand("$") })
+		SetSelectedFunc(func() { am.controlPrimitive.QueueCommand("$") })
 	am.HoldButton = tview.NewButton("Hold").
-		SetSelectedFunc(func() { am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandFeedHold) })
+		SetSelectedFunc(func() { am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedHold) })
 	am.ResumeButton = tview.NewButton("Resume").
-		SetSelectedFunc(func() { am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandCycleStartResume) })
+		SetSelectedFunc(func() {
+			am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandCycleStartResume)
+		})
 
 	am.newRootFlex()
 
 	am.App.SetRoot(am.RootFlex, true)
 
 	return am
-}
-
-func (am *AppManager) newCommandsTextView() {
-	textView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-	textView.SetBorder(true).SetTitle("Commands")
-	textView.SetChangedFunc(func() {
-		textView.ScrollToEnd()
-		am.App.Draw()
-	})
-	am.CommandsTextView = textView
-}
-
-func (am *AppManager) newPushMessagesLogsTextView() {
-	textView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-	textView.SetBorder(true).SetTitle("Push Messages / Logs")
-	textView.SetChangedFunc(func() {
-		textView.ScrollToEnd()
-		am.App.Draw()
-	})
-	am.PushMessagesLogsTextView = textView
 }
 
 func (am *AppManager) newFeedbackTextView() {
@@ -119,32 +94,6 @@ func (am *AppManager) newFeedbackTextView() {
 		am.App.Draw()
 	})
 	am.FeedbackTextView = textView
-}
-
-func (am *AppManager) newGcodeParserTextView() {
-	textView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-	textView.SetBorder(true).SetTitle("G-Code Parser")
-	textView.SetChangedFunc(func() {
-		textView.ScrollToBeginning()
-		am.App.Draw()
-	})
-	am.GcodeParserTextView = textView
-}
-
-func (am *AppManager) newGcodeParamsTextView() {
-	textView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-	textView.SetBorder(true).SetTitle("G-Code Parameters")
-	textView.SetChangedFunc(func() {
-		textView.ScrollToBeginning()
-		am.App.Draw()
-	})
-	am.GcodeParamsTextView = textView
 }
 
 func (am *AppManager) newStateTextView() {
@@ -171,24 +120,6 @@ func (am *AppManager) newStatusTextView() {
 		am.App.Draw()
 	})
 	am.StatusTextView = textView
-}
-
-func (am *AppManager) newCommandInputField() {
-	inputField := tview.NewInputField().
-		SetLabel("Command: ")
-	inputField.SetDoneFunc(func(key tcell.Key) {
-		switch key {
-		case tcell.KeyEscape:
-			inputField.SetText("")
-		case tcell.KeyEnter:
-			command := inputField.GetText()
-			if command == "" {
-				return
-			}
-			am.CommandDispatcher.QueueCommand(command)
-		}
-	})
-	am.CommandInputField = inputField
 }
 
 func (am *AppManager) getButtonsFLex() *tview.Flex {
@@ -242,47 +173,25 @@ func (am *AppManager) getJoggingPrimitive() tview.Primitive {
 	return joggingFlex
 }
 
-func (am *AppManager) getControlPrimitive() tview.Primitive {
-	gcodeFlex := tview.NewFlex()
-	gcodeFlex.SetDirection(tview.FlexColumn)
-	gcodeFlex.AddItem(am.GcodeParserTextView, 0, 1, false)
-	gcodeFlex.AddItem(am.GcodeParamsTextView, 0, 1, false)
-
-	commsFlex := tview.NewFlex()
-	commsFlex.SetDirection(tview.FlexColumn)
-	commsFlex.AddItem(am.CommandsTextView, 0, 1, false)
-	commsFlex.AddItem(am.PushMessagesLogsTextView, 0, 1, false)
-
-	controlFlex := tview.NewFlex()
-	controlFlex.SetBorder(true)
-	controlFlex.SetTitle("Contrtol")
-	controlFlex.SetDirection(tview.FlexRow)
-	controlFlex.AddItem(gcodeFlex, 0, 1, false)
-	controlFlex.AddItem(commsFlex, 0, 1, false)
-	controlFlex.AddItem(am.CommandInputField, 1, 0, true)
-
-	return controlFlex
-}
-
 func (am *AppManager) getOverridesPrimitive() tview.Primitive {
 	feedOverridesFlex := tview.NewFlex()
 	feedOverridesFlex.SetBorder(true)
 	feedOverridesFlex.SetTitle("Feed")
 	feedOverridesFlex.SetDirection(tview.FlexColumn)
 	feedOverridesFlex.AddItem(tview.NewButton("-10%").SetSelectedFunc(func() {
-		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideDecrease10)
+		am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideDecrease10)
 	}), 0, 1, false)
 	feedOverridesFlex.AddItem(tview.NewButton("-1%").SetSelectedFunc(func() {
-		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideDecrease1)
+		am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideDecrease1)
 	}), 0, 1, false)
 	feedOverridesFlex.AddItem(tview.NewButton("100%").SetSelectedFunc(func() {
-		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideSet100OfProgrammedRate)
+		am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideSet100OfProgrammedRate)
 	}), 0, 1, false)
 	feedOverridesFlex.AddItem(tview.NewButton("+1%").SetSelectedFunc(func() {
-		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideIncrease1)
+		am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideIncrease1)
 	}), 0, 1, false)
 	feedOverridesFlex.AddItem(tview.NewButton("+10%").SetSelectedFunc(func() {
-		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideIncrease10)
+		am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideIncrease10)
 	}), 0, 1, false)
 
 	rapidOverridesFlex := tview.NewFlex()
@@ -290,13 +199,13 @@ func (am *AppManager) getOverridesPrimitive() tview.Primitive {
 	rapidOverridesFlex.SetTitle("Rapid")
 	rapidOverridesFlex.SetDirection(tview.FlexColumn)
 	rapidOverridesFlex.AddItem(tview.NewButton("25%").SetSelectedFunc(func() {
-		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandRapidOverrideSetTo25OfRapidRate)
+		am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandRapidOverrideSetTo25OfRapidRate)
 	}), 0, 1, false)
 	rapidOverridesFlex.AddItem(tview.NewButton("50%").SetSelectedFunc(func() {
-		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandRapidOverrideSetTo50OfRapidRate)
+		am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandRapidOverrideSetTo50OfRapidRate)
 	}), 0, 1, false)
 	rapidOverridesFlex.AddItem(tview.NewButton("100%").SetSelectedFunc(func() {
-		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandRapidOverrideSetTo100FullRapidRate)
+		am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandRapidOverrideSetTo100FullRapidRate)
 	}), 0, 1, false)
 
 	spindleOverridesFlex := tview.NewFlex()
@@ -304,22 +213,22 @@ func (am *AppManager) getOverridesPrimitive() tview.Primitive {
 	spindleOverridesFlex.SetTitle("Spindle")
 	spindleOverridesFlex.SetDirection(tview.FlexColumn)
 	spindleOverridesFlex.AddItem(tview.NewButton("Stop").SetSelectedFunc(func() {
-		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandToggleSpindleStop)
+		am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandToggleSpindleStop)
 	}), 0, 1, false)
 	spindleOverridesFlex.AddItem(tview.NewButton("-10%").SetSelectedFunc(func() {
-		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideDecrease10)
+		am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideDecrease10)
 	}), 0, 1, false)
 	spindleOverridesFlex.AddItem(tview.NewButton("-1%").SetSelectedFunc(func() {
-		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideDecrease1)
+		am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideDecrease1)
 	}), 0, 1, false)
 	spindleOverridesFlex.AddItem(tview.NewButton("100%").SetSelectedFunc(func() {
-		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideSet100OfProgrammedSpindleSpeed)
+		am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideSet100OfProgrammedSpindleSpeed)
 	}), 0, 1, false)
 	spindleOverridesFlex.AddItem(tview.NewButton("+1%").SetSelectedFunc(func() {
-		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideIncrease1)
+		am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideIncrease1)
 	}), 0, 1, false)
 	spindleOverridesFlex.AddItem(tview.NewButton("+10%").SetSelectedFunc(func() {
-		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideIncrease10)
+		am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideIncrease10)
 	}), 0, 1, false)
 
 	coolantOverridesFlex := tview.NewFlex()
@@ -327,10 +236,10 @@ func (am *AppManager) getOverridesPrimitive() tview.Primitive {
 	coolantOverridesFlex.SetTitle("Coolant")
 	coolantOverridesFlex.SetDirection(tview.FlexColumn)
 	coolantOverridesFlex.AddItem(tview.NewButton("Flood").SetSelectedFunc(func() {
-		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandToggleFloodCoolant)
+		am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandToggleFloodCoolant)
 	}), 0, 1, false)
 	coolantOverridesFlex.AddItem(tview.NewButton("Mist").SetSelectedFunc(func() {
-		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandToggleMistCoolant)
+		am.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandToggleMistCoolant)
 	}), 0, 1, false)
 
 	overridesFlex := tview.NewFlex()
@@ -359,14 +268,13 @@ func (am *AppManager) getSettingsPrimitive() tview.Primitive {
 
 func (am *AppManager) getMainFlex() *tview.Flex {
 	jogging := am.getJoggingPrimitive()
-	control := am.getControlPrimitive()
 	overrides := am.getOverridesPrimitive()
 	stream := am.getStreamPrimitive()
 	script := am.getScriptPrimitive()
 	settings := am.getSettingsPrimitive()
 
 	page := tview.NewPages()
-	page.AddPage("Control", control, true, true)
+	page.AddPage("Control", am.controlPrimitive, true, true)
 	page.AddPage("Jogging", jogging, true, true)
 	page.AddPage("Overrides", overrides, true, true)
 	page.AddPage("Stream", stream, true, true)
@@ -423,9 +331,8 @@ func (am *AppManager) newRootFlex() {
 	am.RootFlex = rootFlex
 }
 
-func (am *AppManager) updateCommandInputRaw() {
-	if am.disableCommandInput || am.machineState == nil {
-		am.CommandInputField.SetDisabled(true)
+func (am *AppManager) updateDisabled() {
+	if am.machineState == nil {
 		am.HomingButton.SetDisabled(true)
 		am.UnlockButton.SetDisabled(true)
 		am.ResetButton.SetDisabled(true)
@@ -439,7 +346,6 @@ func (am *AppManager) updateCommandInputRaw() {
 	}
 	switch am.machineState.State {
 	case "Idle":
-		am.CommandInputField.SetDisabled(false)
 		am.HomingButton.SetDisabled(false)
 		am.UnlockButton.SetDisabled(true)
 		am.ResetButton.SetDisabled(false)
@@ -450,7 +356,6 @@ func (am *AppManager) updateCommandInputRaw() {
 		am.HoldButton.SetDisabled(false)
 		am.ResumeButton.SetDisabled(true)
 	case "Run":
-		am.CommandInputField.SetDisabled(true)
 		am.HomingButton.SetDisabled(true)
 		am.UnlockButton.SetDisabled(true)
 		am.ResetButton.SetDisabled(false)
@@ -461,7 +366,6 @@ func (am *AppManager) updateCommandInputRaw() {
 		am.HoldButton.SetDisabled(false)
 		am.ResumeButton.SetDisabled(true)
 	case "Hold":
-		am.CommandInputField.SetDisabled(true)
 		am.HomingButton.SetDisabled(true)
 		am.UnlockButton.SetDisabled(true)
 		am.ResetButton.SetDisabled(false)
@@ -472,7 +376,6 @@ func (am *AppManager) updateCommandInputRaw() {
 		am.HoldButton.SetDisabled(true)
 		am.ResumeButton.SetDisabled(false)
 	case "Jog":
-		am.CommandInputField.SetDisabled(true)
 		am.HomingButton.SetDisabled(true)
 		am.UnlockButton.SetDisabled(true)
 		am.ResetButton.SetDisabled(false)
@@ -483,7 +386,6 @@ func (am *AppManager) updateCommandInputRaw() {
 		am.HoldButton.SetDisabled(false)
 		am.ResumeButton.SetDisabled(true)
 	case "Alarm":
-		am.CommandInputField.SetDisabled(true)
 		am.HomingButton.SetDisabled(false)
 		am.UnlockButton.SetDisabled(false)
 		am.ResetButton.SetDisabled(false)
@@ -494,7 +396,6 @@ func (am *AppManager) updateCommandInputRaw() {
 		am.HoldButton.SetDisabled(true)
 		am.ResumeButton.SetDisabled(true)
 	case "Door":
-		am.CommandInputField.SetDisabled(true)
 		am.HomingButton.SetDisabled(true)
 		am.UnlockButton.SetDisabled(true)
 		am.ResetButton.SetDisabled(false)
@@ -505,7 +406,6 @@ func (am *AppManager) updateCommandInputRaw() {
 		am.HoldButton.SetDisabled(true)
 		am.ResumeButton.SetDisabled(false)
 	case "Check":
-		am.CommandInputField.SetDisabled(false)
 		am.HomingButton.SetDisabled(true)
 		am.UnlockButton.SetDisabled(true)
 		am.ResetButton.SetDisabled(false)
@@ -516,7 +416,6 @@ func (am *AppManager) updateCommandInputRaw() {
 		am.HoldButton.SetDisabled(true)
 		am.ResumeButton.SetDisabled(true)
 	case "Home":
-		am.CommandInputField.SetDisabled(true)
 		am.HomingButton.SetDisabled(true)
 		am.UnlockButton.SetDisabled(true)
 		am.ResetButton.SetDisabled(false)
@@ -527,7 +426,6 @@ func (am *AppManager) updateCommandInputRaw() {
 		am.HoldButton.SetDisabled(true)
 		am.ResumeButton.SetDisabled(true)
 	case "Sleep":
-		am.CommandInputField.SetDisabled(true)
 		am.HomingButton.SetDisabled(true)
 		am.UnlockButton.SetDisabled(true)
 		am.ResetButton.SetDisabled(false)
@@ -541,19 +439,224 @@ func (am *AppManager) updateCommandInputRaw() {
 		panic(fmt.Errorf("unknown state: %s", am.machineState.State))
 	}
 }
-func (am *AppManager) UpdateMachineState(machineState grblMod.StatusReportMachineState) {
-	am.machineState = &machineState
-	am.updateCommandInputRaw()
+
+func (am *AppManager) processMessagePushWelcome() {
+	am.StateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
+	am.StateTextView.Clear()
+	am.StatusTextView.Clear()
+	am.FeedbackTextView.SetText("")
 }
 
-// Disable all primitives that can receive command input.
-func (am *AppManager) DisableCommandInput() {
-	am.disableCommandInput = true
-	am.updateCommandInputRaw()
+func getMachineStateColor(state string) tcell.Color {
+	switch state {
+	case "Idle":
+		return tcell.ColorGreen
+	case "Run":
+		return tcell.ColorLightCyan
+	case "Hold":
+		return tcell.ColorYellow
+	case "Jog":
+		return tcell.ColorBlue
+	case "Alarm":
+		return tcell.ColorRed
+	case "Door":
+		return tcell.ColorOrange
+	case "Check":
+		return tcell.ColorBlue
+	case "Home":
+		return tcell.ColorLime
+	case "Sleep":
+		return tcell.ColorSilver
+	default:
+		return tcell.ColorWhite
+	}
 }
 
-// Enable all primitives that can receive command input.
-func (am *AppManager) EnableCommandInput() {
-	am.disableCommandInput = false
-	am.updateCommandInputRaw()
+func (am *AppManager) updateStateTextView(state string, subState string) {
+	stateColor := getMachineStateColor(state)
+
+	am.StateTextView.Clear()
+	am.StateTextView.SetBackgroundColor(stateColor)
+	fmt.Fprintf(
+		am.StateTextView, "%s\n",
+		tview.Escape(state),
+	)
+	if len(subState) > 0 {
+		fmt.Fprintf(
+			am.StateTextView, "(%s)\n",
+			tview.Escape(subState),
+		)
+	}
+}
+
+func (am *AppManager) processMessagePushAlarm(messagePushAlarm *grblMod.MessagePushAlarm) {
+	am.updateStateTextView("Alarm", "")
+}
+
+//gocyclo:ignore
+func (am *AppManager) writePositionStatus(w io.Writer, statusReport *grblMod.MessagePushStatusReport) {
+	var mx, my, mz, ma, wx, wy, wz, wa *float64
+	if statusReport.MachinePosition != nil {
+		mx = &statusReport.MachinePosition.X
+		my = &statusReport.MachinePosition.Y
+		mz = &statusReport.MachinePosition.Z
+		ma = statusReport.MachinePosition.A
+		if am.grbl.GetWorkCoordinateOffset() != nil {
+			wxv := statusReport.MachinePosition.X - am.grbl.GetWorkCoordinateOffset().X
+			wx = &wxv
+			wyv := statusReport.MachinePosition.Y - am.grbl.GetWorkCoordinateOffset().Y
+			wy = &wyv
+			wzv := statusReport.MachinePosition.Z - am.grbl.GetWorkCoordinateOffset().Z
+			wz = &wzv
+			if statusReport.MachinePosition.A != nil && am.grbl.GetWorkCoordinateOffset().A != nil {
+				wav := *statusReport.MachinePosition.A - *am.grbl.GetWorkCoordinateOffset().A
+				wa = &wav
+			}
+		}
+	}
+	if statusReport.WorkPosition != nil {
+		wx = &statusReport.WorkPosition.X
+		wy = &statusReport.WorkPosition.Y
+		wz = &statusReport.WorkPosition.Z
+		wa = statusReport.WorkPosition.A
+		if am.grbl.GetWorkCoordinateOffset() != nil {
+			mxv := statusReport.WorkPosition.X - am.grbl.GetWorkCoordinateOffset().X
+			mx = &mxv
+			myv := statusReport.WorkPosition.Y - am.grbl.GetWorkCoordinateOffset().Y
+			my = &myv
+			mzv := statusReport.WorkPosition.Z - am.grbl.GetWorkCoordinateOffset().Z
+			mz = &mzv
+			if statusReport.WorkPosition.A != nil && am.grbl.GetWorkCoordinateOffset().A != nil {
+				mav := *statusReport.WorkPosition.A - *am.grbl.GetWorkCoordinateOffset().A
+				ma = &mav
+			}
+		}
+	}
+	var nl bool
+	if wx != nil || wy != nil || wz != nil || wa != nil {
+		fmt.Fprintf(w, "Work\n")
+		nl = true
+	}
+	if wx != nil {
+		fmt.Fprintf(w, "X:%.3f\n", *wx)
+	}
+	if wy != nil {
+		fmt.Fprintf(w, "Y:%.3f\n", *wy)
+	}
+	if wz != nil {
+		fmt.Fprintf(w, "Z:%.3f\n", *wz)
+	}
+	if wa != nil {
+		fmt.Fprintf(w, "A:%.3f\n", *wa)
+	}
+	if mx != nil || my != nil || mz != nil || ma != nil {
+		if nl {
+			fmt.Fprintf(w, "\n")
+		}
+		fmt.Fprintf(w, "Machine\n")
+	}
+	if mx != nil {
+		fmt.Fprintf(w, "X:%.3f\n", *mx)
+	}
+	if my != nil {
+		fmt.Fprintf(w, "Y:%.3f\n", *my)
+	}
+	if mz != nil {
+		fmt.Fprintf(w, "Z:%.3f\n", *mz)
+	}
+	if ma != nil {
+		fmt.Fprintf(w, "A:%.3f\n", *ma)
+	}
+}
+
+//gocyclo:ignore
+func (am *AppManager) updateStatusTextView(
+	statusReport *grblMod.MessagePushStatusReport,
+) {
+	am.StatusTextView.Clear()
+
+	am.writePositionStatus(am.StatusTextView, statusReport)
+
+	if statusReport.BufferState != nil {
+		fmt.Fprint(am.StatusTextView, "\nBuffer\n")
+		fmt.Fprintf(am.StatusTextView, "Blocks:%d\n", statusReport.BufferState.AvailableBlocks)
+		fmt.Fprintf(am.StatusTextView, "Bytes:%d\n", statusReport.BufferState.AvailableBytes)
+	}
+
+	if statusReport.LineNumber != nil {
+		fmt.Fprintf(am.StatusTextView, "\nLine:%d\n", *statusReport.LineNumber)
+	}
+
+	if statusReport.Feed != nil {
+		fmt.Fprintf(am.StatusTextView, "\nFeed:%.1f\n", *statusReport.Feed)
+	}
+
+	if statusReport.FeedSpindle != nil {
+		fmt.Fprintf(am.StatusTextView, "\nFeed:%.0f\n", statusReport.FeedSpindle.Feed)
+		fmt.Fprintf(am.StatusTextView, "Speed:%.0f\n", statusReport.FeedSpindle.Speed)
+	}
+
+	if statusReport.PinState != nil {
+		fmt.Fprintf(am.StatusTextView, "\nPin:%s\n", statusReport.PinState)
+	}
+
+	if am.grbl.GetOverrideValues() != nil {
+		fmt.Fprint(am.StatusTextView, "\nOverrides\n")
+		fmt.Fprintf(am.StatusTextView, "Feed:%.0f%%\n", am.grbl.GetOverrideValues().Feed)
+		fmt.Fprintf(am.StatusTextView, "Rapids:%.0f%%\n", am.grbl.GetOverrideValues().Rapids)
+		fmt.Fprintf(am.StatusTextView, "Spindle:%.0f%%\n", am.grbl.GetOverrideValues().Spindle)
+	}
+
+	if statusReport.AccessoryState != nil {
+		fmt.Fprint(am.StatusTextView, "\nAccessory\n")
+		if statusReport.AccessoryState.SpindleCW != nil && *statusReport.AccessoryState.SpindleCW {
+			fmt.Fprint(am.StatusTextView, "Spindle: CW")
+		}
+		if statusReport.AccessoryState.SpindleCCW != nil && *statusReport.AccessoryState.SpindleCCW {
+			fmt.Fprint(am.StatusTextView, "Spindle: CCW")
+		}
+		if statusReport.AccessoryState.FloodCoolant != nil && *statusReport.AccessoryState.FloodCoolant {
+			fmt.Fprint(am.StatusTextView, "Flood Coolant")
+		}
+		if statusReport.AccessoryState.MistCoolant != nil && *statusReport.AccessoryState.MistCoolant {
+			fmt.Fprint(am.StatusTextView, "Mist Coolant")
+		}
+	}
+}
+
+func (am *AppManager) processMessagePushStatusReport(
+	statusReport *grblMod.MessagePushStatusReport,
+) {
+	am.updateStateTextView(statusReport.MachineState.State, statusReport.MachineState.SubStateString())
+	am.machineState = &statusReport.MachineState
+	am.updateDisabled()
+	am.updateStatusTextView(statusReport)
+}
+
+func (am *AppManager) processMessagePushFeedback(
+	messagePushFeedback *grblMod.MessagePushFeedback,
+) {
+	am.FeedbackTextView.SetText(messagePushFeedback.Text())
+}
+
+func (am *AppManager) ProcessMessage(message grblMod.Message) {
+	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
+		am.processMessagePushWelcome()
+		return
+	}
+
+	if messagePushAlarm, ok := message.(*grblMod.MessagePushAlarm); ok {
+		am.processMessagePushAlarm(messagePushAlarm)
+		return
+	}
+
+	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
+		am.processMessagePushStatusReport(messagePushStatusReport)
+		return
+	}
+
+	if messagePushFeedback, ok := message.(*grblMod.MessagePushFeedback); ok {
+		am.processMessagePushFeedback(messagePushFeedback)
+		return
+	}
 }

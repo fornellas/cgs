@@ -62,21 +62,19 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	ctx, cancelFn := context.WithCancel(ctx)
 
-	c.AppManager = NewAppManager()
-	defer func() { c.AppManager = nil }()
-
-	commandDispatcher := NewCommandDispatcher(
+	controlPrimitive := NewControlPrimitive(
 		c.grbl,
-		c.AppManager,
 		!c.options.DisplayGcodeParserStateComms,
 		!c.options.DisplayGcodeParamStateComms,
 		!c.options.DisplayStatusComms,
 	)
-	c.AppManager.CommandDispatcher = commandDispatcher
+
+	c.AppManager = NewAppManager(c.grbl, controlPrimitive)
+	defer func() { c.AppManager = nil }()
 
 	logger = slog.New(NewViewLogHandler(
 		logger.Handler(),
-		c.AppManager.PushMessagesLogsTextView,
+		c.AppManager.controlPrimitive.GetLogsTextView(),
 	))
 	ctx = log.WithLogger(ctx, logger)
 
@@ -84,14 +82,14 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	go func() {
 		defer cancelFn()
 		defer c.AppManager.App.Stop()
-		sendCommandWorkerErrCh <- commandDispatcher.RunSendCommandWorker(ctx)
+		sendCommandWorkerErrCh <- controlPrimitive.RunSendCommandWorker(ctx)
 	}()
 
 	sendRealTimeCommandWorkerErrCh := make(chan error, 1)
 	go func() {
 		defer cancelFn()
 		defer c.AppManager.App.Stop()
-		sendRealTimeCommandWorkerErrCh <- commandDispatcher.RunSendRealTimeCommandWorker(ctx)
+		sendRealTimeCommandWorkerErrCh <- controlPrimitive.RunSendRealTimeCommandWorker(ctx)
 	}()
 
 	pushMessageErrCh := make(chan error, 1)
@@ -99,18 +97,10 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		defer cancelFn()
 		defer c.AppManager.App.Stop()
 		// Sending $G enables tracking of G-Code parsing state
-		commandDispatcher.QueueCommand("$G")
+		controlPrimitive.QueueCommand("$G")
 		// Sending $G enables tracking of G-Code parameters
-		commandDispatcher.QueueCommand("$#")
-		messageProcessor := NewMessageProcessor(
-			c.grbl,
-			c.AppManager,
-			pushMessageCh,
-			commandDispatcher,
-			!c.options.DisplayGcodeParserStateComms,
-			!c.options.DisplayGcodeParamStateComms,
-			!c.options.DisplayStatusComms,
-		)
+		controlPrimitive.QueueCommand("$#")
+		messageProcessor := NewMessageProcessor(pushMessageCh, c.AppManager, controlPrimitive)
 		pushMessageErrCh <- messageProcessor.Run(ctx)
 	}()
 
