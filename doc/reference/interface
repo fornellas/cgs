@@ -22,26 +22,28 @@ Common
                     A
     Feedback Message
     Buttons
-        Help
-            $ (Help)
-        Homing
-            $H[X|Y|Z] (Perform homing cycle)
-        Unlock
-            $X (Disable alarm lock)
-        Reset
-            0x18 (Reset)
-        Check
-            $C (Set check g-code mode)
-        Door
-            0x84 (Safety door)
-        Sleep
-            $SLP (Sleep mode)
-        Hold
-            ! (Feed Hold)
-                Enable only with Idle, Run, Jog states
-        Resume
-            ~ (Cycle start)
-                Enable only when Hold and Door states
+        Commands
+            Homing
+                $H[X|Y|Z] (Perform homing cycle)
+            Unlock
+                $X (Disable alarm lock)
+            Check
+                $C (Set check g-code mode)
+            Sleep
+                $SLP (Sleep mode)
+            Help
+                $ (Help)
+        Real-Time
+            Reset
+                0x18 (Reset)
+            Door
+                0x84 (Safety door)
+            Hold
+                ! (Feed Hold)
+                    Enable only with Idle, Run, Jog states
+            Resume
+                ~ (Cycle start)
+                    Enable only when Hold and Door states
 Modes
     Control
         G-Code Parser

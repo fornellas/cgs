@@ -129,26 +129,14 @@ func (cd *CommandDispatcher) RunSendCommandWorker(ctx context.Context) error {
 			}
 			return err
 		case command := <-cd.sendCommandCh:
-			cd.appManager.CommandInputField.SetDisabled(true)
-			cd.appManager.HomingButton.SetDisabled(true)
-			cd.appManager.UnlockButton.SetDisabled(true)
-			// s.shellApp.joggingButton.SetDisabled(true)
-			cd.appManager.CheckButton.SetDisabled(true)
-			cd.appManager.SleepButton.SetDisabled(true)
+			cd.appManager.DisableCommandInput()
 			// s.shellApp.settingsButton.SetDisabled(true)
 			cd.sendCommand(ctx, command)
 			// Sending $G enables tracking of G-Code parsing state
 			cd.sendCommand(ctx, "$G")
 			// Sending $G enables tracking of G-Code parameters
 			cd.sendCommand(ctx, "$#")
-			cd.appManager.CommandInputField.SetText("")
-			cd.appManager.CommandInputField.SetDisabled(false)
-			cd.appManager.HomingButton.SetDisabled(false)
-			cd.appManager.UnlockButton.SetDisabled(false)
-			// s.shellApp.joggingButton.SetDisabled(false)
-			cd.appManager.CheckButton.SetDisabled(false)
-			cd.appManager.SleepButton.SetDisabled(false)
-			// s.shellApp.settingsButton.SetDisabled(false)
+			cd.appManager.EnableCommandInput()
 		}
 	}
 }

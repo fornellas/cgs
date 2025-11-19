@@ -144,83 +144,6 @@ func getMachineStateColor(state string) tcell.Color {
 	}
 }
 
-func (mp *MessageProcessor) updateState(
-	state string,
-	subState string,
-) {
-	stateColor := getMachineStateColor(state)
-
-	mp.appManager.StateTextView.Clear()
-	mp.appManager.StateTextView.SetBackgroundColor(stateColor)
-	fmt.Fprintf(
-		mp.appManager.StateTextView, "%s\n",
-		tview.Escape(state),
-	)
-	if len(subState) > 0 {
-		fmt.Fprintf(
-			mp.appManager.StateTextView, "(%s)\n",
-			tview.Escape(subState),
-		)
-	}
-}
-
-//gocyclo:ignore
-func (mp *MessageProcessor) updateStatusReport(
-	statusReport *grblMod.MessagePushStatusReport,
-) {
-	mp.updateState(statusReport.MachineState.State, statusReport.MachineState.SubStateString())
-
-	mp.appManager.StatusTextView.Clear()
-
-	mp.writePositionStatus(mp.appManager.StatusTextView, statusReport)
-
-	if statusReport.BufferState != nil {
-		fmt.Fprint(mp.appManager.StatusTextView, "\nBuffer\n")
-		fmt.Fprintf(mp.appManager.StatusTextView, "Blocks:%d\n", statusReport.BufferState.AvailableBlocks)
-		fmt.Fprintf(mp.appManager.StatusTextView, "Bytes:%d\n", statusReport.BufferState.AvailableBytes)
-	}
-
-	if statusReport.LineNumber != nil {
-		fmt.Fprintf(mp.appManager.StatusTextView, "\nLine:%d\n", *statusReport.LineNumber)
-	}
-
-	if statusReport.Feed != nil {
-		fmt.Fprintf(mp.appManager.StatusTextView, "\nFeed:%.1f\n", *statusReport.Feed)
-	}
-
-	if statusReport.FeedSpindle != nil {
-		fmt.Fprintf(mp.appManager.StatusTextView, "\nFeed:%.0f\n", statusReport.FeedSpindle.Feed)
-		fmt.Fprintf(mp.appManager.StatusTextView, "Speed:%.0f\n", statusReport.FeedSpindle.Speed)
-	}
-
-	if statusReport.PinState != nil {
-		fmt.Fprintf(mp.appManager.StatusTextView, "\nPin:%s\n", statusReport.PinState)
-	}
-
-	if mp.grbl.GetOverrideValues() != nil {
-		fmt.Fprint(mp.appManager.StatusTextView, "\nOverrides\n")
-		fmt.Fprintf(mp.appManager.StatusTextView, "Feed:%.0f%%\n", mp.grbl.GetOverrideValues().Feed)
-		fmt.Fprintf(mp.appManager.StatusTextView, "Rapids:%.0f%%\n", mp.grbl.GetOverrideValues().Rapids)
-		fmt.Fprintf(mp.appManager.StatusTextView, "Spindle:%.0f%%\n", mp.grbl.GetOverrideValues().Spindle)
-	}
-
-	if statusReport.AccessoryState != nil {
-		fmt.Fprint(mp.appManager.StatusTextView, "\nAccessory\n")
-		if statusReport.AccessoryState.SpindleCW != nil && *statusReport.AccessoryState.SpindleCW {
-			fmt.Fprint(mp.appManager.StatusTextView, "Spindle: CW")
-		}
-		if statusReport.AccessoryState.SpindleCCW != nil && *statusReport.AccessoryState.SpindleCCW {
-			fmt.Fprint(mp.appManager.StatusTextView, "Spindle: CCW")
-		}
-		if statusReport.AccessoryState.FloodCoolant != nil && *statusReport.AccessoryState.FloodCoolant {
-			fmt.Fprint(mp.appManager.StatusTextView, "Flood Coolant")
-		}
-		if statusReport.AccessoryState.MistCoolant != nil && *statusReport.AccessoryState.MistCoolant {
-			fmt.Fprint(mp.appManager.StatusTextView, "Mist Coolant")
-		}
-	}
-}
-
 //gocyclo:ignore
 func (mp *MessageProcessor) processMessagePushGcodeState(
 	messagePushGcodeState *grblMod.MessagePushGcodeState,
@@ -402,6 +325,26 @@ func (mp *MessageProcessor) processMessagePushWelcome(
 	return detailsFn, color
 }
 
+func (mp *MessageProcessor) updateStateTextView(
+	state string,
+	subState string,
+) {
+	stateColor := getMachineStateColor(state)
+
+	mp.appManager.StateTextView.Clear()
+	mp.appManager.StateTextView.SetBackgroundColor(stateColor)
+	fmt.Fprintf(
+		mp.appManager.StateTextView, "%s\n",
+		tview.Escape(state),
+	)
+	if len(subState) > 0 {
+		fmt.Fprintf(
+			mp.appManager.StateTextView, "(%s)\n",
+			tview.Escape(subState),
+		)
+	}
+}
+
 func (mp *MessageProcessor) processMessagePushAlarm(
 	messagePushAlarm *grblMod.MessagePushAlarm,
 ) (func(), tcell.Color) {
@@ -409,15 +352,76 @@ func (mp *MessageProcessor) processMessagePushAlarm(
 	detailsFn := func() {
 		fmt.Fprintf(mp.appManager.PushMessagesLogsTextView, "[%s]%s[-]\n", color, tview.Escape(messagePushAlarm.Error().Error()))
 	}
-	mp.updateState("Alarm", "")
+	mp.updateStateTextView("Alarm", "")
 	return detailsFn, color
 }
 
+//gocyclo:ignore
+func (mp *MessageProcessor) updateStatusTextView(
+	statusReport *grblMod.MessagePushStatusReport,
+) {
+	mp.appManager.StatusTextView.Clear()
+
+	mp.writePositionStatus(mp.appManager.StatusTextView, statusReport)
+
+	if statusReport.BufferState != nil {
+		fmt.Fprint(mp.appManager.StatusTextView, "\nBuffer\n")
+		fmt.Fprintf(mp.appManager.StatusTextView, "Blocks:%d\n", statusReport.BufferState.AvailableBlocks)
+		fmt.Fprintf(mp.appManager.StatusTextView, "Bytes:%d\n", statusReport.BufferState.AvailableBytes)
+	}
+
+	if statusReport.LineNumber != nil {
+		fmt.Fprintf(mp.appManager.StatusTextView, "\nLine:%d\n", *statusReport.LineNumber)
+	}
+
+	if statusReport.Feed != nil {
+		fmt.Fprintf(mp.appManager.StatusTextView, "\nFeed:%.1f\n", *statusReport.Feed)
+	}
+
+	if statusReport.FeedSpindle != nil {
+		fmt.Fprintf(mp.appManager.StatusTextView, "\nFeed:%.0f\n", statusReport.FeedSpindle.Feed)
+		fmt.Fprintf(mp.appManager.StatusTextView, "Speed:%.0f\n", statusReport.FeedSpindle.Speed)
+	}
+
+	if statusReport.PinState != nil {
+		fmt.Fprintf(mp.appManager.StatusTextView, "\nPin:%s\n", statusReport.PinState)
+	}
+
+	if mp.grbl.GetOverrideValues() != nil {
+		fmt.Fprint(mp.appManager.StatusTextView, "\nOverrides\n")
+		fmt.Fprintf(mp.appManager.StatusTextView, "Feed:%.0f%%\n", mp.grbl.GetOverrideValues().Feed)
+		fmt.Fprintf(mp.appManager.StatusTextView, "Rapids:%.0f%%\n", mp.grbl.GetOverrideValues().Rapids)
+		fmt.Fprintf(mp.appManager.StatusTextView, "Spindle:%.0f%%\n", mp.grbl.GetOverrideValues().Spindle)
+	}
+
+	if statusReport.AccessoryState != nil {
+		fmt.Fprint(mp.appManager.StatusTextView, "\nAccessory\n")
+		if statusReport.AccessoryState.SpindleCW != nil && *statusReport.AccessoryState.SpindleCW {
+			fmt.Fprint(mp.appManager.StatusTextView, "Spindle: CW")
+		}
+		if statusReport.AccessoryState.SpindleCCW != nil && *statusReport.AccessoryState.SpindleCCW {
+			fmt.Fprint(mp.appManager.StatusTextView, "Spindle: CCW")
+		}
+		if statusReport.AccessoryState.FloodCoolant != nil && *statusReport.AccessoryState.FloodCoolant {
+			fmt.Fprint(mp.appManager.StatusTextView, "Flood Coolant")
+		}
+		if statusReport.AccessoryState.MistCoolant != nil && *statusReport.AccessoryState.MistCoolant {
+			fmt.Fprint(mp.appManager.StatusTextView, "Mist Coolant")
+		}
+	}
+}
+
 func (mp *MessageProcessor) processMessagePushStatusReport(
-	messagePushStatusReport *grblMod.MessagePushStatusReport,
+	statusReport *grblMod.MessagePushStatusReport,
 ) (func(), tcell.Color) {
-	color := getMachineStateColor(messagePushStatusReport.MachineState.State)
-	mp.updateStatusReport(messagePushStatusReport)
+	color := getMachineStateColor(statusReport.MachineState.State)
+
+	mp.updateStateTextView(statusReport.MachineState.State, statusReport.MachineState.SubStateString())
+
+	mp.appManager.UpdateCommandInput(statusReport.MachineState)
+
+	mp.updateStatusTextView(statusReport)
+
 	return nil, color
 }
 
