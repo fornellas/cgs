@@ -278,10 +278,10 @@ func (cp *ControlPrimitive) sendRealTimeCommand(
 	textView := cp.commandsTextView
 
 	if cp.quietStatusComms || cmd != grblMod.RealTimeCommandStatusReportQuery {
-		fmt.Fprintf(textView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(cmd.String()))
+		fmt.Fprintf(textView, "[%s]%s[-]\n", tcell.ColorBlue, tview.Escape(cmd.String()))
 	}
 	if err := cp.grbl.SendRealTimeCommand(cmd); err != nil {
-		fmt.Fprintf(textView, "[%s]Failed to send soft reset: %s[-]\n", tcell.ColorRed, err)
+		fmt.Fprintf(textView, "[%s]Failed to send real-time command: %s[-]\n", tcell.ColorRed, err)
 	}
 }
 
