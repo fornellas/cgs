@@ -39,8 +39,9 @@ func NewAppManager(
 	overridesPrimitive *OverridesPrimitive,
 ) *AppManager {
 	am := &AppManager{
-		grbl:             grbl,
-		controlPrimitive: controlPrimitive,
+		grbl:               grbl,
+		controlPrimitive:   controlPrimitive,
+		overridesPrimitive: overridesPrimitive,
 	}
 
 	tviewApp := tview.NewApplication()

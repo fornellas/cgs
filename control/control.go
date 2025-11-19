@@ -51,6 +51,33 @@ func (c *Control) statusQueryWorker(ctx context.Context) error {
 	}
 }
 
+func (c *Control) messageProcessorWorker(
+	ctx context.Context,
+	pushMessageCh chan grblMod.Message,
+	controlPrimitive *ControlPrimitive,
+	overridesPrimitive *OverridesPrimitive,
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			err := ctx.Err()
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
+			return err
+		case message, ok := <-pushMessageCh:
+			if !ok {
+				return fmt.Errorf("push message channel closed")
+			}
+			c.AppManager.ProcessMessage(message)
+			controlPrimitive.ProcessMessage(message)
+			logger := log.MustLogger(ctx)
+			logger.Info("overridesPrimitive.ProcessMessage()", "message", message, "overridesPrimitive", overridesPrimitive)
+			overridesPrimitive.ProcessMessage(message)
+		}
+	}
+}
+
 func (c *Control) Run(ctx context.Context) (err error) {
 	logger := log.MustLogger(ctx)
 
@@ -106,13 +133,12 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		controlPrimitive.QueueCommand("$G")
 		// Sending $G enables tracking of G-Code parameters
 		controlPrimitive.QueueCommand("$#")
-		messageProcessor := NewMessageProcessor(
+		pushMessageErrCh <- c.messageProcessorWorker(
+			ctx,
 			pushMessageCh,
-			c.AppManager,
 			controlPrimitive,
 			overridesPrimitive,
 		)
-		pushMessageErrCh <- messageProcessor.Run(ctx)
 	}()
 
 	statusQueryErrCh := make(chan error, 1)
