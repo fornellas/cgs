@@ -22,7 +22,7 @@ ASCII Realtime Commands
     0x18 (Reset)
 Extended-ASCII Realtime Commands
     0x84 (Safety door)
-    0x85 (Jod cancel)
+    0x85 (Jog cancel)
     0x86 (Debug report)
     0x90 (Feed override 100%)
     0x91 (Feed override +10%)

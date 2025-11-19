@@ -1,51 +1,148 @@
-[MSG:
-?
-    State
-        Idle, Run, Hold, Jog, Alarm, Door, Check, Home, Sleep
-    Current Position / Work Coordinate Offset
-        MPos or WPos, WCO
-  		If `WPos:` is given, use `MPos = WPos + WCO`.
-  		If `MPos:` is given, use `WPos = MPos - WCO`.
-    Buffer State
-        Bf
-    Line Number
-        Ln
-    Current Feed and Speed
-        F, FS
-    Input Pin State
-        Pn
-    Override Values
-        Ov
-    Accessory State
-        A
-$G G-Code Parser State
-    Motion Mode
-    Coordinate System Selection
-    Plane selection
-    Units
-    Distance Mode
-    Feed Rate Mode
-    Spindle Turning
-    Coolant State
-    Active Tool
-    Feed Rate
-    Spindle Speed
-$# G-code Parameters
-    Work Coordinates
-        [G54:0.000,0.000,0.000]
-        [G55:0.000,0.000,0.000]
-        [G56:0.000,0.000,0.000]
-        [G57:0.000,0.000,0.000]
-        [G58:0.000,0.000,0.000]
-        [G59:0.000,0.000,0.000]
-    Pre defined positions
-        [G28:0.000,0.000,0.000]
-        [G30:0.000,0.000,0.000]
-    Non-Persistent
-        Coordinate offset
-            [G92:0.000,0.000,0.000]
-        Tool Length Offset
-            [TLO:0.000]
-        Probing
-            Coordinates of the last probing cycle, where the suffix :1 denotes if the last probe was successful and :0 as not successful.
-            [PRB:0.000,0.000,0.000:0]
+Common
+    Build Info
+        $I (Print build info)
+    State / Status
+        ? (Status report)
+            [MSG:
+                State
+                    Idle, Run, Hold, Jog, Alarm, Door, Check, Home, Sleep
+                Current Position / Work Coordinate Offset
+                    MPos or WPos, WCO
+              		If `WPos:` is given, use `MPos = WPos + WCO`.
+              		If `MPos:` is given, use `WPos = MPos - WCO`.
+                Buffer State
+                    Bf
+                Line Number
+                    Ln
+                Current Feed and Speed
+                    F, FS
+                Input Pin State
+                    Pn
+                Override Values
+                    Ov
+                Accessory State
+                    A
+    Feedback Message
+    Buttons
+        Help
+            $ (Help)
+        Homing
+            $H[X|Y|Z] (Perform homing cycle)
+        Unlock
+            $X (Disable alarm lock)
+        Reset
+            0x18 (Reset)
+        Check
+            $C (Set check g-code mode)
+        Door
+            0x84 (Safety door)
+        Sleep
+            $SLP (Sleep mode)
+        Hold
+            ! (Feed Hold)
+        Resume
+            ~ (Cycle start)
+Modes
+    Control
+        G-Code Parser
+            $G (Prints gcode parser state)
+                Motion Mode
+                Coordinate System Selection
+                Plane selection
+                Units
+                Distance Mode
+                Feed Rate Mode
+                Spindle Turning
+                Coolant State
+                Active Tool
+                Feed Rate
+                Spindle Speed
+        G-Code Parameters
+            $# (Print Grbl NGC parameters)
+                Persistent
+                    Work Coordinates
+                        [G54:0.000,0.000,0.000]
+                        [G55:0.000,0.000,0.000]
+                        [G56:0.000,0.000,0.000]
+                        [G57:0.000,0.000,0.000]
+                        [G58:0.000,0.000,0.000]
+                        [G59:0.000,0.000,0.000]
+                    Pre defined positions
+                        [G28:0.000,0.000,0.000]
+                        [G30:0.000,0.000,0.000]
+                Non-Persistent
+                    Coordinate offset
+                        [G92:0.000,0.000,0.000]
+                    Tool Length Offset
+                        [TLO:0.000]
+                    Probing
+                        Coordinates of the last probing cycle, where the suffix :1 denotes if the last probe was successful and :0 as not successful.
+                        [PRB:0.000,0.000,0.000:0]
+        Command Log
+        Push Messages / Logs
+        Input Command
+    Jogging
+        $J=line (Jogging)
+        0x85 (Jog cancel)
+    Overrides
+        Feed
+            0x90 (Feed override 100%)
+            0x91 (Feed override +10%)
+            0x92 (Feed override -10%)
+            0x93 (Feed override +1%)
+            0x94 (Feed override -1%)
+        Rapid
+            0x95 (Rapid override 100%)
+            0x96 (Rapid override 50%)
+            0x97 (Rapid override 25%)
+        Spindle
+            0x99 (Spindle override 100%)
+            0x9a (Spindle override +10%)
+            0x9b (Spindle override -10%)
+            0x9c (Spindle override +1%)
+            0x9d (Spindle override -1%)
+            0x9e (Spindle override stop)
+        Coolant
+            0xa0 (Flood Coolant Override Toggle)
+            0xa1 (Mist Cooland Override Toggle)
+    Settings
+        Startup Lines
+            $N (Print startup lines)
+            $Nn=<gcode> (Store startup line, where n is the line number)
+        Restore Defaults
+            $RST=$ (Settings Restore Defaults)
+            $RST=# (Settings Restore Parameters)
+            $RST=* (Settings Restore All)
+        Settings
+            $$ - View Grbl settings
+            $x=val - Save Grbl setting
+                $0 – Step pulse, microseconds
+                $1 - Step idle delay, milliseconds
+                $2 – Step port invert, mask
+                $3 – Direction port invert, mask
+                $4 - Step enable invert, boolean
+                $5 -  Limit pins invert, boolean
+                $6 -  Probe pin invert, boolean
+                $10 - Status report, mask
+                $11 - Junction deviation, mm
+                $12 – Arc tolerance, mm
+                $13 - Report inches, boolean
+                $20 - Soft limits, boolean
+                $21 - Hard limits, boolean
+                $22 - Homing cycle, boolean
+                $23 - Homing dir invert, mask
+                $24 - Homing feed, mm/min
+                $25 - Homing seek, mm/min
+                $26 - Homing debounce, milliseconds
+                $27 - Homing pull-off, mm
+                $30 - Max spindle speed, RPM
+                $31 - Min spindle speed, RPM
+                $32 - Laser mode, boolean
+                $100, $101 and $102 – [X,Y,Z] steps/mm
+                $110, $111 and $112 – [X,Y,Z] Max rate, mm/min
+                $120, $121, $122 – [X,Y,Z] Acceleration, mm/sec^2
+                $130, $131, $132 – [X,Y,Z] Max travel, mm
+    Stream
+        TBD
+    Script
+        TBD
