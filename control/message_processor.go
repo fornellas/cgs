@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -153,16 +152,13 @@ func (mp *MessageProcessor) updateState(
 
 	mp.appManager.StateTextView.Clear()
 	mp.appManager.StateTextView.SetBackgroundColor(stateColor)
-	_, _, stateViewWidth, _ := mp.appManager.StateTextView.GetRect()
 	fmt.Fprintf(
-		mp.appManager.StateTextView, "%s%s\n",
-		strings.Repeat(" ", (stateViewWidth-2-len(state))/2),
+		mp.appManager.StateTextView, "%s\n",
 		tview.Escape(state),
 	)
 	if len(subState) > 0 {
 		fmt.Fprintf(
-			mp.appManager.StateTextView, "%s(%s)\n",
-			strings.Repeat(" ", (stateViewWidth-4-len(subState))/2),
+			mp.appManager.StateTextView, "(%s)\n",
 			tview.Escape(subState),
 		)
 	}
