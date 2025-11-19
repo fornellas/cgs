@@ -49,45 +49,29 @@ func NewAppManager() *AppManager {
 	am.App = tviewApp
 
 	am.newCommandsTextView()
-
 	am.newPushMessagesLogsTextView()
-
 	am.newFeedbackTextView()
-
 	am.newGcodeParserTextView()
-
 	am.newGcodeParamsTextView()
-
 	am.newStateTextView()
-
 	am.newStatusTextView()
-
 	am.newCommandInputField()
-
 	am.HomingButton = tview.NewButton("Homing").
 		SetSelectedFunc(func() { am.CommandDispatcher.QueueCommand("$H") })
-
 	am.UnlockButton = tview.NewButton("Unlock").
 		SetSelectedFunc(func() { am.CommandDispatcher.QueueCommand("$X") })
-
 	am.ResetButton = tview.NewButton("Reset").
 		SetSelectedFunc(func() { am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset) })
-
 	am.CheckButton = tview.NewButton("Check").
 		SetSelectedFunc(func() { am.CommandDispatcher.QueueCommand("$C") })
-
 	am.DoorButton = tview.NewButton("Door").
 		SetSelectedFunc(func() { am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSafetyDoor) })
-
 	am.SleepButton = tview.NewButton("Sleep").
 		SetSelectedFunc(func() { am.CommandDispatcher.QueueCommand("$SLP") })
-
 	am.HelpButton = tview.NewButton("Help").
 		SetSelectedFunc(func() { am.CommandDispatcher.QueueCommand("$") })
-
 	am.HoldButton = tview.NewButton("Hold").
 		SetSelectedFunc(func() { am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandFeedHold) })
-
 	am.ResumeButton = tview.NewButton("Resume").
 		SetSelectedFunc(func() { am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandCycleStartResume) })
 
@@ -108,7 +92,6 @@ func (am *AppManager) newCommandsTextView() {
 		textView.ScrollToEnd()
 		am.App.Draw()
 	})
-	textView.SetBackgroundColor(tcell.ColorDefault)
 	am.CommandsTextView = textView
 }
 
@@ -122,7 +105,6 @@ func (am *AppManager) newPushMessagesLogsTextView() {
 		textView.ScrollToEnd()
 		am.App.Draw()
 	})
-	textView.SetBackgroundColor(tcell.ColorDefault)
 	am.PushMessagesLogsTextView = textView
 }
 
@@ -136,7 +118,6 @@ func (am *AppManager) newFeedbackTextView() {
 		textView.ScrollToEnd()
 		am.App.Draw()
 	})
-	textView.SetBackgroundColor(tcell.ColorDefault)
 	am.FeedbackTextView = textView
 }
 
@@ -150,7 +131,6 @@ func (am *AppManager) newGcodeParserTextView() {
 		textView.ScrollToBeginning()
 		am.App.Draw()
 	})
-	textView.SetBackgroundColor(tcell.ColorDefault)
 	am.GcodeParserTextView = textView
 }
 
@@ -164,7 +144,6 @@ func (am *AppManager) newGcodeParamsTextView() {
 		textView.ScrollToBeginning()
 		am.App.Draw()
 	})
-	textView.SetBackgroundColor(tcell.ColorDefault)
 	am.GcodeParamsTextView = textView
 }
 
@@ -178,7 +157,6 @@ func (am *AppManager) newStateTextView() {
 	textView.SetChangedFunc(func() {
 		am.App.Draw()
 	})
-	textView.SetBackgroundColor(tcell.ColorDefault)
 	am.StateTextView = textView
 }
 
@@ -192,7 +170,6 @@ func (am *AppManager) newStatusTextView() {
 		textView.ScrollToBeginning()
 		am.App.Draw()
 	})
-	textView.SetBackgroundColor(tcell.ColorDefault)
 	am.StatusTextView = textView
 }
 
@@ -211,19 +188,10 @@ func (am *AppManager) newCommandInputField() {
 			am.CommandDispatcher.QueueCommand(command)
 		}
 	})
-	inputField.SetBackgroundColor(tcell.ColorDefault)
 	am.CommandInputField = inputField
 }
 
-func (am *AppManager) newRootFlex() {
-	newPrimitive := func(text string) tview.Primitive {
-		textView := tview.NewTextView()
-		textView.SetTextAlign(tview.AlignCenter)
-		textView.SetText(text)
-		textView.SetBorder(true)
-		return textView
-	}
-
+func (am *AppManager) getButtonsFLex() *tview.Flex {
 	commandButtonsFlex := tview.NewFlex()
 	commandButtonsFlex.SetTitle("Commands")
 	commandButtonsFlex.SetBorder(true)
@@ -264,21 +232,111 @@ func (am *AppManager) newRootFlex() {
 	buttonsFlex.AddItem(commandButtonsFlex, 0, 1, false)
 	buttonsFlex.AddItem(realtimeCommandButtonsFlex, 0, 1, false)
 
+	return buttonsFlex
+}
+
+func (am *AppManager) getJoggingPrimitive() tview.Primitive {
+	joggingFlex := tview.NewFlex()
+	joggingFlex.SetBorder(true)
+	joggingFlex.SetTitle("Jogging")
+	return joggingFlex
+}
+
+func (am *AppManager) getControlPrimitive() tview.Primitive {
+	gcodeFlex := tview.NewFlex()
+	gcodeFlex.SetDirection(tview.FlexColumn)
+	gcodeFlex.AddItem(am.GcodeParserTextView, 0, 1, false)
+	gcodeFlex.AddItem(am.GcodeParamsTextView, 0, 1, false)
+
+	commsFlex := tview.NewFlex()
+	commsFlex.SetDirection(tview.FlexColumn)
+	commsFlex.AddItem(am.CommandsTextView, 0, 1, false)
+	commsFlex.AddItem(am.PushMessagesLogsTextView, 0, 1, false)
+
+	controlFlex := tview.NewFlex()
+	controlFlex.SetDirection(tview.FlexRow)
+	controlFlex.AddItem(gcodeFlex, 0, 1, false)
+	controlFlex.AddItem(commsFlex, 0, 1, false)
+	controlFlex.AddItem(am.CommandInputField, 1, 0, true)
+
+	return controlFlex
+}
+
+func (am *AppManager) getOverridesPrimitive() tview.Primitive {
+	return tview.NewBox().SetBorder(true).SetTitle("Overrides")
+}
+
+func (am *AppManager) getStreamPrimitive() tview.Primitive {
+	return tview.NewBox().SetBorder(true).SetTitle("Stream")
+}
+
+func (am *AppManager) getScriptPrimitive() tview.Primitive {
+	return tview.NewBox().SetBorder(true).SetTitle("Script")
+}
+
+func (am *AppManager) getSettingsPrimitive() tview.Primitive {
+	return tview.NewBox().SetBorder(true).SetTitle("Settings")
+}
+
+func (am *AppManager) getMainFlex() *tview.Flex {
+	jogging := am.getJoggingPrimitive()
+	control := am.getControlPrimitive()
+	overrides := am.getOverridesPrimitive()
+	stream := am.getStreamPrimitive()
+	script := am.getScriptPrimitive()
+	settings := am.getSettingsPrimitive()
+
+	page := tview.NewPages()
+	page.AddPage("Control", control, true, true)
+	page.AddPage("Jogging", jogging, true, true)
+	page.AddPage("Overrides", overrides, true, true)
+	page.AddPage("Stream", stream, true, true)
+	page.AddPage("Script", script, true, true)
+	page.AddPage("Settings", settings, true, true)
+
+	buttonsFlex := tview.NewFlex()
+	buttonsFlex.SetDirection(tview.FlexColumn)
+	buttonsFlex.AddItem(tview.NewButton("Control").SetSelectedFunc(func() {
+		page.SwitchToPage("Control")
+	}), 0, 1, false)
+	buttonsFlex.AddItem(tview.NewButton("Jogging").SetSelectedFunc(func() {
+		page.SwitchToPage("Jogging")
+	}), 0, 1, false)
+	buttonsFlex.AddItem(tview.NewButton("Overrides").SetSelectedFunc(func() {
+		page.SwitchToPage("Overrides")
+	}), 0, 1, false)
+	buttonsFlex.AddItem(tview.NewButton("Stream").SetSelectedFunc(func() {
+		page.SwitchToPage("Stream")
+	}), 0, 1, false)
+	buttonsFlex.AddItem(tview.NewButton("Script").SetSelectedFunc(func() {
+		page.SwitchToPage("Script")
+	}), 0, 1, false)
+	buttonsFlex.AddItem(tview.NewButton("Settings").SetSelectedFunc(func() {
+		page.SwitchToPage("Settings")
+	}), 0, 1, false)
+	page.SwitchToPage("Control")
+
+	mainFlex := tview.NewFlex()
+	mainFlex.SetDirection(tview.FlexRow)
+	mainFlex.AddItem(buttonsFlex, 1, 0, false)
+	mainFlex.AddItem(page, 0, 1, false)
+
+	return mainFlex
+}
+
+func (am *AppManager) newRootFlex() {
 	column0Flex := tview.NewFlex()
-	// column0Flex.SetBorder(true)
 	column0Flex.SetDirection(tview.FlexRow)
-	column0Flex.AddItem(newPrimitive("Main"), 0, 1, false)
+	column0Flex.AddItem(am.getMainFlex(), 0, 1, false)
 	column0Flex.AddItem(am.FeedbackTextView, 1, 0, false)
-	column0Flex.AddItem(buttonsFlex, 4, 0, false)
+	column0Flex.AddItem(am.getButtonsFLex(), 4, 0, false)
 
 	column1Flex := tview.NewFlex()
-	// column1Flex.SetBorder(true)
 	column1Flex.SetDirection(tview.FlexRow)
 	column1Flex.AddItem(am.StateTextView, 4, 0, false)
 	column1Flex.AddItem(am.StatusTextView, 0, 1, false)
 
 	rootFlex := tview.NewFlex()
-	// rootFlex.SetBorder(true)
 	rootFlex.SetDirection(tview.FlexColumn)
 	rootFlex.AddItem(column0Flex, 0, 1, false)
 	rootFlex.AddItem(column1Flex, 15, 0, false)

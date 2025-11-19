@@ -112,6 +112,11 @@ Modes
                 Enable only on Idle, Run or Hold states.
             0xa1 (Mist Cooland Override Toggle)
                 Enable only on Idle, Run or Hold states.
+    Stream
+        TBD
+    Script
+        https://github.com/google/starlark-go
+        https://github.com/d5/tengo
     Settings
         Build Info
             View build info ($I)
@@ -180,8 +185,3 @@ Modes
                 $110, $111 and $112 – [X,Y,Z] Max rate, mm/min
                 $120, $121, $122 – [X,Y,Z] Acceleration, mm/sec^2
                 $130, $131, $132 – [X,Y,Z] Max travel, mm
-    Stream
-        TBD
-    Script
-        https://github.com/google/starlark-go
-        https://github.com/d5/tengo

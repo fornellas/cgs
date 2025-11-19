@@ -1,5 +1,8 @@
 shell.go
     control
+        app_manager
+            check all SetChangedFunc missing cases
+                when in alarm, and sleep is called, real time commands takes a while after the state panel panel is updated to reflect
         Split logs from push messages into separate text view
         Navigate across buttons / input with tab / btab
         FIX M0
