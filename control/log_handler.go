@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"math"
 
@@ -14,7 +15,7 @@ import (
 type ViewLogHandler struct {
 	originalHandler slog.Handler
 	viewHandler     slog.Handler
-	textView        *tview.TextView
+	w               io.Writer
 }
 
 func NewViewLogHandler(
@@ -23,7 +24,7 @@ func NewViewLogHandler(
 ) *ViewLogHandler {
 	viewLogHandler := &ViewLogHandler{
 		originalHandler: originalHandler,
-		textView:        textView,
+		w:               tview.ANSIWriter(textView),
 	}
 	// TODO try to fetch TerminalHandlerOptions parameters from given handler
 	viewLogHandler.viewHandler = log.NewTerminalLineHandler(viewLogHandler, &log.TerminalHandlerOptions{
@@ -33,8 +34,7 @@ func NewViewLogHandler(
 			// ReplaceAttr: ,
 		},
 		// TimeLayout: ,
-		// ForceColor: true,
-		NoColor: true,
+		ForceColor: true,
 		// ColorScheme: ,
 	})
 	return viewLogHandler
@@ -63,5 +63,5 @@ func (h *ViewLogHandler) WithGroup(name string) slog.Handler {
 }
 
 func (h *ViewLogHandler) Write(b []byte) (int, error) {
-	return h.textView.Write(b)
+	return h.w.Write(b)
 }

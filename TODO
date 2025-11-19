@@ -2,14 +2,11 @@ shell.go
     control
         FIX App.Stop() may be called from defer when the app failed to start, resoulting in segfault
         Navigate across buttons / input with tab / btab
-        fix
-            omit $G and $G for
-                M0
-                feed hold
-            don't wait for response for M0
+        FIX M0
+            the command response only will come after it is resumed
+            we need to disable timeout if there's M0
+            context needs to be cancelled on soft reset (and maybe others)
         Alarm state should cancel send command context
-        Log handling
-            use ANSI escape functions
     grbl
         implement stream
         fix
