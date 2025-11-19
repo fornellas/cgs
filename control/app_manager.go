@@ -541,7 +541,7 @@ func (am *AppManager) updateCommandInputRaw() {
 		panic(fmt.Errorf("unknown state: %s", am.machineState.State))
 	}
 }
-func (am *AppManager) UpdateCommandInput(machineState grblMod.StatusReportMachineState) {
+func (am *AppManager) UpdateMachineState(machineState grblMod.StatusReportMachineState) {
 	am.machineState = &machineState
 	am.updateCommandInputRaw()
 }

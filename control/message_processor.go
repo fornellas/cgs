@@ -418,7 +418,7 @@ func (mp *MessageProcessor) processMessagePushStatusReport(
 
 	mp.updateStateTextView(statusReport.MachineState.State, statusReport.MachineState.SubStateString())
 
-	mp.appManager.UpdateCommandInput(statusReport.MachineState)
+	mp.appManager.UpdateMachineState(statusReport.MachineState)
 
 	mp.updateStatusTextView(statusReport)
 

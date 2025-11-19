@@ -9,6 +9,7 @@ shell.go
                 Steram
                 Script
                 Settings
+            move message receiver logic to each type
             check all SetChangedFunc missing cases
                 when in alarm, and sleep is called, real time commands takes a while after the state panel panel is updated to reflect
         Split logs from push messages into separate text view
