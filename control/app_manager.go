@@ -254,6 +254,8 @@ func (am *AppManager) getControlPrimitive() tview.Primitive {
 	commsFlex.AddItem(am.PushMessagesLogsTextView, 0, 1, false)
 
 	controlFlex := tview.NewFlex()
+	controlFlex.SetBorder(true)
+	controlFlex.SetTitle("Contrtol")
 	controlFlex.SetDirection(tview.FlexRow)
 	controlFlex.AddItem(gcodeFlex, 0, 1, false)
 	controlFlex.AddItem(commsFlex, 0, 1, false)
@@ -263,7 +265,84 @@ func (am *AppManager) getControlPrimitive() tview.Primitive {
 }
 
 func (am *AppManager) getOverridesPrimitive() tview.Primitive {
-	return tview.NewBox().SetBorder(true).SetTitle("Overrides")
+	feedOverridesFlex := tview.NewFlex()
+	feedOverridesFlex.SetBorder(true)
+	feedOverridesFlex.SetTitle("Feed")
+	feedOverridesFlex.SetDirection(tview.FlexColumn)
+	feedOverridesFlex.AddItem(tview.NewButton("-10%").SetSelectedFunc(func() {
+		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideDecrease10)
+	}), 0, 1, false)
+	feedOverridesFlex.AddItem(tview.NewButton("-1%").SetSelectedFunc(func() {
+		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideDecrease1)
+	}), 0, 1, false)
+	feedOverridesFlex.AddItem(tview.NewButton("100%").SetSelectedFunc(func() {
+		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideSet100OfProgrammedRate)
+	}), 0, 1, false)
+	feedOverridesFlex.AddItem(tview.NewButton("+1%").SetSelectedFunc(func() {
+		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideIncrease1)
+	}), 0, 1, false)
+	feedOverridesFlex.AddItem(tview.NewButton("+10%").SetSelectedFunc(func() {
+		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideIncrease10)
+	}), 0, 1, false)
+
+	rapidOverridesFlex := tview.NewFlex()
+	rapidOverridesFlex.SetBorder(true)
+	rapidOverridesFlex.SetTitle("Rapid")
+	rapidOverridesFlex.SetDirection(tview.FlexColumn)
+	rapidOverridesFlex.AddItem(tview.NewButton("25%").SetSelectedFunc(func() {
+		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandRapidOverrideSetTo25OfRapidRate)
+	}), 0, 1, false)
+	rapidOverridesFlex.AddItem(tview.NewButton("50%").SetSelectedFunc(func() {
+		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandRapidOverrideSetTo50OfRapidRate)
+	}), 0, 1, false)
+	rapidOverridesFlex.AddItem(tview.NewButton("100%").SetSelectedFunc(func() {
+		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandRapidOverrideSetTo100FullRapidRate)
+	}), 0, 1, false)
+
+	spindleOverridesFlex := tview.NewFlex()
+	spindleOverridesFlex.SetBorder(true)
+	spindleOverridesFlex.SetTitle("Spindle")
+	spindleOverridesFlex.SetDirection(tview.FlexColumn)
+	spindleOverridesFlex.AddItem(tview.NewButton("Stop").SetSelectedFunc(func() {
+		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandToggleSpindleStop)
+	}), 0, 1, false)
+	spindleOverridesFlex.AddItem(tview.NewButton("-10%").SetSelectedFunc(func() {
+		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideDecrease10)
+	}), 0, 1, false)
+	spindleOverridesFlex.AddItem(tview.NewButton("-1%").SetSelectedFunc(func() {
+		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideDecrease1)
+	}), 0, 1, false)
+	spindleOverridesFlex.AddItem(tview.NewButton("100%").SetSelectedFunc(func() {
+		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideSet100OfProgrammedSpindleSpeed)
+	}), 0, 1, false)
+	spindleOverridesFlex.AddItem(tview.NewButton("+1%").SetSelectedFunc(func() {
+		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideIncrease1)
+	}), 0, 1, false)
+	spindleOverridesFlex.AddItem(tview.NewButton("+10%").SetSelectedFunc(func() {
+		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideIncrease10)
+	}), 0, 1, false)
+
+	coolantOverridesFlex := tview.NewFlex()
+	coolantOverridesFlex.SetBorder(true)
+	coolantOverridesFlex.SetTitle("Coolant")
+	coolantOverridesFlex.SetDirection(tview.FlexColumn)
+	coolantOverridesFlex.AddItem(tview.NewButton("Flood").SetSelectedFunc(func() {
+		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandToggleFloodCoolant)
+	}), 0, 1, false)
+	coolantOverridesFlex.AddItem(tview.NewButton("Mist").SetSelectedFunc(func() {
+		am.CommandDispatcher.QueueRealTimeCommand(grblMod.RealTimeCommandToggleMistCoolant)
+	}), 0, 1, false)
+
+	overridesFlex := tview.NewFlex()
+	overridesFlex.SetBorder(true)
+	overridesFlex.SetTitle("Overrides")
+	overridesFlex.SetDirection(tview.FlexRow)
+	overridesFlex.AddItem(feedOverridesFlex, 0, 1, false)
+	overridesFlex.AddItem(rapidOverridesFlex, 0, 1, false)
+	overridesFlex.AddItem(spindleOverridesFlex, 0, 1, false)
+	overridesFlex.AddItem(coolantOverridesFlex, 0, 1, false)
+
+	return overridesFlex
 }
 
 func (am *AppManager) getStreamPrimitive() tview.Primitive {
@@ -411,7 +490,7 @@ func (am *AppManager) updateCommandInputRaw() {
 		am.CheckButton.SetDisabled(true)
 		am.DoorButton.SetDisabled(true)
 		am.SleepButton.SetDisabled(false)
-		am.HelpButton.SetDisabled(false) // TODO verify
+		am.HelpButton.SetDisabled(false)
 		am.HoldButton.SetDisabled(true)
 		am.ResumeButton.SetDisabled(true)
 	case "Door":
@@ -422,7 +501,7 @@ func (am *AppManager) updateCommandInputRaw() {
 		am.CheckButton.SetDisabled(true)
 		am.DoorButton.SetDisabled(true)
 		am.SleepButton.SetDisabled(true)
-		am.HelpButton.SetDisabled(false) // TODO verify
+		am.HelpButton.SetDisabled(true)
 		am.HoldButton.SetDisabled(true)
 		am.ResumeButton.SetDisabled(false)
 	case "Check":
