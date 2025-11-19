@@ -69,7 +69,13 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		!c.options.DisplayStatusComms,
 	)
 
-	c.AppManager = NewAppManager(c.grbl, controlPrimitive)
+	overridesPrimitive := NewOverridesPrimitive(controlPrimitive)
+
+	c.AppManager = NewAppManager(
+		c.grbl,
+		controlPrimitive,
+		overridesPrimitive,
+	)
 	defer func() { c.AppManager = nil }()
 
 	logger = slog.New(NewViewLogHandler(
@@ -100,7 +106,12 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		controlPrimitive.QueueCommand("$G")
 		// Sending $G enables tracking of G-Code parameters
 		controlPrimitive.QueueCommand("$#")
-		messageProcessor := NewMessageProcessor(pushMessageCh, c.AppManager, controlPrimitive)
+		messageProcessor := NewMessageProcessor(
+			pushMessageCh,
+			c.AppManager,
+			controlPrimitive,
+			overridesPrimitive,
+		)
 		pushMessageErrCh <- messageProcessor.Run(ctx)
 	}()
 

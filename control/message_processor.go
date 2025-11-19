@@ -9,20 +9,23 @@ import (
 )
 
 type MessageProcessor struct {
-	pushMessageCh    chan grblMod.Message
-	appManager       *AppManager
-	controlPrimitive *ControlPrimitive
+	pushMessageCh      chan grblMod.Message
+	appManager         *AppManager
+	controlPrimitive   *ControlPrimitive
+	overridesPrimitive *OverridesPrimitive
 }
 
 func NewMessageProcessor(
 	pushMessageCh chan grblMod.Message,
 	appManager *AppManager,
 	controlPrimitive *ControlPrimitive,
+	overridesPrimitive *OverridesPrimitive,
 ) *MessageProcessor {
 	return &MessageProcessor{
-		pushMessageCh:    pushMessageCh,
-		appManager:       appManager,
-		controlPrimitive: controlPrimitive,
+		pushMessageCh:      pushMessageCh,
+		appManager:         appManager,
+		controlPrimitive:   controlPrimitive,
+		overridesPrimitive: overridesPrimitive,
 	}
 }
 
@@ -39,9 +42,9 @@ func (mp *MessageProcessor) Run(ctx context.Context) error {
 			if !ok {
 				return fmt.Errorf("push message channel closed")
 			}
-
 			mp.appManager.ProcessMessage(message)
 			mp.controlPrimitive.ProcessMessage(message)
+			mp.overridesPrimitive.ProcessMessage(message)
 		}
 	}
 }
