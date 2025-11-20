@@ -153,6 +153,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		pushMessageErrCh <- c.messageProcessorWorker(
 			ctx,
 			pushMessageCh,
+			rootPrimitive,
 			controlPrimitive,
 			overridesPrimitive,
 			joggingPrimitive,
