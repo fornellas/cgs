@@ -16,6 +16,7 @@ import (
 )
 
 type ControlPrimitive struct {
+	app *tview.Application
 	*tview.Flex
 	grbl                       *grblMod.Grbl
 	quietGcodeParserStateComms bool
@@ -33,12 +34,14 @@ type ControlPrimitive struct {
 }
 
 func NewControlPrimitive(
+	app *tview.Application,
 	grbl *grblMod.Grbl,
 	quietGcodeParserStateComms bool,
 	quietGcodeParamStateComms bool,
 	quietStatusComms bool,
 ) *ControlPrimitive {
-	controlPrimitive := &ControlPrimitive{
+	cp := &ControlPrimitive{
+		app:                        app,
 		grbl:                       grbl,
 		quietGcodeParserStateComms: quietGcodeParserStateComms,
 		quietGcodeParamStateComms:  quietGcodeParamStateComms,
@@ -55,8 +58,9 @@ func NewControlPrimitive(
 	commandsTextView.SetBorder(true).SetTitle("Commands")
 	commandsTextView.SetChangedFunc(func() {
 		commandsTextView.ScrollToEnd()
+		cp.app.Draw()
 	})
-	controlPrimitive.commandsTextView = commandsTextView
+	cp.commandsTextView = commandsTextView
 
 	// Push Messages / Logs
 	pushMessagesLogsTextView := tview.NewTextView().
@@ -64,8 +68,11 @@ func NewControlPrimitive(
 		SetScrollable(true).
 		SetWrap(true)
 	pushMessagesLogsTextView.SetBorder(true).SetTitle("Push Messages / Logs")
-	pushMessagesLogsTextView.SetChangedFunc(func() { pushMessagesLogsTextView.ScrollToEnd() })
-	controlPrimitive.pushMessagesLogsTextView = pushMessagesLogsTextView
+	pushMessagesLogsTextView.SetChangedFunc(func() {
+		pushMessagesLogsTextView.ScrollToEnd()
+		cp.app.Draw()
+	})
+	cp.pushMessagesLogsTextView = pushMessagesLogsTextView
 
 	// G-Code Parser
 	gcodeParserTextView := tview.NewTextView().
@@ -73,7 +80,10 @@ func NewControlPrimitive(
 		SetScrollable(true).
 		SetWrap(true)
 	gcodeParserTextView.SetBorder(true).SetTitle("G-Code Parser")
-	controlPrimitive.gcodeParserTextView = gcodeParserTextView
+	gcodeParserTextView.SetChangedFunc(func() {
+		cp.app.Draw()
+	})
+	cp.gcodeParserTextView = gcodeParserTextView
 
 	// G-Code Parameters
 	gcodeParamsTextView := tview.NewTextView().
@@ -81,7 +91,10 @@ func NewControlPrimitive(
 		SetScrollable(true).
 		SetWrap(true)
 	gcodeParamsTextView.SetBorder(true).SetTitle("G-Code Parameters")
-	controlPrimitive.gcodeParamsTextView = gcodeParamsTextView
+	gcodeParamsTextView.SetChangedFunc(func() {
+		cp.app.Draw()
+	})
+	cp.gcodeParamsTextView = gcodeParamsTextView
 
 	// Command
 	commandInputField := tview.NewInputField().
@@ -95,10 +108,10 @@ func NewControlPrimitive(
 			if command == "" {
 				return
 			}
-			controlPrimitive.QueueCommand(command)
+			cp.QueueCommand(command)
 		}
 	})
-	controlPrimitive.commandInputField = commandInputField
+	cp.commandInputField = commandInputField
 
 	gcodeFlex := tview.NewFlex()
 	gcodeFlex.SetDirection(tview.FlexColumn)
@@ -118,9 +131,9 @@ func NewControlPrimitive(
 	controlFlex.AddItem(gcodeFlex, 0, 1, false)
 	controlFlex.AddItem(commsFlex, 0, 1, false)
 	controlFlex.AddItem(commandInputField, 1, 0, true)
-	controlPrimitive.Flex = controlFlex
+	cp.Flex = controlFlex
 
-	return controlPrimitive
+	return cp
 }
 
 func (cp *ControlPrimitive) updateDisabled() {

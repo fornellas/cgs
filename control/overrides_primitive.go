@@ -10,6 +10,7 @@ import (
 
 type OverridesPrimitive struct {
 	*tview.Flex
+	app                 *tview.Application
 	controlPrimitive    *ControlPrimitive
 	feedDecr10Button    *tview.Button
 	feedDecr1Button     *tview.Button
@@ -30,9 +31,11 @@ type OverridesPrimitive struct {
 }
 
 func NewOverridesPrimitive(
+	app *tview.Application,
 	controlPrimitive *ControlPrimitive,
 ) *OverridesPrimitive {
 	overridesPrimitive := &OverridesPrimitive{
+		app:              app,
 		controlPrimitive: controlPrimitive,
 	}
 
@@ -140,46 +143,48 @@ func NewOverridesPrimitive(
 func (op *OverridesPrimitive) processMessagePushStatusReport(
 	messagePushStatusReport *grblMod.MessagePushStatusReport,
 ) {
-	switch messagePushStatusReport.MachineState.State {
-	case "Idle":
-		op.spindleStopButton.SetDisabled(true)
-		op.coolantFloodButton.SetDisabled(false)
-		op.coolantMistButton.SetDisabled(false)
-	case "Run":
-		op.spindleStopButton.SetDisabled(true)
-		op.coolantFloodButton.SetDisabled(false)
-		op.coolantMistButton.SetDisabled(false)
-	case "Hold":
-		op.spindleStopButton.SetDisabled(false)
-		op.coolantFloodButton.SetDisabled(false)
-		op.coolantMistButton.SetDisabled(false)
-	case "Jog":
-		op.spindleStopButton.SetDisabled(true)
-		op.coolantFloodButton.SetDisabled(true)
-		op.coolantMistButton.SetDisabled(true)
-	case "Alarm":
-		op.spindleStopButton.SetDisabled(true)
-		op.coolantFloodButton.SetDisabled(true)
-		op.coolantMistButton.SetDisabled(true)
-	case "Door":
-		op.spindleStopButton.SetDisabled(true)
-		op.coolantFloodButton.SetDisabled(true)
-		op.coolantMistButton.SetDisabled(true)
-	case "Check":
-		op.spindleStopButton.SetDisabled(true)
-		op.coolantFloodButton.SetDisabled(true)
-		op.coolantMistButton.SetDisabled(true)
-	case "Home":
-		op.spindleStopButton.SetDisabled(true)
-		op.coolantFloodButton.SetDisabled(true)
-		op.coolantMistButton.SetDisabled(true)
-	case "Sleep":
-		op.spindleStopButton.SetDisabled(true)
-		op.coolantFloodButton.SetDisabled(true)
-		op.coolantMistButton.SetDisabled(true)
-	default:
-		panic(fmt.Sprintf("unknown machine state: %#v", messagePushStatusReport.MachineState.State))
-	}
+	op.app.QueueUpdateDraw(func() {
+		switch messagePushStatusReport.MachineState.State {
+		case "Idle":
+			op.spindleStopButton.SetDisabled(true)
+			op.coolantFloodButton.SetDisabled(false)
+			op.coolantMistButton.SetDisabled(false)
+		case "Run":
+			op.spindleStopButton.SetDisabled(true)
+			op.coolantFloodButton.SetDisabled(false)
+			op.coolantMistButton.SetDisabled(false)
+		case "Hold":
+			op.spindleStopButton.SetDisabled(false)
+			op.coolantFloodButton.SetDisabled(false)
+			op.coolantMistButton.SetDisabled(false)
+		case "Jog":
+			op.spindleStopButton.SetDisabled(true)
+			op.coolantFloodButton.SetDisabled(true)
+			op.coolantMistButton.SetDisabled(true)
+		case "Alarm":
+			op.spindleStopButton.SetDisabled(true)
+			op.coolantFloodButton.SetDisabled(true)
+			op.coolantMistButton.SetDisabled(true)
+		case "Door":
+			op.spindleStopButton.SetDisabled(true)
+			op.coolantFloodButton.SetDisabled(true)
+			op.coolantMistButton.SetDisabled(true)
+		case "Check":
+			op.spindleStopButton.SetDisabled(true)
+			op.coolantFloodButton.SetDisabled(true)
+			op.coolantMistButton.SetDisabled(true)
+		case "Home":
+			op.spindleStopButton.SetDisabled(true)
+			op.coolantFloodButton.SetDisabled(true)
+			op.coolantMistButton.SetDisabled(true)
+		case "Sleep":
+			op.spindleStopButton.SetDisabled(true)
+			op.coolantFloodButton.SetDisabled(true)
+			op.coolantMistButton.SetDisabled(true)
+		default:
+			panic(fmt.Sprintf("unknown machine state: %#v", messagePushStatusReport.MachineState.State))
+		}
+	})
 }
 
 func (op *OverridesPrimitive) ProcessMessage(message grblMod.Message) {

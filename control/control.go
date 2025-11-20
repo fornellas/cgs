@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/fornellas/slogxt/log"
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
 
 	grblMod "github.com/fornellas/cgs/grbl"
 )
@@ -23,9 +25,8 @@ type ControlOptions struct {
 }
 
 type Control struct {
-	grbl       *grblMod.Grbl
-	options    *ControlOptions
-	AppManager *AppManager
+	grbl    *grblMod.Grbl
+	options *ControlOptions
 }
 
 func NewControl(grbl *grblMod.Grbl, options *ControlOptions) *Control {
@@ -90,49 +91,61 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	ctx, cancelFn := context.WithCancel(ctx)
 
+	app := tview.NewApplication()
+	app.EnableMouse(true)
+
 	controlPrimitive := NewControlPrimitive(
+		app,
 		c.grbl,
 		!c.options.DisplayGcodeParserStateComms,
 		!c.options.DisplayGcodeParamStateComms,
 		!c.options.DisplayStatusComms,
 	)
+	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyCtrlX {
+			controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset)
+			return nil
+		}
+		return event
+	})
 
-	overridesPrimitive := NewOverridesPrimitive(controlPrimitive)
+	overridesPrimitive := NewOverridesPrimitive(app, controlPrimitive)
 
 	joggingPrimitive := NewJoggingPrimitive(controlPrimitive)
 
-	c.AppManager = NewAppManager(
+	rootPrimitive := NewRootPrimitive(
+		app,
 		c.grbl,
 		controlPrimitive,
 		overridesPrimitive,
 		joggingPrimitive,
 	)
-	defer func() { c.AppManager = nil }()
+	app.SetRoot(rootPrimitive, true)
 
 	logger = slog.New(NewViewLogHandler(
 		logger.Handler(),
-		c.AppManager.controlPrimitive.GetLogsTextView(),
+		controlPrimitive.GetLogsTextView(),
 	))
 	ctx = log.WithLogger(ctx, logger)
 
 	sendCommandWorkerErrCh := make(chan error, 1)
 	go func() {
 		defer cancelFn()
-		defer c.AppManager.App.Stop()
+		defer app.Stop()
 		sendCommandWorkerErrCh <- controlPrimitive.RunSendCommandWorker(ctx)
 	}()
 
 	sendRealTimeCommandWorkerErrCh := make(chan error, 1)
 	go func() {
 		defer cancelFn()
-		defer c.AppManager.App.Stop()
+		defer app.Stop()
 		sendRealTimeCommandWorkerErrCh <- controlPrimitive.RunSendRealTimeCommandWorker(ctx)
 	}()
 
 	pushMessageErrCh := make(chan error, 1)
 	go func() {
 		defer cancelFn()
-		defer c.AppManager.App.Stop()
+		defer app.Stop()
 		// Sending $G enables tracking of G-Code parsing state
 		controlPrimitive.QueueCommand("$G")
 		// Sending $G enables tracking of G-Code parameters
@@ -149,7 +162,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	statusQueryErrCh := make(chan error, 1)
 	go func() {
 		defer cancelFn()
-		defer c.AppManager.App.Stop()
+		defer app.Stop()
 		statusQueryErrCh <- c.statusQueryWorker(ctx)
 	}()
 
@@ -162,5 +175,5 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		err = errors.Join(err, c.grbl.Disconnect())
 	}()
 
-	return c.AppManager.App.Run()
+	return app.Run()
 }
