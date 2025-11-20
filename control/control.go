@@ -136,8 +136,6 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	joggingPrimitive := NewJoggingPrimitive(app, controlPrimitive)
 
-	logsPrimitive := NewLogsPrimitive(app)
-
 	rootPrimitive := NewRootPrimitive(
 		app,
 		c.grbl,
