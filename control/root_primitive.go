@@ -359,23 +359,23 @@ func (rp *RootPrimitive) processMessagePushWelcome() {
 func getMachineStateColor(state string) tcell.Color {
 	switch state {
 	case "Idle":
-		return tcell.ColorGreen
+		return tcell.ColorBlack
 	case "Run":
-		return tcell.ColorLightCyan
+		return tcell.ColorGreen
 	case "Hold":
 		return tcell.ColorYellow
 	case "Jog":
-		return tcell.ColorBlue
+		return tcell.ColorDarkGreen
 	case "Alarm":
 		return tcell.ColorRed
 	case "Door":
 		return tcell.ColorOrange
 	case "Check":
-		return tcell.ColorBlue
+		return tcell.ColorDarkCyan
 	case "Home":
-		return tcell.ColorLime
+		return tcell.ColorLightGreen
 	case "Sleep":
-		return tcell.ColorSilver
+		return tcell.ColorDarkBlue
 	default:
 		return tcell.ColorWhite
 	}

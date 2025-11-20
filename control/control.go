@@ -111,7 +111,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	overridesPrimitive := NewOverridesPrimitive(app, controlPrimitive)
 
-	joggingPrimitive := NewJoggingPrimitive(controlPrimitive)
+	joggingPrimitive := NewJoggingPrimitive(app, controlPrimitive)
 
 	rootPrimitive := NewRootPrimitive(
 		app,
