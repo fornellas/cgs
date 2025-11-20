@@ -17,6 +17,7 @@ type RootPrimitive struct {
 	controlPrimitive   *ControlPrimitive
 	overridesPrimitive *OverridesPrimitive
 	joggingPrimitive   *JoggingPrimitive
+	logsPrimitive      *LogsPrimitive
 	// Common
 	feedbackTextView *tview.TextView
 	stateTextView    *tview.TextView
@@ -40,6 +41,7 @@ func NewRootPrimitive(
 	controlPrimitive *ControlPrimitive,
 	overridesPrimitive *OverridesPrimitive,
 	joggingPrimitive *JoggingPrimitive,
+	logsPrimitive *LogsPrimitive,
 ) *RootPrimitive {
 	rp := &RootPrimitive{
 		grbl:               grbl,
@@ -47,6 +49,7 @@ func NewRootPrimitive(
 		controlPrimitive:   controlPrimitive,
 		overridesPrimitive: overridesPrimitive,
 		joggingPrimitive:   joggingPrimitive,
+		logsPrimitive:      logsPrimitive,
 	}
 
 	rp.newFeedbackTextView()
@@ -185,6 +188,7 @@ func (rp *RootPrimitive) getMainFlex() *tview.Flex {
 	page.AddPage("Stream", stream, true, true)
 	page.AddPage("Script", script, true, true)
 	page.AddPage("Settings", settings, true, true)
+	page.AddPage("Logs", rp.logsPrimitive, true, true)
 
 	buttonsFlex := tview.NewFlex()
 	buttonsFlex.SetDirection(tview.FlexColumn)
@@ -205,6 +209,9 @@ func (rp *RootPrimitive) getMainFlex() *tview.Flex {
 	}), 0, 1, false)
 	buttonsFlex.AddItem(tview.NewButton("Settings").SetSelectedFunc(func() {
 		page.SwitchToPage("Settings")
+	}), 0, 1, false)
+	buttonsFlex.AddItem(tview.NewButton("Logs").SetSelectedFunc(func() {
+		page.SwitchToPage("Logs")
 	}), 0, 1, false)
 	page.SwitchToPage("Control")
 

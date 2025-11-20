@@ -113,19 +113,19 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	joggingPrimitive := NewJoggingPrimitive(app, controlPrimitive)
 
+	logsPrimitive := NewLogsPrimitive(app)
+
 	rootPrimitive := NewRootPrimitive(
 		app,
 		c.grbl,
 		controlPrimitive,
 		overridesPrimitive,
 		joggingPrimitive,
+		logsPrimitive,
 	)
 	app.SetRoot(rootPrimitive, true)
 
-	logger = slog.New(NewViewLogHandler(
-		logger.Handler(),
-		controlPrimitive.GetLogsTextView(),
-	))
+	logger = slog.New(NewViewLogHandler(logger.Handler(), logsPrimitive))
 	ctx = log.WithLogger(ctx, logger)
 
 	sendCommandWorkerErrCh := make(chan error, 1)

@@ -1,6 +1,5 @@
 shell.go
     control
-        Split logs from push messages into separate text view
         Change ScrollToEnd
             Only if current view is at the end of the text
             if not, change color to indicate there's new text

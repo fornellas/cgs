@@ -20,11 +20,11 @@ type ViewLogHandler struct {
 
 func NewViewLogHandler(
 	originalHandler slog.Handler,
-	textView *tview.TextView,
+	w io.Writer,
 ) *ViewLogHandler {
 	viewLogHandler := &ViewLogHandler{
 		originalHandler: originalHandler,
-		w:               tview.ANSIWriter(textView),
+		w:               tview.ANSIWriter(w),
 	}
 	// TODO try to fetch TerminalHandlerOptions parameters from given handler
 	viewLogHandler.viewHandler = log.NewTerminalLineHandler(viewLogHandler, &log.TerminalHandlerOptions{

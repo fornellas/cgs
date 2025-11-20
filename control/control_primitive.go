@@ -26,7 +26,7 @@ type ControlPrimitive struct {
 	sendCommandCh              chan string
 	sendRealTimeCommandCh      chan grblMod.RealTimeCommand
 	commandsTextView           *tview.TextView
-	pushMessagesLogsTextView   *tview.TextView
+	pushMessagesTextView       *tview.TextView
 	gcodeParserTextView        *tview.TextView
 	gcodeParamsTextView        *tview.TextView
 	commandInputField          *tview.InputField
@@ -64,16 +64,16 @@ func NewControlPrimitive(
 	cp.commandsTextView = commandsTextView
 
 	// Push Messages / Logs
-	pushMessagesLogsTextView := tview.NewTextView().
+	pushMessagesTextView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
 		SetWrap(true)
-	pushMessagesLogsTextView.SetBorder(true).SetTitle("Push Messages / Logs")
-	pushMessagesLogsTextView.SetChangedFunc(func() {
-		pushMessagesLogsTextView.ScrollToEnd()
+	pushMessagesTextView.SetBorder(true).SetTitle("Push Messages / Logs")
+	pushMessagesTextView.SetChangedFunc(func() {
+		pushMessagesTextView.ScrollToEnd()
 		cp.app.Draw()
 	})
-	cp.pushMessagesLogsTextView = pushMessagesLogsTextView
+	cp.pushMessagesTextView = pushMessagesTextView
 
 	// G-Code Parser
 	gcodeParserTextView := tview.NewTextView().
@@ -122,7 +122,7 @@ func NewControlPrimitive(
 	commsFlex := tview.NewFlex()
 	commsFlex.SetDirection(tview.FlexColumn)
 	commsFlex.AddItem(commandsTextView, 0, 1, false)
-	commsFlex.AddItem(pushMessagesLogsTextView, 0, 1, false)
+	commsFlex.AddItem(pushMessagesTextView, 0, 1, false)
 
 	// Control
 	controlFlex := tview.NewFlex()
@@ -174,10 +174,6 @@ func (cp *ControlPrimitive) SetMachineState(machineState *grblMod.StatusReportMa
 func (cp *ControlPrimitive) DisableCommandInput(disabled bool) {
 	cp.disableCommandInput = disabled
 	cp.updateDisabled()
-}
-
-func (cp *ControlPrimitive) GetLogsTextView() *tview.TextView {
-	return cp.pushMessagesLogsTextView
 }
 
 //gocyclo:ignore
@@ -490,7 +486,7 @@ func (cp *ControlPrimitive) processMessagePushGcodeParam() tcell.Color {
 func (cp *ControlPrimitive) processMessagePushWelcome() {
 	cp.gcodeParserTextView.Clear()
 	cp.gcodeParamsTextView.Clear()
-	fmt.Fprintf(cp.pushMessagesLogsTextView, "\n[%s]Soft-Reset detected[-]", tcell.ColorOrange)
+	fmt.Fprintf(cp.pushMessagesTextView, "\n[%s]Soft-Reset detected[-]", tcell.ColorOrange)
 	// Sending $G enables tracking of G-Code parsing state
 	cp.QueueCommand("$G")
 	// Sending $G enables tracking of G-Code parameters
@@ -549,11 +545,11 @@ func (cp *ControlPrimitive) ProcessMessage(message grblMod.Message) {
 
 	text := message.String()
 	if len(text) == 0 {
-		fmt.Fprintf(cp.pushMessagesLogsTextView, "\n[%s](%#v)[-]", color, tview.Escape(reflect.TypeOf(message).String()))
+		fmt.Fprintf(cp.pushMessagesTextView, "\n[%s](%#v)[-]", color, tview.Escape(reflect.TypeOf(message).String()))
 	} else {
-		fmt.Fprintf(cp.pushMessagesLogsTextView, "\n[%s]%s[-]", color, tview.Escape(text))
+		fmt.Fprintf(cp.pushMessagesTextView, "\n[%s]%s[-]", color, tview.Escape(text))
 	}
 	if len(extraInfo) > 0 {
-		fmt.Fprintf(cp.pushMessagesLogsTextView, "\n[%s]%s[-]", tcell.ColorWhite, tview.Escape(extraInfo))
+		fmt.Fprintf(cp.pushMessagesTextView, "\n[%s]%s[-]", tcell.ColorWhite, tview.Escape(extraInfo))
 	}
 }
