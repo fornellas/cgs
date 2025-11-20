@@ -1,6 +1,5 @@
 shell.go
     control
-        when $H, grbl stops answering status requests, so we need to artificially update the state to match
         Change ScrollToEnd
             Only if current view is at the end of the text
             if not, change color to indicate there's new text

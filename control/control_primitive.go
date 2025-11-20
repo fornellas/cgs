@@ -17,9 +17,11 @@ import (
 )
 
 type ControlPrimitive struct {
-	app *tview.Application
 	*tview.Flex
 	grbl                       *grblMod.Grbl
+	pushMessageCh              chan grblMod.Message
+	app                        *tview.Application
+	statusPrimitive            *StatusPrimitive
 	quietGcodeParserStateComms bool
 	quietGcodeParamStateComms  bool
 	quietStatusComms           bool
@@ -35,15 +37,19 @@ type ControlPrimitive struct {
 }
 
 func NewControlPrimitive(
-	app *tview.Application,
 	grbl *grblMod.Grbl,
+	pushMessageCh chan grblMod.Message,
+	app *tview.Application,
+	statusPrimitive *StatusPrimitive,
 	quietGcodeParserStateComms bool,
 	quietGcodeParamStateComms bool,
 	quietStatusComms bool,
 ) *ControlPrimitive {
 	cp := &ControlPrimitive{
-		app:                        app,
 		grbl:                       grbl,
+		pushMessageCh:              pushMessageCh,
+		app:                        app,
+		statusPrimitive:            statusPrimitive,
 		quietGcodeParserStateComms: quietGcodeParserStateComms,
 		quietGcodeParamStateComms:  quietGcodeParamStateComms,
 		quietStatusComms:           quietStatusComms,
@@ -166,7 +172,7 @@ func (cp *ControlPrimitive) updateDisabled() {
 	}
 }
 
-func (cp *ControlPrimitive) SetMachineState(machineState string) {
+func (cp *ControlPrimitive) setMachineState(machineState string) {
 	cp.machineState = &machineState
 	cp.updateDisabled()
 }
@@ -228,7 +234,15 @@ func (cp *ControlPrimitive) sendCommand(
 				}
 			case "$H":
 				timeout = 120 * time.Second
-				cp.SetMachineState("Home")
+				// Grbl stops responding to status report queries while homing. Generating this
+				// pseudo status report enables subscribers to process the otherwise unreported
+				//  state.
+				cp.pushMessageCh <- &grblMod.MessagePushStatusReport{
+					Message: "(pseudo status report: Home)",
+					MachineState: grblMod.StatusReportMachineState{
+						State: "Home",
+					},
+				}
 			}
 		} else {
 			switch block.String() {
@@ -507,7 +521,7 @@ func (mp *ControlPrimitive) processMessagePushStatusReport(
 	if color == tcell.ColorBlack {
 		color = tcell.ColorWhite
 	}
-	mp.SetMachineState(statusReport.MachineState.State)
+	mp.setMachineState(statusReport.MachineState.State)
 	return color
 }
 

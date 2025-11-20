@@ -76,27 +76,25 @@ func (sp *StatusPrimitive) processMessagePushWelcome() {
 	})
 }
 
-func (sp *StatusPrimitive) updateStateTextView(state string, subState string) {
-	stateColor := getMachineStateColor(state)
+func (sp *StatusPrimitive) setMachineState(machineState *grblMod.StatusReportMachineState) {
+	stateColor := getMachineStateColor(machineState.State)
 
 	sp.app.QueueUpdateDraw(func() {
 		sp.stateTextView.Clear()
 		sp.stateTextView.SetBackgroundColor(stateColor)
+		sp.statusTextView.Clear()
 	})
 	fmt.Fprintf(
 		sp.stateTextView, "%s\n",
-		tview.Escape(state),
+		tview.Escape(machineState.State),
 	)
+	subState := machineState.SubStateString()
 	if len(subState) > 0 {
 		fmt.Fprintf(
 			sp.stateTextView, "(%s)\n",
 			tview.Escape(subState),
 		)
 	}
-}
-
-func (sp *StatusPrimitive) processMessagePushAlarm() {
-	sp.updateStateTextView("Alarm", "")
 }
 
 //gocyclo:ignore
@@ -200,8 +198,15 @@ func (sp *StatusPrimitive) updateStatusTextView(
 	}
 
 	if statusReport.FeedSpindle != nil {
-		fmt.Fprintf(sp.statusTextView, "\nFeed:%.0f\n", statusReport.FeedSpindle.Feed)
-		fmt.Fprintf(sp.statusTextView, "Speed:%.0f\n", statusReport.FeedSpindle.Speed)
+		if statusReport.FeedSpindle.Feed != 0 || statusReport.FeedSpindle.Speed != 0 {
+			fmt.Fprint(sp.statusTextView, "\n")
+		}
+		if statusReport.FeedSpindle.Feed != 0 {
+			fmt.Fprintf(sp.statusTextView, "\nFeed:%.0f\n", statusReport.FeedSpindle.Feed)
+		}
+		if statusReport.FeedSpindle.Speed != 0 {
+			fmt.Fprintf(sp.statusTextView, "\nSpeed:%.0f\n", statusReport.FeedSpindle.Speed)
+		}
 	}
 
 	if statusReport.PinState != nil {
@@ -235,17 +240,13 @@ func (sp *StatusPrimitive) updateStatusTextView(
 func (sp *StatusPrimitive) processMessagePushStatusReport(
 	statusReport *grblMod.MessagePushStatusReport,
 ) {
-	sp.updateStateTextView(statusReport.MachineState.State, statusReport.MachineState.SubStateString())
+	sp.setMachineState(&statusReport.MachineState)
 	sp.updateStatusTextView(statusReport)
 }
 
 func (sp *StatusPrimitive) ProcessMessage(message grblMod.Message) {
 	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
 		sp.processMessagePushWelcome()
-		return
-	}
-	if _, ok := message.(*grblMod.MessagePushAlarm); ok {
-		sp.processMessagePushAlarm()
 		return
 	}
 	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {

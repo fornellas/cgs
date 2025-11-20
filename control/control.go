@@ -73,6 +73,21 @@ func (c *Control) messageProcessorWorker(
 			if !ok {
 				return fmt.Errorf("push message channel closed")
 			}
+
+			if _, ok := message.(*grblMod.MessagePushAlarm); ok {
+				// Grbl can generate an alarm push message, but then stop answering to real time
+				// commands for status report query. This means that, there are effectively two sources
+				// to look for alarm state.
+				// We generate this pseudo status report push message here, to simplify the rest of the
+				// codebase, that only need to look for alarm state in a sigle place.
+				pushMessageCh <- &grblMod.MessagePushStatusReport{
+					Message: "(pseudo status report: Alarm)",
+					MachineState: grblMod.StatusReportMachineState{
+						State: "Alarm",
+					},
+				}
+			}
+
 			for _, messageProcessor := range messageProcessors {
 				messageProcessor.ProcessMessage(message)
 			}
@@ -97,8 +112,10 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	statusPrimitive := NewStatusPrimitive(c.grbl, app)
 
 	controlPrimitive := NewControlPrimitive(
-		app,
 		c.grbl,
+		pushMessageCh,
+		app,
+		statusPrimitive,
 		!c.options.DisplayGcodeParserStateComms,
 		!c.options.DisplayGcodeParamStateComms,
 		!c.options.DisplayStatusComms,
@@ -156,11 +173,11 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		pushMessageErrCh <- c.messageProcessorWorker(
 			ctx,
 			pushMessageCh,
-			rootPrimitive,
 			statusPrimitive,
 			controlPrimitive,
 			overridesPrimitive,
 			joggingPrimitive,
+			rootPrimitive,
 		)
 	}()
 
