@@ -311,6 +311,9 @@ func NewMessagePush(message string) (Message, error) {
 	if strings.HasPrefix(message, "[echo:") {
 		return &MessagePushEcho{Message: message}, nil
 	}
+	if len(message) == 0 {
+		return &MessagePushEmpty{}, nil
+	}
 
 	return &MessagePushUnknown{Message: message}, nil
 }
@@ -1118,6 +1121,17 @@ func (m *MessagePushEcho) String() string {
 	return m.Message
 }
 
+type MessagePushEmpty struct {
+}
+
+func (m *MessagePushEmpty) Type() MessageType {
+	return MessageTypePush
+}
+
+func (m *MessagePushEmpty) String() string {
+	return "(empty)"
+}
+
 type MessagePushUnknown struct {
 	Message string
 }
@@ -1127,7 +1141,7 @@ func (m *MessagePushUnknown) Type() MessageType {
 }
 
 func (m *MessagePushUnknown) String() string {
-	return m.Message
+	return fmt.Sprintf("Unknown message: %s", m.Message)
 }
 
 func NewMessage(message string) (Message, error) {

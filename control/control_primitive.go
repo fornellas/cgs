@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -548,7 +549,7 @@ func (cp *ControlPrimitive) ProcessMessage(message grblMod.Message) {
 
 	text := message.String()
 	if len(text) == 0 {
-		fmt.Fprintf(cp.pushMessagesLogsTextView, "\n%#v", message)
+		fmt.Fprintf(cp.pushMessagesLogsTextView, "\n[%s](%#v)[-]", color, tview.Escape(reflect.TypeOf(message).String()))
 	} else {
 		fmt.Fprintf(cp.pushMessagesLogsTextView, "\n[%s]%s[-]", color, tview.Escape(text))
 	}
