@@ -192,7 +192,7 @@ func (cp *ControlPrimitive) sendCommand(
 		rtc, err := grblMod.NewRealTimeCommand(c)
 		if err != nil {
 			if !errors.Is(err, grblMod.ErrNotRealTimeCommand) {
-				fmt.Fprintf(textView, "[%s]Real time command parsing fail: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
+				fmt.Fprintf(textView, "\n[%s]Real time command parsing fail: %s[-]", tcell.ColorRed, tview.Escape(err.Error()))
 				return
 			}
 			buf.WriteByte(c)
@@ -213,7 +213,7 @@ func (cp *ControlPrimitive) sendCommand(
 	for {
 		block, err := parser.Next()
 		if err != nil {
-			fmt.Fprintf(textView, "[%s]Failed to parse: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
+			fmt.Fprintf(textView, "\n[%s]Failed to parse: %s[-]", tcell.ColorRed, tview.Escape(err.Error()))
 			return
 		}
 		if block == nil {
@@ -237,23 +237,23 @@ func (cp *ControlPrimitive) sendCommand(
 
 	// send command
 	if !quiet {
-		fmt.Fprintf(textView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(command))
+		fmt.Fprintf(textView, "\n[%s]%s[-]", tcell.ColorWhite, tview.Escape(command))
 	}
 	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(timeout))
 	defer cancel()
 	messageResponse, err := cp.grbl.SendCommand(ctx, command)
 	if err != nil {
-		fmt.Fprintf(textView, "[%s]Send command failed: %s[-]\n", tcell.ColorRed, tview.Escape(err.Error()))
+		fmt.Fprintf(textView, "\n[%s]Send command failed: %s[-]", tcell.ColorRed, tview.Escape(err.Error()))
 		return
 	}
 	if quiet {
 		return
 	}
 	if messageResponse.Error() == nil {
-		fmt.Fprintf(textView, "[%s]%s[-]\n", tcell.ColorGreen, tview.Escape(messageResponse.String()))
+		fmt.Fprintf(textView, "\n[%s]%s[-]", tcell.ColorGreen, tview.Escape(messageResponse.String()))
 	} else {
-		fmt.Fprintf(textView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.String()))
-		fmt.Fprintf(textView, "[%s]%s[-]\n", tcell.ColorRed, tview.Escape(messageResponse.Error().Error()))
+		fmt.Fprintf(textView, "\n[%s]%s[-]", tcell.ColorRed, tview.Escape(messageResponse.String()))
+		fmt.Fprintf(textView, "\n[%s]%s[-]", tcell.ColorRed, tview.Escape(messageResponse.Error().Error()))
 	}
 }
 
@@ -291,10 +291,10 @@ func (cp *ControlPrimitive) sendRealTimeCommand(
 	textView := cp.commandsTextView
 
 	if cp.quietStatusComms || cmd != grblMod.RealTimeCommandStatusReportQuery {
-		fmt.Fprintf(textView, "[%s]%s[-]\n", tcell.ColorBlue, tview.Escape(cmd.String()))
+		fmt.Fprintf(textView, "\n[%s]%s[-]", tcell.ColorBlue, tview.Escape(cmd.String()))
 	}
 	if err := cp.grbl.SendRealTimeCommand(cmd); err != nil {
-		fmt.Fprintf(textView, "[%s]Failed to send real-time command: %s[-]\n", tcell.ColorRed, err)
+		fmt.Fprintf(textView, "\n[%s]Failed to send real-time command: %s[-]", tcell.ColorRed, err)
 	}
 }
 
@@ -481,7 +481,7 @@ func (cp *ControlPrimitive) processMessagePushGcodeParam() tcell.Color {
 func (cp *ControlPrimitive) processMessagePushWelcome() {
 	cp.gcodeParserTextView.Clear()
 	cp.gcodeParamsTextView.Clear()
-	fmt.Fprintf(cp.pushMessagesLogsTextView, "[%s]Soft-Reset detected[-]\n", tcell.ColorOrange)
+	fmt.Fprintf(cp.pushMessagesLogsTextView, "\n[%s]Soft-Reset detected[-]", tcell.ColorOrange)
 	// Sending $G enables tracking of G-Code parsing state
 	cp.QueueCommand("$G")
 	// Sending $G enables tracking of G-Code parameters
@@ -498,6 +498,9 @@ func (mp *ControlPrimitive) processMessagePushStatusReport(
 	statusReport *grblMod.MessagePushStatusReport,
 ) tcell.Color {
 	color := getMachineStateColor(statusReport.MachineState.State)
+	if color == tcell.ColorBlack {
+		color = tcell.ColorWhite
+	}
 	mp.SetMachineState(&statusReport.MachineState)
 	return color
 }
@@ -537,11 +540,11 @@ func (cp *ControlPrimitive) ProcessMessage(message grblMod.Message) {
 
 	text := message.String()
 	if len(text) == 0 {
-		fmt.Fprintf(cp.pushMessagesLogsTextView, "\n\n")
+		fmt.Fprintf(cp.pushMessagesLogsTextView, "\n%#v", message)
 	} else {
-		fmt.Fprintf(cp.pushMessagesLogsTextView, "[%s]%s[-]\n", color, tview.Escape(text))
+		fmt.Fprintf(cp.pushMessagesLogsTextView, "\n[%s]%s[-]", color, tview.Escape(text))
 	}
 	if len(extraInfo) > 0 {
-		fmt.Fprintf(cp.pushMessagesLogsTextView, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(extraInfo))
+		fmt.Fprintf(cp.pushMessagesLogsTextView, "\n[%s]%s[-]", tcell.ColorWhite, tview.Escape(extraInfo))
 	}
 }
