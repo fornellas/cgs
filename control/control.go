@@ -12,6 +12,10 @@ import (
 	grblMod "github.com/fornellas/cgs/grbl"
 )
 
+type MessageProcessor interface {
+	ProcessMessage(message grblMod.Message)
+}
+
 type ControlOptions struct {
 	DisplayStatusComms           bool
 	DisplayGcodeParserStateComms bool
@@ -54,8 +58,7 @@ func (c *Control) statusQueryWorker(ctx context.Context) error {
 func (c *Control) messageProcessorWorker(
 	ctx context.Context,
 	pushMessageCh chan grblMod.Message,
-	controlPrimitive *ControlPrimitive,
-	overridesPrimitive *OverridesPrimitive,
+	messageProcessors ...MessageProcessor,
 ) error {
 	for {
 		select {
@@ -69,9 +72,9 @@ func (c *Control) messageProcessorWorker(
 			if !ok {
 				return fmt.Errorf("push message channel closed")
 			}
-			c.AppManager.ProcessMessage(message)
-			controlPrimitive.ProcessMessage(message)
-			overridesPrimitive.ProcessMessage(message)
+			for _, messageProcessor := range messageProcessors {
+				messageProcessor.ProcessMessage(message)
+			}
 		}
 	}
 }
@@ -139,6 +142,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 			pushMessageCh,
 			controlPrimitive,
 			overridesPrimitive,
+			joggingPrimitive,
 		)
 	}()
 
