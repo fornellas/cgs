@@ -96,10 +96,13 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	overridesPrimitive := NewOverridesPrimitive(controlPrimitive)
 
+	joggingPrimitive := NewJoggingPrimitive(controlPrimitive)
+
 	c.AppManager = NewAppManager(
 		c.grbl,
 		controlPrimitive,
 		overridesPrimitive,
+		joggingPrimitive,
 	)
 	defer func() { c.AppManager = nil }()
 

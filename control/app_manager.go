@@ -15,6 +15,7 @@ type AppManager struct {
 	grbl               *grblMod.Grbl
 	controlPrimitive   *ControlPrimitive
 	overridesPrimitive *OverridesPrimitive
+	joggingPrimitive   *JoggingPrimitive
 	// Common
 	FeedbackTextView *tview.TextView
 	StateTextView    *tview.TextView
@@ -37,11 +38,13 @@ func NewAppManager(
 	grbl *grblMod.Grbl,
 	controlPrimitive *ControlPrimitive,
 	overridesPrimitive *OverridesPrimitive,
+	joggingPrimitive *JoggingPrimitive,
 ) *AppManager {
 	am := &AppManager{
 		grbl:               grbl,
 		controlPrimitive:   controlPrimitive,
 		overridesPrimitive: overridesPrimitive,
+		joggingPrimitive:   joggingPrimitive,
 	}
 
 	tviewApp := tview.NewApplication()
@@ -169,13 +172,6 @@ func (am *AppManager) getButtonsFLex() *tview.Flex {
 	return buttonsFlex
 }
 
-func (am *AppManager) getJoggingPrimitive() tview.Primitive {
-	joggingFlex := tview.NewFlex()
-	joggingFlex.SetBorder(true)
-	joggingFlex.SetTitle("Jogging")
-	return joggingFlex
-}
-
 func (am *AppManager) getStreamPrimitive() tview.Primitive {
 	return tview.NewBox().SetBorder(true).SetTitle("Stream")
 }
@@ -189,14 +185,13 @@ func (am *AppManager) getSettingsPrimitive() tview.Primitive {
 }
 
 func (am *AppManager) getMainFlex() *tview.Flex {
-	jogging := am.getJoggingPrimitive()
 	stream := am.getStreamPrimitive()
 	script := am.getScriptPrimitive()
 	settings := am.getSettingsPrimitive()
 
 	page := tview.NewPages()
 	page.AddPage("Control", am.controlPrimitive, true, true)
-	page.AddPage("Jogging", jogging, true, true)
+	page.AddPage("Jogging", am.joggingPrimitive, true, true)
 	page.AddPage("Overrides", am.overridesPrimitive, true, true)
 	page.AddPage("Stream", stream, true, true)
 	page.AddPage("Script", script, true, true)
