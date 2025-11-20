@@ -2,7 +2,6 @@ package control
 
 import (
 	"fmt"
-	"io"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -14,14 +13,13 @@ type RootPrimitive struct {
 	*tview.Flex
 	app                *tview.Application
 	grbl               *grblMod.Grbl
+	statusPrimitive    *StatusPrimitive
 	controlPrimitive   *ControlPrimitive
 	overridesPrimitive *OverridesPrimitive
 	joggingPrimitive   *JoggingPrimitive
 	logsPrimitive      *LogsPrimitive
 	// Common
 	feedbackTextView *tview.TextView
-	stateTextView    *tview.TextView
-	statusTextView   *tview.TextView
 	homeButton       *tview.Button
 	unlockButton     *tview.Button
 	resetButton      *tview.Button
@@ -38,6 +36,7 @@ type RootPrimitive struct {
 func NewRootPrimitive(
 	app *tview.Application,
 	grbl *grblMod.Grbl,
+	statusPrimitive *StatusPrimitive,
 	controlPrimitive *ControlPrimitive,
 	overridesPrimitive *OverridesPrimitive,
 	joggingPrimitive *JoggingPrimitive,
@@ -46,6 +45,7 @@ func NewRootPrimitive(
 	rp := &RootPrimitive{
 		grbl:               grbl,
 		app:                app,
+		statusPrimitive:    statusPrimitive,
 		controlPrimitive:   controlPrimitive,
 		overridesPrimitive: overridesPrimitive,
 		joggingPrimitive:   joggingPrimitive,
@@ -53,8 +53,6 @@ func NewRootPrimitive(
 	}
 
 	rp.newFeedbackTextView()
-	rp.newStateTextView()
-	rp.newStatusTextView()
 	rp.homeButton = tview.NewButton("Home").
 		SetSelectedFunc(func() { rp.controlPrimitive.QueueCommand("$H") })
 	rp.unlockButton = tview.NewButton("Unlock").
@@ -92,32 +90,6 @@ func (rp *RootPrimitive) newFeedbackTextView() {
 		rp.app.Draw()
 	})
 	rp.feedbackTextView = textView
-}
-
-func (rp *RootPrimitive) newStateTextView() {
-	textView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetTextAlign(tview.AlignCenter).
-		SetWrap(true)
-	textView.SetBorder(true).SetTitle("State")
-	textView.SetChangedFunc(func() {
-		rp.app.Draw()
-	})
-	rp.stateTextView = textView
-}
-
-func (rp *RootPrimitive) newStatusTextView() {
-	textView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-	textView.SetBorder(true).SetTitle("Status")
-	textView.SetChangedFunc(func() {
-		textView.ScrollToBeginning()
-		rp.app.Draw()
-	})
-	rp.statusTextView = textView
 }
 
 func (rp *RootPrimitive) getButtonsFLex() *tview.Flex {
@@ -230,15 +202,10 @@ func (rp *RootPrimitive) newRootFlex() {
 	column0Flex.AddItem(rp.feedbackTextView, 1, 0, false)
 	column0Flex.AddItem(rp.getButtonsFLex(), 4, 0, false)
 
-	column1Flex := tview.NewFlex()
-	column1Flex.SetDirection(tview.FlexRow)
-	column1Flex.AddItem(rp.stateTextView, 4, 0, false)
-	column1Flex.AddItem(rp.statusTextView, 0, 1, false)
-
 	rootFlex := tview.NewFlex()
 	rootFlex.SetDirection(tview.FlexColumn)
 	rootFlex.AddItem(column0Flex, 0, 1, false)
-	rootFlex.AddItem(column1Flex, 15, 0, false)
+	rootFlex.AddItem(rp.statusPrimitive, rp.statusPrimitive.FixedSize()+1, 0, false)
 
 	rp.Flex = rootFlex
 }
@@ -356,9 +323,6 @@ func (rp *RootPrimitive) updateDisabled() {
 
 func (rp *RootPrimitive) processMessagePushWelcome() {
 	rp.app.QueueUpdateDraw(func() {
-		rp.stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
-		rp.stateTextView.Clear()
-		rp.statusTextView.Clear()
 		rp.feedbackTextView.SetText("")
 	})
 }
@@ -388,175 +352,17 @@ func getMachineStateColor(state string) tcell.Color {
 	}
 }
 
-func (rp *RootPrimitive) updateStateTextView(state string, subState string) {
-	stateColor := getMachineStateColor(state)
-
-	rp.app.QueueUpdateDraw(func() {
-		rp.stateTextView.Clear()
-		rp.stateTextView.SetBackgroundColor(stateColor)
-	})
-	fmt.Fprintf(
-		rp.stateTextView, "%s\n",
-		tview.Escape(state),
-	)
-	if len(subState) > 0 {
-		fmt.Fprintf(
-			rp.stateTextView, "(%s)\n",
-			tview.Escape(subState),
-		)
-	}
-}
-
-func (rp *RootPrimitive) processMessagePushAlarm() {
-	rp.updateStateTextView("Alarm", "")
-}
-
-//gocyclo:ignore
-func (rp *RootPrimitive) writePositionStatus(w io.Writer, statusReport *grblMod.MessagePushStatusReport) {
-	var mx, my, mz, ma, wx, wy, wz, wa *float64
-	if statusReport.MachinePosition != nil {
-		mx = &statusReport.MachinePosition.X
-		my = &statusReport.MachinePosition.Y
-		mz = &statusReport.MachinePosition.Z
-		ma = statusReport.MachinePosition.A
-		if rp.grbl.GetWorkCoordinateOffset() != nil {
-			wxv := statusReport.MachinePosition.X - rp.grbl.GetWorkCoordinateOffset().X
-			wx = &wxv
-			wyv := statusReport.MachinePosition.Y - rp.grbl.GetWorkCoordinateOffset().Y
-			wy = &wyv
-			wzv := statusReport.MachinePosition.Z - rp.grbl.GetWorkCoordinateOffset().Z
-			wz = &wzv
-			if statusReport.MachinePosition.A != nil && rp.grbl.GetWorkCoordinateOffset().A != nil {
-				wav := *statusReport.MachinePosition.A - *rp.grbl.GetWorkCoordinateOffset().A
-				wa = &wav
-			}
-		}
-	}
-	if statusReport.WorkPosition != nil {
-		wx = &statusReport.WorkPosition.X
-		wy = &statusReport.WorkPosition.Y
-		wz = &statusReport.WorkPosition.Z
-		wa = statusReport.WorkPosition.A
-		if rp.grbl.GetWorkCoordinateOffset() != nil {
-			mxv := statusReport.WorkPosition.X - rp.grbl.GetWorkCoordinateOffset().X
-			mx = &mxv
-			myv := statusReport.WorkPosition.Y - rp.grbl.GetWorkCoordinateOffset().Y
-			my = &myv
-			mzv := statusReport.WorkPosition.Z - rp.grbl.GetWorkCoordinateOffset().Z
-			mz = &mzv
-			if statusReport.WorkPosition.A != nil && rp.grbl.GetWorkCoordinateOffset().A != nil {
-				mav := *statusReport.WorkPosition.A - *rp.grbl.GetWorkCoordinateOffset().A
-				ma = &mav
-			}
-		}
-	}
-	var nl bool
-	if wx != nil || wy != nil || wz != nil || wa != nil {
-		fmt.Fprintf(w, "Work\n")
-		nl = true
-	}
-	if wx != nil {
-		fmt.Fprintf(w, "X:%.3f\n", *wx)
-	}
-	if wy != nil {
-		fmt.Fprintf(w, "Y:%.3f\n", *wy)
-	}
-	if wz != nil {
-		fmt.Fprintf(w, "Z:%.3f\n", *wz)
-	}
-	if wa != nil {
-		fmt.Fprintf(w, "A:%.3f\n", *wa)
-	}
-	if mx != nil || my != nil || mz != nil || ma != nil {
-		if nl {
-			fmt.Fprintf(w, "\n")
-		}
-		fmt.Fprintf(w, "Machine\n")
-	}
-	if mx != nil {
-		fmt.Fprintf(w, "X:%.3f\n", *mx)
-	}
-	if my != nil {
-		fmt.Fprintf(w, "Y:%.3f\n", *my)
-	}
-	if mz != nil {
-		fmt.Fprintf(w, "Z:%.3f\n", *mz)
-	}
-	if ma != nil {
-		fmt.Fprintf(w, "A:%.3f\n", *ma)
-	}
-}
-
-//gocyclo:ignore
-func (rp *RootPrimitive) updateStatusTextView(
-	statusReport *grblMod.MessagePushStatusReport,
+func (rp *RootPrimitive) processMessagePushFeedback(
+	messagePushFeedback *grblMod.MessagePushFeedback,
 ) {
-	rp.app.QueueUpdateDraw(func() {
-		rp.statusTextView.Clear()
-	})
-
-	rp.writePositionStatus(rp.statusTextView, statusReport)
-
-	if statusReport.BufferState != nil {
-		fmt.Fprint(rp.statusTextView, "\nBuffer\n")
-		fmt.Fprintf(rp.statusTextView, "Blocks:%d\n", statusReport.BufferState.AvailableBlocks)
-		fmt.Fprintf(rp.statusTextView, "Bytes:%d\n", statusReport.BufferState.AvailableBytes)
-	}
-
-	if statusReport.LineNumber != nil {
-		fmt.Fprintf(rp.statusTextView, "\nLine:%d\n", *statusReport.LineNumber)
-	}
-
-	if statusReport.Feed != nil {
-		fmt.Fprintf(rp.statusTextView, "\nFeed:%.1f\n", *statusReport.Feed)
-	}
-
-	if statusReport.FeedSpindle != nil {
-		fmt.Fprintf(rp.statusTextView, "\nFeed:%.0f\n", statusReport.FeedSpindle.Feed)
-		fmt.Fprintf(rp.statusTextView, "Speed:%.0f\n", statusReport.FeedSpindle.Speed)
-	}
-
-	if statusReport.PinState != nil {
-		fmt.Fprintf(rp.statusTextView, "\nPin:%s\n", statusReport.PinState)
-	}
-
-	if rp.grbl.GetOverrideValues() != nil {
-		fmt.Fprint(rp.statusTextView, "\nOverrides\n")
-		fmt.Fprintf(rp.statusTextView, "Feed:%.0f%%\n", rp.grbl.GetOverrideValues().Feed)
-		fmt.Fprintf(rp.statusTextView, "Rapids:%.0f%%\n", rp.grbl.GetOverrideValues().Rapids)
-		fmt.Fprintf(rp.statusTextView, "Spindle:%.0f%%\n", rp.grbl.GetOverrideValues().Spindle)
-	}
-
-	if statusReport.AccessoryState != nil {
-		fmt.Fprint(rp.statusTextView, "\nAccessory\n")
-		if statusReport.AccessoryState.SpindleCW != nil && *statusReport.AccessoryState.SpindleCW {
-			fmt.Fprint(rp.statusTextView, "Spindle: CW")
-		}
-		if statusReport.AccessoryState.SpindleCCW != nil && *statusReport.AccessoryState.SpindleCCW {
-			fmt.Fprint(rp.statusTextView, "Spindle: CCW")
-		}
-		if statusReport.AccessoryState.FloodCoolant != nil && *statusReport.AccessoryState.FloodCoolant {
-			fmt.Fprint(rp.statusTextView, "Flood Coolant")
-		}
-		if statusReport.AccessoryState.MistCoolant != nil && *statusReport.AccessoryState.MistCoolant {
-			fmt.Fprint(rp.statusTextView, "Mist Coolant")
-		}
-	}
+	rp.feedbackTextView.SetText(messagePushFeedback.Text())
 }
 
 func (rp *RootPrimitive) processMessagePushStatusReport(
 	statusReport *grblMod.MessagePushStatusReport,
 ) {
-	rp.updateStateTextView(statusReport.MachineState.State, statusReport.MachineState.SubStateString())
 	rp.machineState = &statusReport.MachineState
 	rp.updateDisabled()
-	rp.updateStatusTextView(statusReport)
-}
-
-func (rp *RootPrimitive) processMessagePushFeedback(
-	messagePushFeedback *grblMod.MessagePushFeedback,
-) {
-	rp.feedbackTextView.SetText(messagePushFeedback.Text())
 }
 
 func (rp *RootPrimitive) ProcessMessage(message grblMod.Message) {
@@ -564,19 +370,12 @@ func (rp *RootPrimitive) ProcessMessage(message grblMod.Message) {
 		rp.processMessagePushWelcome()
 		return
 	}
-
-	if _, ok := message.(*grblMod.MessagePushAlarm); ok {
-		rp.processMessagePushAlarm()
-		return
-	}
-
-	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-		rp.processMessagePushStatusReport(messagePushStatusReport)
-		return
-	}
-
 	if messagePushFeedback, ok := message.(*grblMod.MessagePushFeedback); ok {
 		rp.processMessagePushFeedback(messagePushFeedback)
+		return
+	}
+	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
+		rp.processMessagePushStatusReport(messagePushStatusReport)
 		return
 	}
 }

@@ -94,6 +94,8 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	app := tview.NewApplication()
 	app.EnableMouse(true)
 
+	statusPrimitive := NewStatusPrimitive(c.grbl, app)
+
 	controlPrimitive := NewControlPrimitive(
 		app,
 		c.grbl,
@@ -118,6 +120,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	rootPrimitive := NewRootPrimitive(
 		app,
 		c.grbl,
+		statusPrimitive,
 		controlPrimitive,
 		overridesPrimitive,
 		joggingPrimitive,
@@ -154,6 +157,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 			ctx,
 			pushMessageCh,
 			rootPrimitive,
+			statusPrimitive,
 			controlPrimitive,
 			overridesPrimitive,
 			joggingPrimitive,

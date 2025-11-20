@@ -31,7 +31,7 @@ type ControlPrimitive struct {
 	gcodeParamsTextView        *tview.TextView
 	commandInputField          *tview.InputField
 	disableCommandInput        bool
-	machineState               *grblMod.StatusReportMachineState
+	machineState               *string
 }
 
 func NewControlPrimitive(
@@ -142,7 +142,7 @@ func (cp *ControlPrimitive) updateDisabled() {
 		cp.commandInputField.SetDisabled(true)
 		return
 	}
-	switch cp.machineState.State {
+	switch *cp.machineState {
 	case "Idle":
 		cp.commandInputField.SetDisabled(false)
 	case "Run":
@@ -162,12 +162,12 @@ func (cp *ControlPrimitive) updateDisabled() {
 	case "Sleep":
 		cp.commandInputField.SetDisabled(true)
 	default:
-		panic(fmt.Errorf("unknown state: %s", cp.machineState.State))
+		panic(fmt.Errorf("unknown state: %s", *cp.machineState))
 	}
 }
 
-func (cp *ControlPrimitive) SetMachineState(machineState *grblMod.StatusReportMachineState) {
-	cp.machineState = machineState
+func (cp *ControlPrimitive) SetMachineState(machineState string) {
+	cp.machineState = &machineState
 	cp.updateDisabled()
 }
 
@@ -228,6 +228,7 @@ func (cp *ControlPrimitive) sendCommand(
 				}
 			case "$H":
 				timeout = 120 * time.Second
+				cp.SetMachineState("Home")
 			}
 		} else {
 			switch block.String() {
@@ -506,7 +507,7 @@ func (mp *ControlPrimitive) processMessagePushStatusReport(
 	if color == tcell.ColorBlack {
 		color = tcell.ColorWhite
 	}
-	mp.SetMachineState(&statusReport.MachineState)
+	mp.SetMachineState(statusReport.MachineState.State)
 	return color
 }
 
