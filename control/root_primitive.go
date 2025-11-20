@@ -22,7 +22,7 @@ type RootPrimitive struct {
 	feedbackTextView *tview.TextView
 	stateTextView    *tview.TextView
 	statusTextView   *tview.TextView
-	homingButton     *tview.Button
+	homeButton       *tview.Button
 	unlockButton     *tview.Button
 	resetButton      *tview.Button
 	checkButton      *tview.Button
@@ -55,7 +55,7 @@ func NewRootPrimitive(
 	rp.newFeedbackTextView()
 	rp.newStateTextView()
 	rp.newStatusTextView()
-	rp.homingButton = tview.NewButton("Homing").
+	rp.homeButton = tview.NewButton("Home").
 		SetSelectedFunc(func() { rp.controlPrimitive.QueueCommand("$H") })
 	rp.unlockButton = tview.NewButton("Unlock").
 		SetSelectedFunc(func() { rp.controlPrimitive.QueueCommand("$X") })
@@ -127,7 +127,7 @@ func (rp *RootPrimitive) getButtonsFLex() *tview.Flex {
 	commandButtonsFlex.SetDirection(tview.FlexRow)
 	commandButtonsFlex.AddItem(
 		tview.NewFlex().SetDirection(tview.FlexColumn).
-			AddItem(rp.homingButton, 0, 1, false).
+			AddItem(rp.homeButton, 0, 1, false).
 			AddItem(rp.unlockButton, 0, 1, false).
 			AddItem(rp.checkButton, 0, 1, false),
 		0, 1, false,
@@ -246,7 +246,7 @@ func (rp *RootPrimitive) newRootFlex() {
 func (rp *RootPrimitive) updateDisabled() {
 	rp.app.QueueUpdateDraw(func() {
 		if rp.machineState == nil {
-			rp.homingButton.SetDisabled(true)
+			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(true)
 			rp.checkButton.SetDisabled(true)
@@ -259,7 +259,7 @@ func (rp *RootPrimitive) updateDisabled() {
 		}
 		switch rp.machineState.State {
 		case "Idle":
-			rp.homingButton.SetDisabled(false)
+			rp.homeButton.SetDisabled(false)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(false)
 			rp.checkButton.SetDisabled(false)
@@ -269,7 +269,7 @@ func (rp *RootPrimitive) updateDisabled() {
 			rp.holdButton.SetDisabled(false)
 			rp.resumeButton.SetDisabled(true)
 		case "Run":
-			rp.homingButton.SetDisabled(true)
+			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(false)
 			rp.checkButton.SetDisabled(true)
@@ -279,7 +279,7 @@ func (rp *RootPrimitive) updateDisabled() {
 			rp.holdButton.SetDisabled(false)
 			rp.resumeButton.SetDisabled(true)
 		case "Hold":
-			rp.homingButton.SetDisabled(true)
+			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(false)
 			rp.checkButton.SetDisabled(true)
@@ -289,7 +289,7 @@ func (rp *RootPrimitive) updateDisabled() {
 			rp.holdButton.SetDisabled(true)
 			rp.resumeButton.SetDisabled(false)
 		case "Jog":
-			rp.homingButton.SetDisabled(true)
+			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(false)
 			rp.checkButton.SetDisabled(true)
@@ -299,7 +299,7 @@ func (rp *RootPrimitive) updateDisabled() {
 			rp.holdButton.SetDisabled(false)
 			rp.resumeButton.SetDisabled(true)
 		case "Alarm":
-			rp.homingButton.SetDisabled(false)
+			rp.homeButton.SetDisabled(false)
 			rp.unlockButton.SetDisabled(false)
 			rp.resetButton.SetDisabled(false)
 			rp.checkButton.SetDisabled(true)
@@ -309,7 +309,7 @@ func (rp *RootPrimitive) updateDisabled() {
 			rp.holdButton.SetDisabled(true)
 			rp.resumeButton.SetDisabled(true)
 		case "Door":
-			rp.homingButton.SetDisabled(true)
+			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(false)
 			rp.checkButton.SetDisabled(true)
@@ -319,7 +319,7 @@ func (rp *RootPrimitive) updateDisabled() {
 			rp.holdButton.SetDisabled(true)
 			rp.resumeButton.SetDisabled(false)
 		case "Check":
-			rp.homingButton.SetDisabled(true)
+			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(false)
 			rp.checkButton.SetDisabled(false)
@@ -329,7 +329,7 @@ func (rp *RootPrimitive) updateDisabled() {
 			rp.holdButton.SetDisabled(true)
 			rp.resumeButton.SetDisabled(true)
 		case "Home":
-			rp.homingButton.SetDisabled(true)
+			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(false)
 			rp.checkButton.SetDisabled(true)
@@ -339,7 +339,7 @@ func (rp *RootPrimitive) updateDisabled() {
 			rp.holdButton.SetDisabled(true)
 			rp.resumeButton.SetDisabled(true)
 		case "Sleep":
-			rp.homingButton.SetDisabled(true)
+			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(false)
 			rp.checkButton.SetDisabled(true)
