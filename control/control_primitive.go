@@ -232,6 +232,11 @@ func (cp *ControlPrimitive) sendCommand(
 			case "$H":
 				timeout = 120 * time.Second
 			}
+		} else {
+			switch block.String() {
+			case "M0":
+				timeout = 0
+			}
 		}
 	}
 
@@ -239,8 +244,11 @@ func (cp *ControlPrimitive) sendCommand(
 	if !quiet {
 		fmt.Fprintf(textView, "\n[%s]%s[-]", tcell.ColorWhite, tview.Escape(command))
 	}
-	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(timeout))
-	defer cancel()
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, time.Now().Add(timeout))
+		defer cancel()
+	}
 	messageResponse, err := cp.grbl.SendCommand(ctx, command)
 	if err != nil {
 		fmt.Fprintf(textView, "\n[%s]Send command failed: %s[-]", tcell.ColorRed, tview.Escape(err.Error()))

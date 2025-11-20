@@ -1,15 +1,11 @@
 shell.go
     control
+        Split logs from push messages into separate text view
         Change ScrollToEnd
             Only if current view is at the end of the text
             if not, change color to indicate there's new text
         when $H, grbl stops answering status requests, so we need to artificially update the state to match
-        Split logs from push messages into separate text view
         Navigate across buttons / input with tab / btab
-        FIX M0
-            the command response only will come after it is resumed
-            we need to disable timeout if there's M0
-            context needs to be cancelled on soft reset (and maybe others)
         Alarm state should cancel send command context
         FIX App.Stop() may be called from defer when the app failed to start, resoulting in segfault
     grbl
