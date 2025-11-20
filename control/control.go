@@ -109,6 +109,10 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	app := tview.NewApplication()
 	app.EnableMouse(true)
 
+	logsPrimitive := NewLogsPrimitive(app)
+	logger = slog.New(NewViewLogHandler(logger.Handler(), logsPrimitive))
+	ctx = log.WithLogger(ctx, logger)
+
 	statusPrimitive := NewStatusPrimitive(c.grbl, app)
 
 	controlPrimitive := NewControlPrimitive(

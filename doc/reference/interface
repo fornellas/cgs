@@ -82,7 +82,7 @@ Modes
                         Coordinates of the last probing cycle, where the suffix :1 denotes if the last probe was successful and :0 as not successful.
                         [PRB:0.000,0.000,0.000:0]
         Command Log
-        Push Messages / Logs
+        Push Messages
         Input Command
     Jogging
         $J=line (Jogging)
@@ -185,3 +185,4 @@ Modes
                 $110, $111 and $112 – [X,Y,Z] Max rate, mm/min
                 $120, $121, $122 – [X,Y,Z] Acceleration, mm/sec^2
                 $130, $131, $132 – [X,Y,Z] Max travel, mm
+    Logs
