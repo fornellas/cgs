@@ -71,19 +71,26 @@ func NewJoggingPrimitive(
 	parametersForm := tview.NewForm()
 	const width = len("100.0000")
 	parametersForm.AddInputField("X", "", width, acceptFloatFn, nil)
-	jp.xInputField = parametersForm.GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
+	jp.xInputField = parametersForm.
+		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
 	parametersForm.AddInputField("Y", "", width, acceptFloatFn, nil)
-	jp.yInputField = parametersForm.GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
+	jp.yInputField = parametersForm.
+		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
 	parametersForm.AddInputField("Z", "", width, acceptFloatFn, nil)
-	jp.zInputField = parametersForm.GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
+	jp.zInputField = parametersForm.
+		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
 	parametersForm.AddDropDown("Unit", jp.unitOptions, -1, nil)
-	jp.unitDropDown = parametersForm.GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.DropDown)
+	jp.unitDropDown = parametersForm.
+		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.DropDown)
 	parametersForm.AddDropDown("Distance mode", jp.distanceModeOptions, -1, nil)
-	jp.distanceModeDropDown = parametersForm.GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.DropDown)
+	jp.distanceModeDropDown = parametersForm.
+		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.DropDown)
 	parametersForm.AddInputField("Feed rate", "", width, acceptFloatFn, nil)
-	jp.feedRateInputField = parametersForm.GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
+	jp.feedRateInputField = parametersForm.
+		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
 	parametersForm.AddCheckbox("Machine Coordinates", false, nil)
-	jp.machineCoordinatesCheckbox = parametersForm.GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.Checkbox)
+	jp.machineCoordinatesCheckbox = parametersForm.
+		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.Checkbox)
 	parametersForm.AddButton("Jog", jp.jog)
 	jp.jogParametersButton = parametersForm.GetButton(parametersForm.GetButtonCount() - 1)
 	parametersForm.AddButton("Cancel", func() {
@@ -110,9 +117,6 @@ func NewJoggingPrimitive(
 func (jp *JoggingPrimitive) jog() {
 	var buf bytes.Buffer
 	fmt.Fprintf(&buf, "$J=")
-	var err error
-
-	var hasCoordinate bool
 
 	printWord := func(value, letter string) bool {
 		if len(value) == 0 {
@@ -125,6 +129,9 @@ func (jp *JoggingPrimitive) jog() {
 		fmt.Fprintf(&buf, "%s%.4f", letter, v)
 		return true
 	}
+
+	var err error
+	var hasCoordinate bool
 
 	if printWord(jp.xInputField.GetText(), "X") {
 		hasCoordinate = true
