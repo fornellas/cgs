@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -42,12 +41,7 @@ var RootCmd = &cobra.Command{
 			}
 		})
 
-		logFile, err := os.OpenFile("log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(0644))
-		if err != nil {
-			return err
-		}
-
-		logger := slogxtCobra.GetLogger(logFile).
+		logger := slogxtCobra.GetLogger(cmd.OutOrStderr()).
 			WithGroup(getCmdChainStr(cmd))
 		ctx := log.WithLogger(cmd.Context(), logger)
 		cmd.SetContext(ctx)

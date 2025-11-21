@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math"
 	"reflect"
 	"time"
 
@@ -124,10 +123,8 @@ func (c *Control) messageProcessorWorker(
 	}
 }
 func (c *Control) startWorker(
-	ctx context.Context,
-	app *tview.Application,
-	name string,
-	fn func(context.Context) error,
+	ctx context.Context, app *tview.Application,
+	name string, fn func(context.Context) error,
 ) {
 	_, logger := log.MustWithGroupAttrs(ctx, "Worker", "name", name)
 	errCh := make(chan error, 1)
@@ -154,52 +151,53 @@ func (c *Control) waitForWorkers(ctx context.Context) (err error) {
 }
 
 func (c *Control) Run(ctx context.Context) (err error) {
-	ctx, logger := log.MustWithGroup(ctx, "Control.Run")
+	// Application
+	app := tview.NewApplication()
+	app.EnableMouse(true)
 
+	// Application Logging
+	logsPrimitive := NewLogsPrimitive(app)
+	ctx, logger := log.MustWithGroup(ctx, "Control")
+	originalHandler := logger.Handler()
+	logsPrimitiveHandler := &EnabledOverrideHandler{
+		Handler: log.NewTerminalTreeHandler(
+			tview.ANSIWriter(logsPrimitive),
+			// FIXME pull TerminalHandlerOptions attributes from logger.Handler()
+			&log.TerminalHandlerOptions{
+				DisableGroupEmoji: true,
+				ForceColor:        true,
+			},
+		),
+		EnabledHandler: originalHandler,
+	}
+	primitiveLogger := slog.New(logsPrimitiveHandler)
+	// From this point onwards:
+	// - Context logger goes to logsPrimitive.
+	// - logger is the original logger, that can NOT be used while app.Run is active.
+	ctx = log.WithLogger(ctx, primitiveLogger)
+
+	// Grbl
 	logger.Info("Connecting")
 	pushMessageCh, err := c.grbl.Connect(ctx)
 	if err != nil {
 		return err
 	}
 
+	// Context Cancellation
 	ctx, cancelFn := context.WithCancel(ctx)
 
-	app := tview.NewApplication()
-	app.EnableMouse(true)
-
-	logsPrimitive := NewLogsPrimitive(ctx, app)
-	logger = slog.New(log.NewMultiHandler(
-		logger.Handler(),
-		log.NewTerminalTreeHandler(
-			tview.ANSIWriter(logsPrimitive),
-			// tview.ANSIWriter(w),
-			&log.TerminalHandlerOptions{
-				HandlerOptions: slog.HandlerOptions{
-					// AddSource: ,
-					Level: slog.Level(math.MinInt),
-					// ReplaceAttr: ,
-				},
-				DisableGroupEmoji: true,
-				// TimeLayout: ,
-				// NoColor: true,
-				ForceColor: true,
-				// ColorScheme: ,
-			},
-		),
-	))
-	ctx = log.WithLogger(ctx, logger)
-
+	// Message Processors
 	var messageProcessors []MessageProcessor
 
+	// StatusPrimitive
 	statusPrimitive := NewStatusPrimitive(ctx, c.grbl, app)
 	messageProcessors = append(messageProcessors, statusPrimitive)
 
+	// ControlPrimitive
 	controlPrimitive := NewControlPrimitive(
 		ctx,
-		c.grbl,
-		pushMessageCh,
-		app,
-		statusPrimitive,
+		c.grbl, pushMessageCh,
+		app, statusPrimitive,
 		!c.options.DisplayGcodeParserStateComms,
 		!c.options.DisplayGcodeParamStateComms,
 		!c.options.DisplayStatusComms,
@@ -216,12 +214,15 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	})
 	messageProcessors = append(messageProcessors, controlPrimitive)
 
+	// OverridesPrimitive
 	overridesPrimitive := NewOverridesPrimitive(ctx, app, controlPrimitive)
 	messageProcessors = append(messageProcessors, overridesPrimitive)
 
+	// JoggingPrimitive
 	joggingPrimitive := NewJoggingPrimitive(ctx, app, controlPrimitive)
 	messageProcessors = append(messageProcessors, joggingPrimitive)
 
+	// RootPrimitive
 	rootPrimitive := NewRootPrimitive(
 		ctx, app,
 		statusPrimitive,
@@ -233,6 +234,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	app.SetRoot(rootPrimitive, true)
 	messageProcessors = append(messageProcessors, rootPrimitive)
 
+	// Workers
 	c.startWorker(
 		ctx, app,
 		"Control.messageProcessorWorker",
@@ -242,27 +244,25 @@ func (c *Control) Run(ctx context.Context) (err error) {
 			)
 		},
 	)
-
 	c.startWorker(
 		ctx, app,
 		"ControlPrimitive.RunSendCommandWorker",
 		controlPrimitive.RunSendCommandWorker,
 	)
-
 	c.startWorker(
 		ctx, app,
 		"ControlPrimitive.RunSendRealTimeCommandWorker",
 		controlPrimitive.RunSendRealTimeCommandWorker,
 	)
-
 	c.startWorker(ctx, app, "Control.statusQueryWorker", c.statusQueryWorker)
 
+	// Defer
 	defer func() {
-		_, logger := log.MustWithGroup(ctx, "defer exit")
+		logger := logger.WithGroup("Exit")
 		logger.Debug("Cancelling context")
 		cancelFn()
 		err = errors.Join(err, c.waitForWorkers(ctx))
-		logger.Debug("Disconnecting")
+		logger.Info("Disconnecting")
 		err = errors.Join(err, c.grbl.Disconnect())
 		logger.Debug("Done")
 	}()
