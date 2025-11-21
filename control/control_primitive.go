@@ -81,12 +81,12 @@ func NewControlPrimitive(
 	})
 	cp.commandsTextView = commandsTextView
 
-	// Push Messages / Logs
+	// Push Messages
 	pushMessagesTextView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
 		SetWrap(true)
-	pushMessagesTextView.SetBorder(true).SetTitle("Push Messages / Logs")
+	pushMessagesTextView.SetBorder(true).SetTitle("Push Messages")
 	pushMessagesTextView.SetChangedFunc(func() {
 		_, logger := log.MustWithGroup(ctx, "pushMessagesTextView")
 		logger.Debug("SetChangedFunc")
