@@ -1,14 +1,6 @@
 Bugs
-    Fix logging
-        Need to use a logger handler proxy
-            before App.Run, send to existing logger
-            after App.Run, send to TextView
     FIXME do not send $G/$# for:
-    $SLP, maybe others
-    Shutdown issues
-        control.RootPrimitive blocks randomly on shutdown (called from messageProcessorWorker)
-    TextView logging
-        debug why with DisableGroupEmoji=false, it wrecks UI (it looks like there's double last rune for every line that there's an emoji)
+        $SLP, maybe others
     Status panel "flickers" every 10-20s
     App.Stop() may be called from defer when the app failed to start, resoulting in segfault
         Can use SetAfterDrawFunc to identify successful start
@@ -20,9 +12,13 @@ Features
     Keyboard navigation (tab / btab / arrows etc)
     https://github.com/fornellas/serialtcp
 Improvements
+    Intermitent Push Message Status updates
+        Some attributes (ie: cooling) are only reported in some
     internal/
     Connect timeout
     Add line limits to various TextView
+    TextView logging
+        debug why with DisableGroupEmoji=false, it wrecks UI (it looks like there's double last rune for every line that there's an emoji)
     Scrolling
         Only scroll to end if view position is already at the end
             if not, change color to indicate there's new text

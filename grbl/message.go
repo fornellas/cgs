@@ -958,6 +958,13 @@ func NewStatusReportOverrideValues(dataValues []string) (*StatusReportOverrideVa
 	}, nil
 }
 
+func (o *StatusReportOverrideValues) HasOverride() bool {
+	if o.Feed != 100 || o.Rapids != 100 || o.Spindle != 100 {
+		return true
+	}
+	return false
+}
+
 type StatusReportAccessoryState struct {
 	// indicates spindle is enabled in the CW direction. This does not appear with `C`.
 	SpindleCW *bool

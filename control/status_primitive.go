@@ -239,11 +239,18 @@ func (sp *StatusPrimitive) updateStatusTextView(
 		fmt.Fprintf(sp.statusTextView, "\nPin:%s\n", statusReport.PinState)
 	}
 
-	if sp.grbl.GetOverrideValues() != nil {
+	overrideValues := sp.grbl.GetOverrideValues()
+	if overrideValues != nil && overrideValues.HasOverride() {
 		fmt.Fprint(sp.statusTextView, "\nOverrides\n")
-		fmt.Fprintf(sp.statusTextView, "Feed:%.0f%%\n", sp.grbl.GetOverrideValues().Feed)
-		fmt.Fprintf(sp.statusTextView, "Rapids:%.0f%%\n", sp.grbl.GetOverrideValues().Rapids)
-		fmt.Fprintf(sp.statusTextView, "Spindle:%.0f%%\n", sp.grbl.GetOverrideValues().Spindle)
+		if overrideValues.Feed != 100.0 {
+			fmt.Fprintf(sp.statusTextView, "Feed:%.0f%%\n", overrideValues.Feed)
+		}
+		if overrideValues.Rapids != 100.0 {
+			fmt.Fprintf(sp.statusTextView, "Rapids:%.0f%%\n", overrideValues.Rapids)
+		}
+		if overrideValues.Spindle != 100.0 {
+			fmt.Fprintf(sp.statusTextView, "Spindle:%.0f%%\n", overrideValues.Spindle)
+		}
 	}
 
 	if statusReport.AccessoryState != nil {
