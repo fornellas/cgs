@@ -1,6 +1,7 @@
 package control
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/gdamore/tcell/v2"
@@ -12,7 +13,6 @@ import (
 type RootPrimitive struct {
 	*tview.Flex
 	app                *tview.Application
-	grbl               *grblMod.Grbl
 	statusPrimitive    *StatusPrimitive
 	controlPrimitive   *ControlPrimitive
 	overridesPrimitive *OverridesPrimitive
@@ -34,8 +34,8 @@ type RootPrimitive struct {
 }
 
 func NewRootPrimitive(
+	ctx context.Context,
 	app *tview.Application,
-	grbl *grblMod.Grbl,
 	statusPrimitive *StatusPrimitive,
 	controlPrimitive *ControlPrimitive,
 	overridesPrimitive *OverridesPrimitive,
@@ -43,7 +43,6 @@ func NewRootPrimitive(
 	logsPrimitive *LogsPrimitive,
 ) *RootPrimitive {
 	rp := &RootPrimitive{
-		grbl:               grbl,
 		app:                app,
 		statusPrimitive:    statusPrimitive,
 		controlPrimitive:   controlPrimitive,
@@ -53,26 +52,33 @@ func NewRootPrimitive(
 	}
 
 	rp.newFeedbackTextView()
-	rp.homeButton = tview.NewButton("Home").
-		SetSelectedFunc(func() { rp.controlPrimitive.QueueCommand("$H") })
-	rp.unlockButton = tview.NewButton("Unlock").
-		SetSelectedFunc(func() { rp.controlPrimitive.QueueCommand("$X") })
-	rp.resetButton = tview.NewButton("Reset").
-		SetSelectedFunc(func() { rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset) })
-	rp.checkButton = tview.NewButton("Check").
-		SetSelectedFunc(func() { rp.controlPrimitive.QueueCommand("$C") })
-	rp.doorButton = tview.NewButton("Door").
-		SetSelectedFunc(func() { rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSafetyDoor) })
-	rp.sleepButton = tview.NewButton("Sleep").
-		SetSelectedFunc(func() { rp.controlPrimitive.QueueCommand("$SLP") })
-	rp.helpButton = tview.NewButton("Help").
-		SetSelectedFunc(func() { rp.controlPrimitive.QueueCommand("$") })
-	rp.holdButton = tview.NewButton("Hold").
-		SetSelectedFunc(func() { rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedHold) })
-	rp.resumeButton = tview.NewButton("Resume").
-		SetSelectedFunc(func() {
-			rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandCycleStartResume)
-		})
+	rp.homeButton = tview.NewButton("Home").SetSelectedFunc(func() {
+		rp.controlPrimitive.QueueCommand("$H")
+	})
+	rp.unlockButton = tview.NewButton("Unlock").SetSelectedFunc(func() {
+		rp.controlPrimitive.QueueCommand("$X")
+	})
+	rp.resetButton = tview.NewButton("Reset").SetSelectedFunc(func() {
+		rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset)
+	})
+	rp.checkButton = tview.NewButton("Check").SetSelectedFunc(func() {
+		rp.controlPrimitive.QueueCommand("$C")
+	})
+	rp.doorButton = tview.NewButton("Door").SetSelectedFunc(func() {
+		rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSafetyDoor)
+	})
+	rp.sleepButton = tview.NewButton("Sleep").SetSelectedFunc(func() {
+		rp.controlPrimitive.QueueCommand("$SLP")
+	})
+	rp.helpButton = tview.NewButton("Help").SetSelectedFunc(func() {
+		rp.controlPrimitive.QueueCommand("$")
+	})
+	rp.holdButton = tview.NewButton("Hold").SetSelectedFunc(func() {
+		rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedHold)
+	})
+	rp.resumeButton = tview.NewButton("Resume").SetSelectedFunc(func() {
+		rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandCycleStartResume)
+	})
 
 	rp.newRootFlex()
 
@@ -365,7 +371,7 @@ func (rp *RootPrimitive) processMessagePushStatusReport(
 	rp.updateDisabled()
 }
 
-func (rp *RootPrimitive) ProcessMessage(message grblMod.Message) {
+func (rp *RootPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
 	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
 		rp.processMessagePushWelcome()
 		return

@@ -1,6 +1,6 @@
 module github.com/fornellas/cgs
 
-go 1.25.3
+go 1.25.4
 
 tool (
 	github.com/client9/misspell/cmd/misspell
@@ -18,7 +18,7 @@ tool (
 )
 
 require (
-	github.com/fornellas/slogxt v1.1.1
+	github.com/fornellas/slogxt v1.2.0
 	github.com/gdamore/tcell/v2 v2.8.1
 	github.com/rivo/tview v0.42.0
 	github.com/spf13/cobra v1.10.1
@@ -73,9 +73,9 @@ require (
 	golang.org/x/exp/typeparams v0.0.0-20250620022241-b7579e27df2b // indirect
 	golang.org/x/mod v0.26.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
-	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/telemetry v0.0.0-20250710130107-8d8967aff50b // indirect
-	golang.org/x/term v0.34.0 // indirect
+	golang.org/x/term v0.37.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 	golang.org/x/tools v0.35.1-0.20250728180453-01a3475a31bc // indirect
 	golang.org/x/tools/gopls v0.20.0 // indirect

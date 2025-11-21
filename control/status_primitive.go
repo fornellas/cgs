@@ -1,10 +1,13 @@
 package control
 
 import (
+	"context"
 	"fmt"
 	"io"
 
 	"github.com/rivo/tview"
+
+	"github.com/fornellas/slogxt/log"
 
 	grblMod "github.com/fornellas/cgs/grbl"
 )
@@ -18,6 +21,7 @@ type StatusPrimitive struct {
 }
 
 func NewStatusPrimitive(
+	ctx context.Context,
 	grbl *grblMod.Grbl,
 	app *tview.Application,
 ) *StatusPrimitive {
@@ -26,8 +30,10 @@ func NewStatusPrimitive(
 		app:  app,
 	}
 
-	sp.newStateTextView()
-	sp.newStatusTextView()
+	ctx, _ = log.MustWithGroup(ctx, "StatusPrimitive")
+
+	sp.newStateTextView(ctx)
+	sp.newStatusTextView(ctx)
 
 	statusFlex := tview.NewFlex()
 	statusFlex.SetDirection(tview.FlexRow)
@@ -42,7 +48,8 @@ func (sp *StatusPrimitive) FixedSize() int {
 	return 14
 }
 
-func (sp *StatusPrimitive) newStateTextView() {
+func (sp *StatusPrimitive) newStateTextView(ctx context.Context) {
+	_, logger := log.MustWithGroup(ctx, "StateTextView")
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
@@ -50,18 +57,21 @@ func (sp *StatusPrimitive) newStateTextView() {
 		SetWrap(true)
 	textView.SetBorder(true).SetTitle("State")
 	textView.SetChangedFunc(func() {
+		logger.Debug("SetChangedFunc")
 		sp.app.Draw()
 	})
 	sp.stateTextView = textView
 }
 
-func (sp *StatusPrimitive) newStatusTextView() {
+func (sp *StatusPrimitive) newStatusTextView(ctx context.Context) {
+	_, logger := log.MustWithGroup(ctx, "StatusTextView")
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
 		SetWrap(true)
 	textView.SetBorder(true).SetTitle("Status")
 	textView.SetChangedFunc(func() {
+		logger.Debug("SetChangedFunc")
 		textView.ScrollToBeginning()
 		sp.app.Draw()
 	})
@@ -244,7 +254,7 @@ func (sp *StatusPrimitive) processMessagePushStatusReport(
 	sp.updateStatusTextView(statusReport)
 }
 
-func (sp *StatusPrimitive) ProcessMessage(message grblMod.Message) {
+func (sp *StatusPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
 	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
 		sp.processMessagePushWelcome()
 		return

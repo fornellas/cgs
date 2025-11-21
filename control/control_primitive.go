@@ -12,6 +12,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
+	"github.com/fornellas/slogxt/log"
+
 	"github.com/fornellas/cgs/gcode"
 	grblMod "github.com/fornellas/cgs/grbl"
 )
@@ -37,6 +39,7 @@ type ControlPrimitive struct {
 }
 
 func NewControlPrimitive(
+	ctx context.Context,
 	grbl *grblMod.Grbl,
 	pushMessageCh chan grblMod.Message,
 	app *tview.Application,
@@ -56,6 +59,7 @@ func NewControlPrimitive(
 		sendCommandCh:              make(chan string, 10),
 		sendRealTimeCommandCh:      make(chan grblMod.RealTimeCommand, 10),
 	}
+	ctx, _ = log.MustWithGroup(ctx, "ControlPrimitive")
 
 	// Commands
 	commandsTextView := tview.NewTextView().
@@ -64,6 +68,8 @@ func NewControlPrimitive(
 		SetWrap(true)
 	commandsTextView.SetBorder(true).SetTitle("Commands")
 	commandsTextView.SetChangedFunc(func() {
+		_, logger := log.MustWithGroup(ctx, "commandsTextView")
+		logger.Debug("SetChangedFunc")
 		commandsTextView.ScrollToEnd()
 		cp.app.Draw()
 	})
@@ -76,6 +82,8 @@ func NewControlPrimitive(
 		SetWrap(true)
 	pushMessagesTextView.SetBorder(true).SetTitle("Push Messages / Logs")
 	pushMessagesTextView.SetChangedFunc(func() {
+		_, logger := log.MustWithGroup(ctx, "pushMessagesTextView")
+		logger.Debug("SetChangedFunc")
 		pushMessagesTextView.ScrollToEnd()
 		cp.app.Draw()
 	})
@@ -88,6 +96,8 @@ func NewControlPrimitive(
 		SetWrap(true)
 	gcodeParserTextView.SetBorder(true).SetTitle("G-Code Parser")
 	gcodeParserTextView.SetChangedFunc(func() {
+		_, logger := log.MustWithGroup(ctx, "gcodeParserTextView")
+		logger.Debug("SetChangedFunc")
 		cp.app.Draw()
 	})
 	cp.gcodeParserTextView = gcodeParserTextView
@@ -99,6 +109,8 @@ func NewControlPrimitive(
 		SetWrap(true)
 	gcodeParamsTextView.SetBorder(true).SetTitle("G-Code Parameters")
 	gcodeParamsTextView.SetChangedFunc(func() {
+		_, logger := log.MustWithGroup(ctx, "gcodeParamsTextView")
+		logger.Debug("SetChangedFunc")
 		cp.app.Draw()
 	})
 	cp.gcodeParamsTextView = gcodeParamsTextView
@@ -107,6 +119,8 @@ func NewControlPrimitive(
 	commandInputField := tview.NewInputField().
 		SetLabel("Command: ")
 	commandInputField.SetDoneFunc(func(key tcell.Key) {
+		_, logger := log.MustWithGroup(ctx, "commandInputField")
+		logger.Debug("SetDoneFunc")
 		switch key {
 		case tcell.KeyEscape:
 			commandInputField.SetText("")
@@ -525,7 +539,7 @@ func (mp *ControlPrimitive) processMessagePushStatusReport(
 	return color
 }
 
-func (cp *ControlPrimitive) ProcessMessage(message grblMod.Message) {
+func (cp *ControlPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
 	var color = tcell.ColorGreen
 	var extraInfo string
 

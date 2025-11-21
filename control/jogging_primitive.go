@@ -13,6 +13,7 @@ package control
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"slices"
 	"strconv"
@@ -40,6 +41,7 @@ type JoggingPrimitive struct {
 }
 
 func NewJoggingPrimitive(
+	ctx context.Context,
 	app *tview.Application,
 	controlPrimitive *ControlPrimitive,
 ) *JoggingPrimitive {
@@ -254,7 +256,7 @@ func (jp *JoggingPrimitive) processMessagePushStatusReport(
 	})
 }
 
-func (jp *JoggingPrimitive) ProcessMessage(message grblMod.Message) {
+func (jp *JoggingPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
 	if messagePushGcodeState, ok := message.(*grblMod.MessagePushGcodeState); ok {
 		jp.processMessagePushGcodeState(messagePushGcodeState)
 		return

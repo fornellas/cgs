@@ -2,12 +2,12 @@ package control
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"math"
 
 	"github.com/fornellas/slogxt/log"
-	"github.com/rivo/tview"
 )
 
 // ViewLogHandler implements slog.Handler, and proxies calls to either a pre-existing log handler,
@@ -15,29 +15,32 @@ import (
 type ViewLogHandler struct {
 	originalHandler slog.Handler
 	viewHandler     slog.Handler
-	w               io.Writer
 }
 
 func NewViewLogHandler(
 	originalHandler slog.Handler,
 	w io.Writer,
 ) *ViewLogHandler {
-	viewLogHandler := &ViewLogHandler{
+	return &ViewLogHandler{
 		originalHandler: originalHandler,
-		w:               tview.ANSIWriter(w),
+		// TODO try to fetch TerminalHandlerOptions parameters from given handler
+		viewHandler: log.NewTerminalTreeHandler(
+			w,
+			// tview.ANSIWriter(w),
+			&log.TerminalHandlerOptions{
+				HandlerOptions: slog.HandlerOptions{
+					// AddSource: ,
+					Level: slog.Level(math.MinInt),
+					// ReplaceAttr: ,
+				},
+				DisableGroupEmoji: true,
+				// TimeLayout: ,
+				// NoColor: true,
+				ForceColor: true,
+				// ColorScheme: ,
+			},
+		),
 	}
-	// TODO try to fetch TerminalHandlerOptions parameters from given handler
-	viewLogHandler.viewHandler = log.NewTerminalLineHandler(viewLogHandler, &log.TerminalHandlerOptions{
-		HandlerOptions: slog.HandlerOptions{
-			// AddSource: ,
-			Level: slog.Level(math.MinInt),
-			// ReplaceAttr: ,
-		},
-		// TimeLayout: ,
-		ForceColor: true,
-		// ColorScheme: ,
-	})
-	return viewLogHandler
 }
 
 func (h *ViewLogHandler) Enabled(ctx context.Context, level slog.Level) bool {
@@ -45,7 +48,10 @@ func (h *ViewLogHandler) Enabled(ctx context.Context, level slog.Level) bool {
 }
 
 func (h *ViewLogHandler) Handle(ctx context.Context, record slog.Record) error {
-	return h.viewHandler.Handle(ctx, record)
+	return errors.Join(
+		h.originalHandler.Handle(ctx, record),
+		h.viewHandler.Handle(ctx, record),
+	)
 }
 
 func (h *ViewLogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
@@ -60,8 +66,4 @@ func (h *ViewLogHandler) WithGroup(name string) slog.Handler {
 		originalHandler: h.originalHandler.WithGroup(name),
 		viewHandler:     h.viewHandler.WithGroup(name),
 	}
-}
-
-func (h *ViewLogHandler) Write(b []byte) (int, error) {
-	return h.w.Write(b)
 }

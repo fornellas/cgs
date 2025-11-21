@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"time"
 
 	"github.com/fornellas/slogxt/log"
@@ -15,7 +16,7 @@ import (
 )
 
 type MessageProcessor interface {
-	ProcessMessage(message grblMod.Message)
+	ProcessMessage(ctx context.Context, message grblMod.Message)
 }
 
 type ControlOptions struct {
@@ -40,6 +41,7 @@ func NewControl(grbl *grblMod.Grbl, options *ControlOptions) *Control {
 }
 
 func (c *Control) statusQueryWorker(ctx context.Context) error {
+	logger := log.MustLogger(ctx).WithGroup("statusQueryWorker")
 	for {
 		select {
 		case <-ctx.Done():
@@ -47,10 +49,13 @@ func (c *Control) statusQueryWorker(ctx context.Context) error {
 			if errors.Is(err, context.Canceled) {
 				err = nil
 			}
+			logger.Debug("Exiting", "err", err)
 			return err
-		case <-time.After(200 * time.Millisecond):
+		case <-time.After(1000 * time.Millisecond):
 			if err := c.grbl.SendRealTimeCommand(grblMod.RealTimeCommandStatusReportQuery); err != nil {
-				return fmt.Errorf("failed to send periodic status query real-time command: %w", err)
+				err := fmt.Errorf("failed to send periodic status query real-time command: %w", err)
+				logger.Debug("Exiting", "err", err)
+				return err
 			}
 		}
 	}
@@ -61,6 +66,7 @@ func (c *Control) messageProcessorWorker(
 	pushMessageCh chan grblMod.Message,
 	messageProcessors ...MessageProcessor,
 ) error {
+	logger := log.MustLogger(ctx).WithGroup("messageProcessorWorker")
 	for {
 		select {
 		case <-ctx.Done():
@@ -68,11 +74,17 @@ func (c *Control) messageProcessorWorker(
 			if errors.Is(err, context.Canceled) {
 				err = nil
 			}
+			logger.Debug("Exiting", "err", err)
 			return err
 		case message, ok := <-pushMessageCh:
 			if !ok {
-				return fmt.Errorf("push message channel closed")
+				err := fmt.Errorf("push message channel closed")
+				logger.Debug("Exiting", "err", err)
+				return err
 			}
+
+			msgLogger := logger.WithGroup("Message").With("message", message, "type", reflect.TypeOf(message))
+			msgLogger.Debug("Received")
 
 			if _, ok := message.(*grblMod.MessagePushAlarm); ok {
 				// Grbl can generate an alarm push message, but then stop answering to real time
@@ -89,14 +101,16 @@ func (c *Control) messageProcessorWorker(
 			}
 
 			for _, messageProcessor := range messageProcessors {
-				messageProcessor.ProcessMessage(message)
+				msgLogger.Debug("Processor", "type", reflect.TypeOf(messageProcessor))
+				messageProcessor.ProcessMessage(ctx, message)
 			}
+			msgLogger.Debug("Done")
 		}
 	}
 }
 
 func (c *Control) Run(ctx context.Context) (err error) {
-	logger := log.MustLogger(ctx)
+	ctx, logger := log.MustWithGroup(ctx, "Control.Run")
 
 	logger.Info("Connecting")
 	pushMessageCh, err := c.grbl.Connect(ctx)
@@ -109,13 +123,14 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	app := tview.NewApplication()
 	app.EnableMouse(true)
 
-	logsPrimitive := NewLogsPrimitive(app)
+	logsPrimitive := NewLogsPrimitive(ctx, app)
 	logger = slog.New(NewViewLogHandler(logger.Handler(), logsPrimitive))
 	ctx = log.WithLogger(ctx, logger)
 
-	statusPrimitive := NewStatusPrimitive(c.grbl, app)
+	statusPrimitive := NewStatusPrimitive(ctx, c.grbl, app)
 
 	controlPrimitive := NewControlPrimitive(
+		ctx,
 		c.grbl,
 		pushMessageCh,
 		app,
@@ -125,20 +140,23 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		!c.options.DisplayStatusComms,
 	)
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		_, logger := log.MustWithGroup(ctx, "app.InputCapture")
+		logger.Debug("Called", "event", event)
 		if event.Key() == tcell.KeyCtrlX {
+			logger.Debug("QueueRealTimeCommand SoftReset")
 			controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset)
 			return nil
 		}
 		return event
 	})
 
-	overridesPrimitive := NewOverridesPrimitive(app, controlPrimitive)
+	overridesPrimitive := NewOverridesPrimitive(ctx, app, controlPrimitive)
 
-	joggingPrimitive := NewJoggingPrimitive(app, controlPrimitive)
+	joggingPrimitive := NewJoggingPrimitive(ctx, app, controlPrimitive)
 
 	rootPrimitive := NewRootPrimitive(
+		ctx,
 		app,
-		c.grbl,
 		statusPrimitive,
 		controlPrimitive,
 		overridesPrimitive,
@@ -147,32 +165,42 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	)
 	app.SetRoot(rootPrimitive, true)
 
-	logger = slog.New(NewViewLogHandler(logger.Handler(), logsPrimitive))
-	ctx = log.WithLogger(ctx, logger)
-
 	sendCommandWorkerErrCh := make(chan error, 1)
 	go func() {
-		defer cancelFn()
-		defer app.Stop()
+		ctx, logger := log.MustWithGroup(ctx, "go RunSendCommandWorker")
+		defer func() {
+			logger.Debug("Stopping app")
+			app.Stop()
+		}()
+		logger.Debug("Starting")
 		sendCommandWorkerErrCh <- controlPrimitive.RunSendCommandWorker(ctx)
 	}()
 
 	sendRealTimeCommandWorkerErrCh := make(chan error, 1)
 	go func() {
-		defer cancelFn()
-		defer app.Stop()
+		ctx, logger := log.MustWithGroup(ctx, "go RunSendRealTimeCommandWorker")
+		defer func() {
+			logger.Debug("Stopping app")
+			app.Stop()
+		}()
+		logger.Debug("Starting")
 		sendRealTimeCommandWorkerErrCh <- controlPrimitive.RunSendRealTimeCommandWorker(ctx)
 	}()
 
-	pushMessageErrCh := make(chan error, 1)
+	messageProcessorWorkerErrCh := make(chan error, 1)
 	go func() {
-		defer cancelFn()
-		defer app.Stop()
+		ctx, logger := log.MustWithGroup(ctx, "go messageProcessorWorker")
+		defer func() {
+			logger.Debug("Stopping app")
+			app.Stop()
+		}()
+		logger.Debug("Sending G-Code commands")
 		// Sending $G enables tracking of G-Code parsing state
 		controlPrimitive.QueueCommand("$G")
 		// Sending $G enables tracking of G-Code parameters
 		controlPrimitive.QueueCommand("$#")
-		pushMessageErrCh <- c.messageProcessorWorker(
+		logger.Debug("Starting")
+		messageProcessorWorkerErrCh <- c.messageProcessorWorker(
 			ctx,
 			pushMessageCh,
 			statusPrimitive,
@@ -181,22 +209,35 @@ func (c *Control) Run(ctx context.Context) (err error) {
 			joggingPrimitive,
 			rootPrimitive,
 		)
+		// TODO disconnect
 	}()
 
 	statusQueryErrCh := make(chan error, 1)
 	go func() {
-		defer cancelFn()
-		defer app.Stop()
+		ctx, logger := log.MustWithGroup(ctx, "go statusQueryWorker")
+		defer func() {
+			logger.Debug("Stopping app")
+			app.Stop()
+		}()
+		logger.Debug("Start")
 		statusQueryErrCh <- c.statusQueryWorker(ctx)
 	}()
 
 	defer func() {
+		_, logger := log.MustWithGroup(ctx, "go exit")
+		logger.Debug("Cancelling context")
 		cancelFn()
-		err = errors.Join(err, <-sendCommandWorkerErrCh)
-		err = errors.Join(err, <-sendRealTimeCommandWorkerErrCh)
-		err = errors.Join(err, <-pushMessageErrCh)
+		logger.Debug("Waiting for statusQueryErrCh")
 		err = errors.Join(err, <-statusQueryErrCh)
+		logger.Debug("Waiting for sendCommandWorkerErrCh")
+		err = errors.Join(err, <-sendCommandWorkerErrCh)
+		logger.Debug("Waiting for sendRealTimeCommandWorkerErrCh")
+		err = errors.Join(err, <-sendRealTimeCommandWorkerErrCh)
+		logger.Debug("Waiting for messageProcessorWorkerErrCh")
+		err = errors.Join(err, <-messageProcessorWorkerErrCh)
+		logger.Debug("Disconnecting")
 		err = errors.Join(err, c.grbl.Disconnect())
+		logger.Debug("Done")
 	}()
 
 	return app.Run()

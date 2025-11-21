@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -29,7 +30,7 @@ var RootCmd = &cobra.Command{
 	Use:   "cgs",
 	Short: "CLI G-Code Sender",
 	Args:  cobra.NoArgs,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Inspired by https://github.com/spf13/viper/issues/671#issuecomment-671067523
 		v := viper.New()
 		v.SetEnvPrefix("CGS")
@@ -41,10 +42,16 @@ var RootCmd = &cobra.Command{
 			}
 		})
 
-		logger := slogxtCobra.GetLogger(cmd.OutOrStderr()).
+		logFile, err := os.OpenFile("log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(0644))
+		if err != nil {
+			return err
+		}
+
+		logger := slogxtCobra.GetLogger(logFile).
 			WithGroup(getCmdChainStr(cmd))
 		ctx := log.WithLogger(cmd.Context(), logger)
 		cmd.SetContext(ctx)
+		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := cmd.Help(); err != nil {

@@ -1,6 +1,7 @@
 package control
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/rivo/tview"
@@ -31,6 +32,7 @@ type OverridesPrimitive struct {
 }
 
 func NewOverridesPrimitive(
+	ctx context.Context,
 	app *tview.Application,
 	controlPrimitive *ControlPrimitive,
 ) *OverridesPrimitive {
@@ -187,7 +189,7 @@ func (op *OverridesPrimitive) processMessagePushStatusReport(
 	})
 }
 
-func (op *OverridesPrimitive) ProcessMessage(message grblMod.Message) {
+func (op *OverridesPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
 	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
 		op.processMessagePushStatusReport(messagePushStatusReport)
 		return
