@@ -19,6 +19,7 @@ type Grbl struct {
 	workCoordinateOffset       *StatusReportWorkCoordinateOffset
 	overrideValues             *StatusReportOverrideValues
 	gcodeParameters            *GcodeParameters
+	accessoryState             *StatusReportAccessoryState
 	receiveCtxCancel           context.CancelFunc
 	pushMessageCh              chan Message
 	responseMessageCh          chan Message
@@ -32,6 +33,7 @@ func NewGrbl(openPortFn func(*serial.Mode) (serial.Port, error)) *Grbl {
 	return g
 }
 
+//gocyclo:ignore
 func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
 	line := []byte{}
 	for {
@@ -66,6 +68,7 @@ func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
 		g.workCoordinateOffset = nil
 		g.overrideValues = nil
 		g.gcodeParameters = &GcodeParameters{}
+		g.accessoryState = nil
 	}
 
 	if messagePushStatusReport, ok := message.(*MessagePushStatusReport); ok {
@@ -74,6 +77,9 @@ func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
 		}
 		if messagePushStatusReport.OverrideValues != nil {
 			g.overrideValues = messagePushStatusReport.OverrideValues
+		}
+		if messagePushStatusReport.AccessoryState != nil {
+			g.accessoryState = messagePushStatusReport.AccessoryState
 		}
 	}
 
@@ -176,6 +182,7 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 	g.workCoordinateOffset = nil
 	g.overrideValues = nil
 	g.gcodeParameters = &GcodeParameters{}
+	g.accessoryState = nil
 
 	var receiveCtx context.Context
 	receiveCtx, g.receiveCtxCancel = context.WithCancel(ctx)
@@ -213,6 +220,14 @@ func (g *Grbl) GetGcodeParameters() *GcodeParameters {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.gcodeParameters
+}
+
+// AccessoryState returns the newest value received via a push message status report.
+// Returns nil if no previous message was received.
+func (g *Grbl) AccessoryState() *StatusReportAccessoryState {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.accessoryState
 }
 
 // SendRealTimeCommand issues a real time command to Grbl.
@@ -488,6 +503,7 @@ func (g *Grbl) Disconnect() (err error) {
 	g.workCoordinateOffset = nil
 	g.overrideValues = nil
 	g.gcodeParameters = &GcodeParameters{}
+	g.accessoryState = nil
 	g.receiveCtxCancel = nil
 	g.pushMessageCh = nil
 	g.responseMessageCh = nil

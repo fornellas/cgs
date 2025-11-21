@@ -216,7 +216,7 @@ func (sp *StatusPrimitive) updateStatusTextView(
 	}
 
 	if statusReport.LineNumber != nil {
-		fmt.Fprintf(sp.statusTextView, "\nLine:%d\n", *statusReport.LineNumber)
+		fmt.Fprintf(sp.statusTextView, "\n\nLine:%d\n", *statusReport.LineNumber)
 	}
 
 	if statusReport.Feed != nil {
@@ -224,9 +224,6 @@ func (sp *StatusPrimitive) updateStatusTextView(
 	}
 
 	if statusReport.FeedSpindle != nil {
-		if statusReport.FeedSpindle.Feed != 0 || statusReport.FeedSpindle.Speed != 0 {
-			fmt.Fprint(sp.statusTextView, "\n")
-		}
 		if statusReport.FeedSpindle.Feed != 0 {
 			fmt.Fprintf(sp.statusTextView, "\nFeed:%.0f\n", statusReport.FeedSpindle.Feed)
 		}
@@ -253,18 +250,19 @@ func (sp *StatusPrimitive) updateStatusTextView(
 		}
 	}
 
-	if statusReport.AccessoryState != nil {
+	accessoryState := sp.grbl.AccessoryState()
+	if accessoryState != nil {
 		fmt.Fprint(sp.statusTextView, "\nAccessory\n")
-		if statusReport.AccessoryState.SpindleCW != nil && *statusReport.AccessoryState.SpindleCW {
+		if accessoryState.SpindleCW != nil && *accessoryState.SpindleCW {
 			fmt.Fprint(sp.statusTextView, "Spindle: CW")
 		}
-		if statusReport.AccessoryState.SpindleCCW != nil && *statusReport.AccessoryState.SpindleCCW {
+		if accessoryState.SpindleCCW != nil && *accessoryState.SpindleCCW {
 			fmt.Fprint(sp.statusTextView, "Spindle: CCW")
 		}
-		if statusReport.AccessoryState.FloodCoolant != nil && *statusReport.AccessoryState.FloodCoolant {
+		if accessoryState.FloodCoolant != nil && *accessoryState.FloodCoolant {
 			fmt.Fprint(sp.statusTextView, "Flood Coolant")
 		}
-		if statusReport.AccessoryState.MistCoolant != nil && *statusReport.AccessoryState.MistCoolant {
+		if accessoryState.MistCoolant != nil && *accessoryState.MistCoolant {
 			fmt.Fprint(sp.statusTextView, "Mist Coolant")
 		}
 	}

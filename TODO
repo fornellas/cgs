@@ -4,6 +4,10 @@ Bugs
     Status panel "flickers" every 10-20s
     App.Stop() may be called from defer when the app failed to start, resoulting in segfault
         Can use SetAfterDrawFunc to identify successful start
+    virtual status report: Home
+        When it is in alarm state (ie: hit limit switch), grbl is waiting for reset
+            [MSG:Reset to continue]
+                but the virtual state will be changed to Home
 Features
     Jogging
     Stream
