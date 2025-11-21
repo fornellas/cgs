@@ -1,5 +1,9 @@
 shell.go
     control
+        random crashes
+            it is not panic
+            add debug logging everywhere, ensure logs go to file
+            play around with home, jog, cancel, sleep, reset etc, until it crashes
         Change ScrollToEnd
             Only if current view is at the end of the text
             if not, change color to indicate there's new text

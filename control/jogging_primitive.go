@@ -7,14 +7,14 @@ package control
 //  Required:
 // 		F$f
 //  Optional:
-//  	[G20|G21] Inches/Milimiters
+//  	[G20|G21] Inches/Millimeters
 // 		[G90|G91] Absolute/Incremental
 // 		G53 Machine Coordinates
 
 import (
 	"bytes"
 	"fmt"
-	"math"
+	"slices"
 	"strconv"
 
 	"github.com/rivo/tview"
@@ -24,17 +24,30 @@ import (
 
 type JoggingPrimitive struct {
 	*tview.Flex
-	app              *tview.Application
-	controlPrimitive *ControlPrimitive
+	app                        *tview.Application
+	controlPrimitive           *ControlPrimitive
+	xInputField                *tview.InputField
+	yInputField                *tview.InputField
+	zInputField                *tview.InputField
+	unitOptions                []string
+	unitDropDown               *tview.DropDown
+	distanceModeOptions        []string
+	distanceModeDropDown       *tview.DropDown
+	feedRateInputField         *tview.InputField
+	machineCoordinatesCheckbox *tview.Checkbox
+	jogParametersButton        *tview.Button
+	cancelButton               *tview.Button
 }
 
 func NewJoggingPrimitive(
 	app *tview.Application,
 	controlPrimitive *ControlPrimitive,
 ) *JoggingPrimitive {
-	joggingPrimitive := &JoggingPrimitive{
-		app:              app,
-		controlPrimitive: controlPrimitive,
+	jp := &JoggingPrimitive{
+		app:                 app,
+		controlPrimitive:    controlPrimitive,
+		unitOptions:         []string{"Inches", "Millimeters"},
+		distanceModeOptions: []string{"Absolute", "Incremental"},
 	}
 
 	acceptFloatFn := func(textToCheck string, lastChar rune) bool {
@@ -54,97 +67,27 @@ func NewJoggingPrimitive(
 	// joystickFlex.AddItem(joystickGrid, 0, 1, false)
 
 	parametersForm := tview.NewForm()
-	width := len("100.0000")
-	var err error
-	var x, y, z float64
-	parametersForm.AddInputField("X", "", width, acceptFloatFn, func(text string) {
-		x, err = strconv.ParseFloat(text, 64)
-		if err != nil {
-			x = math.NaN()
-		}
-	})
-	parametersForm.AddInputField("Y", "", width, acceptFloatFn, func(text string) {
-		y, err = strconv.ParseFloat(text, 64)
-		if err != nil {
-			y = math.NaN()
-		}
-	})
-	parametersForm.AddInputField("Z", "", width, acceptFloatFn, func(text string) {
-		z, err = strconv.ParseFloat(text, 64)
-		if err != nil {
-			z = math.NaN()
-		}
-	})
-	// TODO fetch from current gcode parser
-	var unitWord string
-	parametersForm.AddDropDown("Unit", []string{"Inches", "Milimiters"}, 0, func(option string, optionIndex int) {
-		switch option {
-		case "Inches":
-			unitWord = "G20"
-		case "Milimiters":
-			unitWord = "G21"
-		default:
-			panic(fmt.Sprintf("bug: bad unit option: %#v", option))
-		}
-	})
-	// TODO fetch from current gcode parser
-	var distanceModeWord string
-	parametersForm.AddDropDown("Distance mode", []string{"Absolute", "Incremental"}, 0, func(option string, optionIndex int) {
-		switch option {
-		case "Absolute":
-			unitWord = "G90"
-		case "Incremental":
-			unitWord = "G91"
-		default:
-			panic(fmt.Sprintf("bug: bad unit option: %#v", option))
-		}
-	})
-	// TODO fetch from current gcode parser
-	var feedRate float64
-	parametersForm.AddInputField("Feed rate", "", width, acceptFloatFn, func(text string) {
-		feedRate, err = strconv.ParseFloat(text, 64)
-		if err != nil {
-			feedRate = math.NaN()
-		}
-	})
-	// TODO disable if distance mode is incremental
-	var machineCoordinatesWord string
-	parametersForm.AddCheckbox("Machine Coordinates", false, func(checked bool) {
-		if checked {
-			machineCoordinatesWord = "G53"
-		} else {
-			machineCoordinatesWord = ""
-		}
-	})
-	parametersForm.AddButton("Jog", func() {
-		var buf bytes.Buffer
-		fmt.Fprintf(&buf, "$J=")
-		var hasCoordinate bool
-		if !math.IsNaN(x) {
-			fmt.Fprintf(&buf, "X%.4f", x)
-			hasCoordinate = true
-		}
-		if !math.IsNaN(y) {
-			fmt.Fprintf(&buf, "Y%.4f", y)
-			hasCoordinate = true
-		}
-		if !math.IsNaN(z) {
-			fmt.Fprintf(&buf, "Z%.4f", z)
-			hasCoordinate = true
-		}
-		if !hasCoordinate {
-			return
-		}
-		fmt.Fprintf(&buf, "%s%s", unitWord, distanceModeWord)
-		if math.IsNaN(feedRate) {
-			return
-		}
-		fmt.Fprintf(&buf, "F%.4f%s", feedRate, machineCoordinatesWord)
-		controlPrimitive.QueueCommand(buf.String())
-	})
+	const width = len("100.0000")
+	parametersForm.AddInputField("X", "", width, acceptFloatFn, nil)
+	jp.xInputField = parametersForm.GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
+	parametersForm.AddInputField("Y", "", width, acceptFloatFn, nil)
+	jp.yInputField = parametersForm.GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
+	parametersForm.AddInputField("Z", "", width, acceptFloatFn, nil)
+	jp.zInputField = parametersForm.GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
+	parametersForm.AddDropDown("Unit", jp.unitOptions, -1, nil)
+	jp.unitDropDown = parametersForm.GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.DropDown)
+	parametersForm.AddDropDown("Distance mode", jp.distanceModeOptions, -1, nil)
+	jp.distanceModeDropDown = parametersForm.GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.DropDown)
+	parametersForm.AddInputField("Feed rate", "", width, acceptFloatFn, nil)
+	jp.feedRateInputField = parametersForm.GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
+	parametersForm.AddCheckbox("Machine Coordinates", false, nil)
+	jp.machineCoordinatesCheckbox = parametersForm.GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.Checkbox)
+	parametersForm.AddButton("Jog", jp.jog)
+	jp.jogParametersButton = parametersForm.GetButton(parametersForm.GetButtonCount() - 1)
 	parametersForm.AddButton("Cancel", func() {
 		controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandJogCancel)
 	})
+	jp.cancelButton = parametersForm.GetButton(parametersForm.GetButtonCount() - 1)
 
 	parametersFlex := tview.NewFlex()
 	parametersFlex.SetBorder(true)
@@ -157,41 +100,167 @@ func NewJoggingPrimitive(
 	joggingFlex.SetDirection(tview.FlexColumn)
 	joggingFlex.AddItem(joystickFlex, 0, 1, false)
 	joggingFlex.AddItem(parametersFlex, 0, 1, false)
-	joggingPrimitive.Flex = joggingFlex
+	jp.Flex = joggingFlex
 
-	return joggingPrimitive
+	return jp
 }
 
-func (op *JoggingPrimitive) processMessagePushStatusReport(
+func (jp *JoggingPrimitive) jog() {
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "$J=")
+	var err error
+
+	var hasCoordinate bool
+
+	printWord := func(value, letter string) bool {
+		if len(value) == 0 {
+			return false
+		}
+		v, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			panic(fmt.Sprintf("bug: parsing not expected to fail: %s", err))
+		}
+		fmt.Fprintf(&buf, "%s%.4f", letter, v)
+		return true
+	}
+
+	if printWord(jp.xInputField.GetText(), "X") {
+		hasCoordinate = true
+	}
+	if printWord(jp.yInputField.GetText(), "Y") {
+		hasCoordinate = true
+	}
+	if printWord(jp.zInputField.GetText(), "Z") {
+		hasCoordinate = true
+	}
+	if !hasCoordinate {
+		err = fmt.Errorf("missing at least one of X, Y or Z")
+	}
+
+	var unitWord string
+	_, unit := jp.unitDropDown.GetCurrentOption()
+	switch unit {
+	case "Inches":
+		unitWord = "G20"
+	case "Millimeters":
+		unitWord = "G21"
+	default:
+		panic(fmt.Sprintf("bug: bad unit option: %#v", unit))
+	}
+	fmt.Fprintf(&buf, "%s", unitWord)
+
+	var distanceModeWord string
+	_, distanceMode := jp.distanceModeDropDown.GetCurrentOption()
+	switch distanceMode {
+	case "Absolute":
+		distanceModeWord = "G90"
+	case "Incremental":
+		distanceModeWord = "G91"
+	default:
+		panic(fmt.Sprintf("bug: bad distanceMode option: %#v", distanceMode))
+	}
+	fmt.Fprintf(&buf, "%s", distanceModeWord)
+
+	if !printWord(jp.feedRateInputField.GetText(), "F") {
+		err = fmt.Errorf("missing feed rate")
+	}
+
+	if err != nil {
+		// TODO report error
+		return
+	}
+
+	jp.controlPrimitive.QueueCommand(buf.String())
+}
+
+func (jp *JoggingPrimitive) processMessagePushGcodeState(
+	messagePushGcodeState *grblMod.MessagePushGcodeState,
+) {
+	jp.app.QueueUpdateDraw(func() {
+		modalGroup := messagePushGcodeState.ModalGroup
+		if modalGroup != nil {
+			units := modalGroup.Units
+			if units != nil {
+				if n, _ := jp.unitDropDown.GetCurrentOption(); n < 0 {
+					switch units.NormalizedString() {
+					case "G20":
+						jp.unitDropDown.SetCurrentOption(slices.Index(jp.unitOptions, "Inches"))
+					case "G21":
+						jp.unitDropDown.SetCurrentOption(slices.Index(jp.unitOptions, "Millimeters"))
+					}
+				}
+			}
+			// distanceModeDropDown
+			distanceMode := modalGroup.DistanceMode
+			if distanceMode != nil {
+				if n, _ := jp.distanceModeDropDown.GetCurrentOption(); n < 0 {
+					switch distanceMode.NormalizedString() {
+					case "G90":
+						jp.distanceModeDropDown.SetCurrentOption(slices.Index(jp.distanceModeOptions, "Absolute"))
+					case "G91":
+						jp.distanceModeDropDown.SetCurrentOption(slices.Index(jp.distanceModeOptions, "Incremental"))
+					}
+				}
+			}
+		}
+		// TODO initial feedRate to min of
+		// $110, $111 and $112 – [X,Y,Z] Max rate, mm/min
+		// jp.feedRateInputField.SetText(fmt.Sprintf("%.4f", feedRate))
+	})
+}
+
+func (jp *JoggingPrimitive) processMessagePushStatusReport(
 	messagePushStatusReport *grblMod.MessagePushStatusReport,
 ) {
-	switch messagePushStatusReport.MachineState.State {
-	case "Idle":
-	// TODO disable/enable
-	case "Run":
-	// TODO disable/enable
-	case "Hold":
-	// TODO disable/enable
-	case "Jog":
-	// TODO disable/enable
-	case "Alarm":
-	// TODO disable/enable
-	case "Door":
-	// TODO disable/enable
-	case "Check":
-	// TODO disable/enable
-	case "Home":
-	// TODO disable/enable
-	case "Sleep":
-	// TODO disable/enable
-	default:
-		panic(fmt.Sprintf("unknown machine state: %#v", messagePushStatusReport.MachineState.State))
-	}
+	jp.app.ForceDraw().QueueUpdateDraw(func() {
+		switch messagePushStatusReport.MachineState.State {
+		case "Idle":
+			jp.xInputField.SetDisabled(false)
+			jp.yInputField.SetDisabled(false)
+			jp.zInputField.SetDisabled(false)
+			jp.unitDropDown.SetDisabled(false)
+			jp.distanceModeDropDown.SetDisabled(false)
+			jp.feedRateInputField.SetDisabled(false)
+			if _, option := jp.distanceModeDropDown.GetCurrentOption(); option == "Incremental" {
+				jp.machineCoordinatesCheckbox.SetDisabled(true)
+			} else {
+				jp.machineCoordinatesCheckbox.SetDisabled(false)
+			}
+			jp.jogParametersButton.SetDisabled(false)
+			jp.cancelButton.SetDisabled(true)
+		case "Jog":
+			jp.xInputField.SetDisabled(true)
+			jp.yInputField.SetDisabled(true)
+			jp.zInputField.SetDisabled(true)
+			jp.unitDropDown.SetDisabled(true)
+			jp.distanceModeDropDown.SetDisabled(true)
+			jp.feedRateInputField.SetDisabled(true)
+			jp.machineCoordinatesCheckbox.SetDisabled(true)
+			jp.jogParametersButton.SetDisabled(true)
+			jp.cancelButton.SetDisabled(false)
+		case "Run", "Hold", "Alarm", "Door", "Check", "Home", "Sleep":
+			jp.xInputField.SetDisabled(true)
+			jp.yInputField.SetDisabled(true)
+			jp.zInputField.SetDisabled(true)
+			jp.unitDropDown.SetDisabled(true)
+			jp.distanceModeDropDown.SetDisabled(true)
+			jp.feedRateInputField.SetDisabled(true)
+			jp.machineCoordinatesCheckbox.SetDisabled(true)
+			jp.jogParametersButton.SetDisabled(true)
+			jp.cancelButton.SetDisabled(true)
+		default:
+			panic(fmt.Sprintf("unknown machine state: %#v", messagePushStatusReport.MachineState.State))
+		}
+	})
 }
 
-func (op *JoggingPrimitive) ProcessMessage(message grblMod.Message) {
+func (jp *JoggingPrimitive) ProcessMessage(message grblMod.Message) {
+	if messagePushGcodeState, ok := message.(*grblMod.MessagePushGcodeState); ok {
+		jp.processMessagePushGcodeState(messagePushGcodeState)
+		return
+	}
 	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-		op.processMessagePushStatusReport(messagePushStatusReport)
+		jp.processMessagePushStatusReport(messagePushStatusReport)
 		return
 	}
 }

@@ -38,7 +38,7 @@ var wordToName = map[string]string{
 	"G93":   "Feed Rate Mode Inverse Time",
 	"G94":   "Feed Rate Mode Units per Minute",
 	"G20":   "Unit Inches",
-	"G21":   "Unit Milimiters",
+	"G21":   "Unit Millimeters",
 	"G40":   "Compensation Off",
 	"G41":   "Cutter Compensation Left",
 	"G42":   "Cutter Compensation Right",
