@@ -18,19 +18,16 @@ type RootPrimitive struct {
 	overridesPrimitive *OverridesPrimitive
 	joggingPrimitive   *JoggingPrimitive
 	logsPrimitive      *LogsPrimitive
-	// Common
-	feedbackTextView *tview.TextView
-	homeButton       *tview.Button
-	unlockButton     *tview.Button
-	resetButton      *tview.Button
-	checkButton      *tview.Button
-	doorButton       *tview.Button
-	sleepButton      *tview.Button
-	helpButton       *tview.Button
-	holdButton       *tview.Button
-	resumeButton     *tview.Button
-
-	machineState *grblMod.StatusReportMachineState
+	feedbackTextView   *tview.TextView
+	homeButton         *tview.Button
+	unlockButton       *tview.Button
+	resetButton        *tview.Button
+	checkButton        *tview.Button
+	doorButton         *tview.Button
+	sleepButton        *tview.Button
+	helpButton         *tview.Button
+	holdButton         *tview.Button
+	resumeButton       *tview.Button
 }
 
 func NewRootPrimitive(
@@ -54,31 +51,31 @@ func NewRootPrimitive(
 	rp.newFeedbackTextView()
 	rp.homeButton = tview.NewButton("Home").SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueCommand("$H")
-	})
+	}).SetDisabled(true)
 	rp.unlockButton = tview.NewButton("Unlock").SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueCommand("$X")
-	})
+	}).SetDisabled(true)
 	rp.resetButton = tview.NewButton("Reset").SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset)
-	})
+	}).SetDisabled(true)
 	rp.checkButton = tview.NewButton("Check").SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueCommand("$C")
-	})
+	}).SetDisabled(true)
 	rp.doorButton = tview.NewButton("Door").SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSafetyDoor)
-	})
+	}).SetDisabled(true)
 	rp.sleepButton = tview.NewButton("Sleep").SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueCommand("$SLP")
-	})
+	}).SetDisabled(true)
 	rp.helpButton = tview.NewButton("Help").SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueCommand("$")
-	})
+	}).SetDisabled(true)
 	rp.holdButton = tview.NewButton("Hold").SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedHold)
-	})
+	}).SetDisabled(true)
 	rp.resumeButton = tview.NewButton("Resume").SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandCycleStartResume)
-	})
+	}).SetDisabled(true)
 
 	rp.newRootFlex()
 
@@ -91,10 +88,7 @@ func (rp *RootPrimitive) newFeedbackTextView() {
 		SetScrollable(true).
 		SetWrap(true)
 	textView.SetTitle("Feedback Message")
-	textView.SetChangedFunc(func() {
-		textView.ScrollToEnd()
-		rp.app.Draw()
-	})
+	textView.SetChangedFunc(func() {})
 	rp.feedbackTextView = textView
 }
 
@@ -216,9 +210,9 @@ func (rp *RootPrimitive) newRootFlex() {
 	rp.Flex = rootFlex
 }
 
-func (rp *RootPrimitive) updateDisabled() {
+func (rp *RootPrimitive) setMachineState(machineState *grblMod.StatusReportMachineState) {
 	rp.app.QueueUpdateDraw(func() {
-		if rp.machineState == nil {
+		if machineState == nil {
 			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(true)
@@ -230,7 +224,7 @@ func (rp *RootPrimitive) updateDisabled() {
 			rp.resumeButton.SetDisabled(true)
 			return
 		}
-		switch rp.machineState.State {
+		switch machineState.State {
 		case "Idle":
 			rp.homeButton.SetDisabled(false)
 			rp.unlockButton.SetDisabled(true)
@@ -322,12 +316,13 @@ func (rp *RootPrimitive) updateDisabled() {
 			rp.holdButton.SetDisabled(true)
 			rp.resumeButton.SetDisabled(true)
 		default:
-			panic(fmt.Errorf("unknown state: %s", rp.machineState.State))
+			panic(fmt.Errorf("unknown state: %s", machineState.State))
 		}
 	})
 }
 
 func (rp *RootPrimitive) processMessagePushWelcome() {
+	rp.setMachineState(nil)
 	rp.app.QueueUpdateDraw(func() {
 		rp.feedbackTextView.SetText("")
 	})
@@ -367,8 +362,7 @@ func (rp *RootPrimitive) processMessagePushFeedback(
 func (rp *RootPrimitive) processMessagePushStatusReport(
 	statusReport *grblMod.MessagePushStatusReport,
 ) {
-	rp.machineState = &statusReport.MachineState
-	rp.updateDisabled()
+	rp.setMachineState(&statusReport.MachineState)
 }
 
 func (rp *RootPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
