@@ -16,6 +16,11 @@ import (
 	grblMod "github.com/fornellas/cgs/grbl"
 )
 
+type worker struct {
+	name  string
+	errCh chan error
+}
+
 type MessageProcessor interface {
 	ProcessMessage(ctx context.Context, message grblMod.Message)
 }
@@ -29,6 +34,7 @@ type ControlOptions struct {
 type Control struct {
 	grbl    *grblMod.Grbl
 	options *ControlOptions
+	workers []worker
 }
 
 func NewControl(grbl *grblMod.Grbl, options *ControlOptions) *Control {
@@ -117,6 +123,35 @@ func (c *Control) messageProcessorWorker(
 		}
 	}
 }
+func (c *Control) startWorker(
+	ctx context.Context,
+	app *tview.Application,
+	name string,
+	fn func(context.Context) error,
+) {
+	_, logger := log.MustWithGroupAttrs(ctx, "Worker", "name", name)
+	errCh := make(chan error, 1)
+	go func() {
+		defer func() {
+			app.Stop()
+			logger.Debug("Stopped")
+		}()
+		logger.Debug("Starting")
+		errCh <- fn(ctx)
+	}()
+	c.workers = append([]worker{{name: name, errCh: errCh}}, c.workers...)
+}
+
+func (c *Control) waitForWorkers(ctx context.Context) (err error) {
+	_, logger := log.MustWithGroupAttrs(ctx, "waitForWorkers", "total", len(c.workers))
+	for i, worker := range c.workers {
+		logger.Debug("Waiting for worker", "name", worker.name, "number", i+1)
+		err = errors.Join(err, <-worker.errCh)
+	}
+	logger.Debug("All workers stopped")
+	c.workers = nil
+	return
+}
 
 func (c *Control) Run(ctx context.Context) (err error) {
 	ctx, logger := log.MustWithGroup(ctx, "Control.Run")
@@ -188,8 +223,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	messageProcessors = append(messageProcessors, joggingPrimitive)
 
 	rootPrimitive := NewRootPrimitive(
-		ctx,
-		app,
+		ctx, app,
 		statusPrimitive,
 		controlPrimitive,
 		overridesPrimitive,
@@ -199,67 +233,35 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	app.SetRoot(rootPrimitive, true)
 	messageProcessors = append(messageProcessors, rootPrimitive)
 
-	sendCommandWorkerErrCh := make(chan error, 1)
-	go func() {
-		ctx, logger := log.MustWithGroup(ctx, "go RunSendCommandWorker")
-		defer func() {
-			logger.Debug("Stopping app")
-			app.Stop()
-		}()
-		logger.Debug("Starting")
-		sendCommandWorkerErrCh <- controlPrimitive.RunSendCommandWorker(ctx)
-	}()
+	c.startWorker(
+		ctx, app,
+		"Control.messageProcessorWorker",
+		func(ctx context.Context) error {
+			return c.messageProcessorWorker(
+				ctx, pushMessageCh, controlPrimitive, messageProcessors...,
+			)
+		},
+	)
 
-	sendRealTimeCommandWorkerErrCh := make(chan error, 1)
-	go func() {
-		ctx, logger := log.MustWithGroup(ctx, "go RunSendRealTimeCommandWorker")
-		defer func() {
-			logger.Debug("Stopping app")
-			app.Stop()
-		}()
-		logger.Debug("Starting")
-		sendRealTimeCommandWorkerErrCh <- controlPrimitive.RunSendRealTimeCommandWorker(ctx)
-	}()
+	c.startWorker(
+		ctx, app,
+		"ControlPrimitive.RunSendCommandWorker",
+		controlPrimitive.RunSendCommandWorker,
+	)
 
-	messageProcessorWorkerErrCh := make(chan error, 1)
-	go func() {
-		ctx, logger := log.MustWithGroup(ctx, "go messageProcessorWorker")
-		defer func() {
-			logger.Debug("Stopping app")
-			app.Stop()
-		}()
-		logger.Debug("Starting")
-		messageProcessorWorkerErrCh <- c.messageProcessorWorker(
-			ctx,
-			pushMessageCh,
-			controlPrimitive,
-			messageProcessors...,
-		)
-	}()
+	c.startWorker(
+		ctx, app,
+		"ControlPrimitive.RunSendRealTimeCommandWorker",
+		controlPrimitive.RunSendRealTimeCommandWorker,
+	)
 
-	statusQueryErrCh := make(chan error, 1)
-	go func() {
-		ctx, logger := log.MustWithGroup(ctx, "go statusQueryWorker")
-		defer func() {
-			logger.Debug("Stopping app")
-			app.Stop()
-		}()
-		logger.Debug("Start")
-		statusQueryErrCh <- c.statusQueryWorker(ctx)
-	}()
+	c.startWorker(ctx, app, "Control.statusQueryWorker", c.statusQueryWorker)
 
 	defer func() {
-		_, logger := log.MustWithGroup(ctx, "go exit")
+		_, logger := log.MustWithGroup(ctx, "defer exit")
 		logger.Debug("Cancelling context")
 		cancelFn()
-		logger.Debug("Waiting for statusQueryErrCh")
-		err = errors.Join(err, <-statusQueryErrCh)
-		logger.Debug("Waiting for sendCommandWorkerErrCh")
-		err = errors.Join(err, <-sendCommandWorkerErrCh)
-		logger.Debug("Waiting for sendRealTimeCommandWorkerErrCh")
-		err = errors.Join(err, <-sendRealTimeCommandWorkerErrCh)
-		logger.Debug("Waiting for messageProcessorWorkerErrCh")
-		err = errors.Join(err, <-messageProcessorWorkerErrCh)
+		err = errors.Join(err, c.waitForWorkers(ctx))
 		logger.Debug("Disconnecting")
 		err = errors.Join(err, c.grbl.Disconnect())
 		logger.Debug("Done")

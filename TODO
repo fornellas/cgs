@@ -1,12 +1,12 @@
 Bugs
-    FIXME do not send $G/$# for:
-    $SLP, maybe others
-    Shutdown issues
-        control.RootPrimitive blocks randomly on shutdown (called from messageProcessorWorker)
     Fix logging
         Need to use a logger handler proxy
             before App.Run, send to existing logger
             after App.Run, send to TextView
+    FIXME do not send $G/$# for:
+    $SLP, maybe others
+    Shutdown issues
+        control.RootPrimitive blocks randomly on shutdown (called from messageProcessorWorker)
     TextView logging
         debug why with DisableGroupEmoji=false, it wrecks UI (it looks like there's double last rune for every line that there's an emoji)
     Status panel "flickers" every 10-20s
