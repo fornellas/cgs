@@ -1,5 +1,9 @@
 shell.go
     control
+        Shutdown issues
+            control.RootPrimitive blocks randomly on shutdown (called from messageProcessorWorker)
+        TextView logging
+            debug why with DisableGroupEmoji=false, it wrecks UI (it looks like there's double last rune for every line that there's an emoji)
         FIXME do not send $G/$# for:
 		    $SLP, maybe others
         debug why status panel "flickers" every ~20s with text changes
