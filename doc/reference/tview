@@ -1,14 +1,33 @@
 Concurrency
-    Functions aren't thread safe
+    Many functions aren't thread safe
     Callback functions
-        Concurrent Safe
+        Concurrent safe
             Exceptions documented
-        Must not use Application.QueueUpdate*
+        Must NOT use Application.QueueUpdate*
         Application.Draw called automatically
-    Primitive access from other goroutines
-        Must sync
+    Concurrent Primitive access
+        Must sync go func() { app.QueueUpdateDraw(primitiveAccessFn) }()
             Application.QueueUpdate
             Application.QueueUpdateDraw
     Concurrent safe
-        TextView io.Writer
-        Application.Draw
+        TextView
+            io.Writer
+                MUST use TextView.SetChangedFunc to redraw
+        Application
+            Draw
+                Can DEADLOCK if you call it from the main thread
+                    e.g. in a callback function of a widget
+    Misc
+        TextView
+            SetChangedFunc
+                useful with concurrent io.Writer
+                    writes won't refresh the screen
+                        use this handler to refresh
+                rules
+                    CAN call Application.Draw
+                    CAN call TextView.HasFocus
+                    Access to any other variables
+                        from this primitive
+                            or any other primitive
+                        MUST use
+                            Application.QueueUpdate
