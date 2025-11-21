@@ -98,10 +98,10 @@ func (c *Control) messageProcessorWorker(
 				// Grbl can generate an alarm push message, but then stop answering to real time
 				// commands for status report query. This means that, there are effectively two sources
 				// to look for alarm state.
-				// We generate this pseudo status report push message here, to simplify the rest of the
+				// We generate this virtual status report push message here, to simplify the rest of the
 				// codebase, that only need to look for alarm state in a sigle place.
 				pushMessageCh <- &grblMod.MessagePushStatusReport{
-					Message: "(pseudo status report: Alarm)",
+					Message: "(virtual status report: Alarm)",
 					MachineState: grblMod.StatusReportMachineState{
 						State: "Alarm",
 					},

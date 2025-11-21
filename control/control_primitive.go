@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -34,6 +35,7 @@ type ControlPrimitive struct {
 	gcodeParserTextView        *tview.TextView
 	gcodeParamsTextView        *tview.TextView
 	commandInputField          *tview.InputField
+	mu                         sync.Mutex
 	disableCommandInput        bool
 	machineState               *string
 }
@@ -68,10 +70,11 @@ func NewControlPrimitive(
 		SetWrap(true)
 	commandsTextView.SetBorder(true).SetTitle("Commands")
 	commandsTextView.SetChangedFunc(func() {
-		_, logger := log.MustWithGroup(ctx, "commandsTextView")
-		logger.Debug("SetChangedFunc")
-		commandsTextView.ScrollToEnd()
-		cp.app.Draw()
+		cp.app.QueueUpdate(func() {
+			_, logger := log.MustWithGroup(ctx, "commandsTextView")
+			logger.Debug("SetChangedFunc")
+			commandsTextView.ScrollToEnd()
+		})
 	})
 	cp.commandsTextView = commandsTextView
 
@@ -82,10 +85,11 @@ func NewControlPrimitive(
 		SetWrap(true)
 	pushMessagesTextView.SetBorder(true).SetTitle("Push Messages / Logs")
 	pushMessagesTextView.SetChangedFunc(func() {
-		_, logger := log.MustWithGroup(ctx, "pushMessagesTextView")
-		logger.Debug("SetChangedFunc")
-		pushMessagesTextView.ScrollToEnd()
-		cp.app.Draw()
+		cp.app.QueueUpdate(func() {
+			_, logger := log.MustWithGroup(ctx, "pushMessagesTextView")
+			logger.Debug("SetChangedFunc")
+			pushMessagesTextView.ScrollToEnd()
+		})
 	})
 	cp.pushMessagesTextView = pushMessagesTextView
 
@@ -96,9 +100,10 @@ func NewControlPrimitive(
 		SetWrap(true)
 	gcodeParserTextView.SetBorder(true).SetTitle("G-Code Parser")
 	gcodeParserTextView.SetChangedFunc(func() {
-		_, logger := log.MustWithGroup(ctx, "gcodeParserTextView")
-		logger.Debug("SetChangedFunc")
-		cp.app.Draw()
+		cp.app.QueueUpdate(func() {
+			_, logger := log.MustWithGroup(ctx, "gcodeParserTextView")
+			logger.Debug("SetChangedFunc")
+		})
 	})
 	cp.gcodeParserTextView = gcodeParserTextView
 
@@ -109,15 +114,16 @@ func NewControlPrimitive(
 		SetWrap(true)
 	gcodeParamsTextView.SetBorder(true).SetTitle("G-Code Parameters")
 	gcodeParamsTextView.SetChangedFunc(func() {
-		_, logger := log.MustWithGroup(ctx, "gcodeParamsTextView")
-		logger.Debug("SetChangedFunc")
-		cp.app.Draw()
+		cp.app.QueueUpdate(func() {
+			_, logger := log.MustWithGroup(ctx, "gcodeParamsTextView")
+			logger.Debug("SetChangedFunc")
+		})
 	})
 	cp.gcodeParamsTextView = gcodeParamsTextView
 
 	// Command
-	commandInputField := tview.NewInputField().
-		SetLabel("Command: ")
+	commandInputField := tview.NewInputField()
+	commandInputField.SetLabel("Command: ")
 	commandInputField.SetDoneFunc(func(key tcell.Key) {
 		_, logger := log.MustWithGroup(ctx, "commandInputField")
 		logger.Debug("SetDoneFunc")
@@ -158,40 +164,48 @@ func NewControlPrimitive(
 }
 
 func (cp *ControlPrimitive) updateDisabled() {
-	if cp.disableCommandInput || cp.machineState == nil {
-		cp.commandInputField.SetDisabled(true)
-		return
-	}
-	switch *cp.machineState {
-	case "Idle":
-		cp.commandInputField.SetDisabled(false)
-	case "Run":
-		cp.commandInputField.SetDisabled(true)
-	case "Hold":
-		cp.commandInputField.SetDisabled(true)
-	case "Jog":
-		cp.commandInputField.SetDisabled(true)
-	case "Alarm":
-		cp.commandInputField.SetDisabled(true)
-	case "Door":
-		cp.commandInputField.SetDisabled(true)
-	case "Check":
-		cp.commandInputField.SetDisabled(false)
-	case "Home":
-		cp.commandInputField.SetDisabled(true)
-	case "Sleep":
-		cp.commandInputField.SetDisabled(true)
-	default:
-		panic(fmt.Errorf("unknown state: %s", *cp.machineState))
-	}
+	cp.app.QueueUpdate(func() {
+		cp.mu.Lock()
+		defer cp.mu.Unlock()
+		if cp.disableCommandInput || cp.machineState == nil {
+			cp.commandInputField.SetDisabled(true)
+			return
+		}
+		switch *cp.machineState {
+		case "Idle":
+			cp.commandInputField.SetDisabled(false)
+		case "Run":
+			cp.commandInputField.SetDisabled(true)
+		case "Hold":
+			cp.commandInputField.SetDisabled(true)
+		case "Jog":
+			cp.commandInputField.SetDisabled(true)
+		case "Alarm":
+			cp.commandInputField.SetDisabled(true)
+		case "Door":
+			cp.commandInputField.SetDisabled(true)
+		case "Check":
+			cp.commandInputField.SetDisabled(false)
+		case "Home":
+			cp.commandInputField.SetDisabled(true)
+		case "Sleep":
+			cp.commandInputField.SetDisabled(true)
+		default:
+			panic(fmt.Errorf("unknown state: %s", *cp.machineState))
+		}
+	})
 }
 
 func (cp *ControlPrimitive) setMachineState(machineState string) {
+	cp.mu.Lock()
+	defer cp.mu.Unlock()
 	cp.machineState = &machineState
 	cp.updateDisabled()
 }
 
 func (cp *ControlPrimitive) DisableCommandInput(disabled bool) {
+	cp.mu.Lock()
+	defer cp.mu.Unlock()
 	cp.disableCommandInput = disabled
 	cp.updateDisabled()
 }
@@ -249,10 +263,10 @@ func (cp *ControlPrimitive) sendCommand(
 			case "$H":
 				timeout = 120 * time.Second
 				// Grbl stops responding to status report queries while homing. Generating this
-				// pseudo status report enables subscribers to process the otherwise unreported
+				// virtual status report enables subscribers to process the otherwise unreported
 				//  state.
 				cp.pushMessageCh <- &grblMod.MessagePushStatusReport{
-					Message: "(pseudo status report: Home)",
+					Message: "(virtual status report: Home)",
 					MachineState: grblMod.StatusReportMachineState{
 						State: "Home",
 					},
@@ -403,7 +417,8 @@ func (cp *ControlPrimitive) processMessagePushGcodeState(
 		fmt.Fprintf(&buf, "Speed: %.0f\n", *messagePushGcodeState.SpindleSpeed)
 	}
 
-	cp.gcodeParserTextView.Clear()
+	cp.app.QueueUpdate(func() { cp.gcodeParserTextView.Clear() })
+
 	fmt.Fprint(cp.gcodeParserTextView, tview.Escape(buf.String()))
 
 	return tcell.ColorGreen
@@ -506,15 +521,18 @@ func (cp *ControlPrimitive) processMessagePushGcodeParam() tcell.Color {
 		fmt.Fprintf(&buf, "Successful: %v\n", params.Probe.Successful)
 	}
 
-	cp.gcodeParamsTextView.Clear()
+	cp.app.QueueUpdate(func() { cp.gcodeParamsTextView.Clear() })
+
 	fmt.Fprint(cp.gcodeParamsTextView, tview.Escape(buf.String()))
 
 	return color
 }
 
 func (cp *ControlPrimitive) processMessagePushWelcome() {
-	cp.gcodeParserTextView.Clear()
-	cp.gcodeParamsTextView.Clear()
+	cp.app.QueueUpdate(func() {
+		cp.gcodeParserTextView.Clear()
+		cp.gcodeParamsTextView.Clear()
+	})
 	fmt.Fprintf(cp.pushMessagesTextView, "\n[%s]Soft-Reset detected[-]", tcell.ColorOrange)
 	// Sending $G enables tracking of G-Code parsing state
 	cp.QueueCommand("$G")
@@ -522,20 +540,20 @@ func (cp *ControlPrimitive) processMessagePushWelcome() {
 	cp.QueueCommand("$#")
 }
 
-func (mp *ControlPrimitive) processMessagePushAlarm(
+func (cp *ControlPrimitive) processMessagePushAlarm(
 	messagePushAlarm *grblMod.MessagePushAlarm,
 ) (string, tcell.Color) {
 	return tview.Escape(messagePushAlarm.Error().Error()), tcell.ColorRed
 }
 
-func (mp *ControlPrimitive) processMessagePushStatusReport(
+func (cp *ControlPrimitive) processMessagePushStatusReport(
 	statusReport *grblMod.MessagePushStatusReport,
 ) tcell.Color {
 	color := getMachineStateColor(statusReport.MachineState.State)
 	if color == tcell.ColorBlack {
 		color = tcell.ColorWhite
 	}
-	mp.setMachineState(statusReport.MachineState.State)
+	cp.setMachineState(statusReport.MachineState.State)
 	return color
 }
 
