@@ -1,5 +1,8 @@
 shell.go
     control
+        FIXME do not send $G/$# for:
+		    $SLP, maybe others
+        debug why status panel "flickers" every ~20s with text changes
         random crashes
             it is not panic
             add debug logging everywhere, ensure logs go to file

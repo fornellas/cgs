@@ -1,6 +1,9 @@
 package main
 
 import (
+	"os"
+	"runtime/debug"
+
 	"github.com/fornellas/slogxt/log"
 	"github.com/spf13/cobra"
 
@@ -42,6 +45,12 @@ var ControlCmd = &cobra.Command{
 			DisplayGcodeParamStateComms:  displayGcodeParamStateComms,
 		})
 
+		defer func() {
+			if r := recover(); r != nil {
+				os.WriteFile("stack", debug.Stack(), os.FileMode(0644))
+				panic(r)
+			}
+		}()
 		return control.Run(ctx)
 	}),
 }
