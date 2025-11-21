@@ -1,0 +1,14 @@
+Concurrency
+    Functions aren't thread safe
+    Callback functions
+        Concurrent Safe
+            Exceptions documented
+        Must not use Application.QueueUpdate*
+        Application.Draw called automatically
+    Primitive access from other goroutines
+        Must sync
+            Application.QueueUpdate
+            Application.QueueUpdateDraw
+    Concurrent safe
+        TextView io.Writer
+        Application.Draw
