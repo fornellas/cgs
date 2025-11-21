@@ -30,7 +30,6 @@ func NewLogsPrimitive(
 	logsTextView.SetWrap(true)
 	logsTextView.SetChangedFunc(func() {
 		logger.Debug("SetChangedFunc")
-		lp.app.Draw()
 	})
 	lp.TextView = logsTextView
 
