@@ -36,99 +36,122 @@ func NewOverridesPrimitive(
 	app *tview.Application,
 	controlPrimitive *ControlPrimitive,
 ) *OverridesPrimitive {
-	overridesPrimitive := &OverridesPrimitive{
+	op := &OverridesPrimitive{
 		app:              app,
 		controlPrimitive: controlPrimitive,
 	}
 
-	overridesPrimitive.feedDecr10Button = tview.NewButton("-10%").SetSelectedFunc(func() {
-		overridesPrimitive.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideDecrease10)
+	// Feed Buttons
+	op.feedDecr10Button = tview.NewButton("-10%")
+	op.feedDecr10Button.SetSelectedFunc(func() {
+		op.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideDecrease10)
 	})
-	overridesPrimitive.feedDecr1Button = tview.NewButton("-1%").SetSelectedFunc(func() {
-		overridesPrimitive.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideDecrease1)
+	op.feedDecr1Button = tview.NewButton("-1%")
+	op.feedDecr1Button.SetSelectedFunc(func() {
+		op.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideDecrease1)
 	})
-	overridesPrimitive.feed100Button = tview.NewButton("100%").SetSelectedFunc(func() {
-		overridesPrimitive.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideSet100OfProgrammedRate)
+	op.feed100Button = tview.NewButton("100%")
+	op.feed100Button.SetSelectedFunc(func() {
+		op.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideSet100OfProgrammedRate)
 	})
-	overridesPrimitive.feedIncr1Button = tview.NewButton("+1%").SetSelectedFunc(func() {
-		overridesPrimitive.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideIncrease1)
+	op.feedIncr1Button = tview.NewButton("+1%")
+	op.feedIncr1Button.SetSelectedFunc(func() {
+		op.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideIncrease1)
 	})
-	overridesPrimitive.feedIncr10Button = tview.NewButton("+10%").SetSelectedFunc(func() {
-		overridesPrimitive.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideIncrease10)
+	op.feedIncr10Button = tview.NewButton("+10%")
+	op.feedIncr10Button.SetSelectedFunc(func() {
+		op.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedOverrideIncrease10)
 	})
 
+	// Feed Flex
 	feedOverridesFlex := tview.NewFlex()
 	feedOverridesFlex.SetBorder(true)
 	feedOverridesFlex.SetTitle("Feed")
 	feedOverridesFlex.SetDirection(tview.FlexColumn)
-	feedOverridesFlex.AddItem(overridesPrimitive.feedDecr10Button, 0, 1, false)
-	feedOverridesFlex.AddItem(overridesPrimitive.feedDecr1Button, 0, 1, false)
-	feedOverridesFlex.AddItem(overridesPrimitive.feed100Button, 0, 1, false)
-	feedOverridesFlex.AddItem(overridesPrimitive.feedIncr1Button, 0, 1, false)
-	feedOverridesFlex.AddItem(overridesPrimitive.feedIncr10Button, 0, 1, false)
+	feedOverridesFlex.AddItem(op.feedDecr10Button, 0, 1, false)
+	feedOverridesFlex.AddItem(op.feedDecr1Button, 0, 1, false)
+	feedOverridesFlex.AddItem(op.feed100Button, 0, 1, false)
+	feedOverridesFlex.AddItem(op.feedIncr1Button, 0, 1, false)
+	feedOverridesFlex.AddItem(op.feedIncr10Button, 0, 1, false)
 
-	overridesPrimitive.rapid25Button = tview.NewButton("25%").SetSelectedFunc(func() {
-		overridesPrimitive.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandRapidOverrideSetTo25OfRapidRate)
+	// Rapid Buttons
+	op.rapid25Button = tview.NewButton("25%")
+	op.rapid25Button.SetSelectedFunc(func() {
+		op.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandRapidOverrideSetTo25OfRapidRate)
 	})
-	overridesPrimitive.rapid50Button = tview.NewButton("50%").SetSelectedFunc(func() {
-		overridesPrimitive.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandRapidOverrideSetTo50OfRapidRate)
+	op.rapid50Button = tview.NewButton("50%")
+	op.rapid50Button.SetSelectedFunc(func() {
+		op.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandRapidOverrideSetTo50OfRapidRate)
 	})
-	overridesPrimitive.rapid100Button = tview.NewButton("100%").SetSelectedFunc(func() {
-		overridesPrimitive.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandRapidOverrideSetTo100FullRapidRate)
+	op.rapid100Button = tview.NewButton("100%")
+	op.rapid100Button.SetSelectedFunc(func() {
+		op.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandRapidOverrideSetTo100FullRapidRate)
 	})
 
+	// Rapid Flex
 	rapidOverridesFlex := tview.NewFlex()
 	rapidOverridesFlex.SetBorder(true)
 	rapidOverridesFlex.SetTitle("Rapid")
 	rapidOverridesFlex.SetDirection(tview.FlexColumn)
-	rapidOverridesFlex.AddItem(overridesPrimitive.rapid25Button, 0, 1, false)
-	rapidOverridesFlex.AddItem(overridesPrimitive.rapid50Button, 0, 1, false)
-	rapidOverridesFlex.AddItem(overridesPrimitive.rapid100Button, 0, 1, false)
+	rapidOverridesFlex.AddItem(op.rapid25Button, 0, 1, false)
+	rapidOverridesFlex.AddItem(op.rapid50Button, 0, 1, false)
+	rapidOverridesFlex.AddItem(op.rapid100Button, 0, 1, false)
 
-	overridesPrimitive.spindleStopButton = tview.NewButton("Stop").SetSelectedFunc(func() {
-		overridesPrimitive.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandToggleSpindleStop)
+	// Spindle Buttons
+	op.spindleStopButton = tview.NewButton("Stop")
+	op.spindleStopButton.SetSelectedFunc(func() {
+		op.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandToggleSpindleStop)
 	})
-	overridesPrimitive.spindleDecr10Button = tview.NewButton("-10%").SetSelectedFunc(func() {
-		overridesPrimitive.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideDecrease10)
+	op.spindleDecr10Button = tview.NewButton("-10%")
+	op.spindleDecr10Button.SetSelectedFunc(func() {
+		op.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideDecrease10)
 	})
-	overridesPrimitive.spindleDecr1Button = tview.NewButton("-1%").SetSelectedFunc(func() {
-		overridesPrimitive.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideDecrease1)
+	op.spindleDecr1Button = tview.NewButton("-1%")
+	op.spindleDecr1Button.SetSelectedFunc(func() {
+		op.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideDecrease1)
 	})
-	overridesPrimitive.spindle100Button = tview.NewButton("100%").SetSelectedFunc(func() {
-		overridesPrimitive.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideSet100OfProgrammedSpindleSpeed)
+	op.spindle100Button = tview.NewButton("100%")
+	op.spindle100Button.SetSelectedFunc(func() {
+		op.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideSet100OfProgrammedSpindleSpeed)
 	})
-	overridesPrimitive.spindleIncr1Button = tview.NewButton("+1%").SetSelectedFunc(func() {
-		overridesPrimitive.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideIncrease1)
+	op.spindleIncr1Button = tview.NewButton("+1%")
+	op.spindleIncr1Button.SetSelectedFunc(func() {
+		op.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideIncrease1)
 	})
-	overridesPrimitive.spindleIncr10Button = tview.NewButton("+10%").SetSelectedFunc(func() {
-		overridesPrimitive.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideIncrease10)
+	op.spindleIncr10Button = tview.NewButton("+10%")
+	op.spindleIncr10Button.SetSelectedFunc(func() {
+		op.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSpindleSpeedOverrideIncrease10)
 	})
 
+	// Spindle Flex
 	spindleOverridesFlex := tview.NewFlex()
 	spindleOverridesFlex.SetBorder(true)
 	spindleOverridesFlex.SetTitle("Spindle")
 	spindleOverridesFlex.SetDirection(tview.FlexColumn)
-	spindleOverridesFlex.AddItem(overridesPrimitive.spindleStopButton, 0, 1, false)
-	spindleOverridesFlex.AddItem(overridesPrimitive.spindleDecr10Button, 0, 1, false)
-	spindleOverridesFlex.AddItem(overridesPrimitive.spindleDecr1Button, 0, 1, false)
-	spindleOverridesFlex.AddItem(overridesPrimitive.spindle100Button, 0, 1, false)
-	spindleOverridesFlex.AddItem(overridesPrimitive.spindleIncr1Button, 0, 1, false)
-	spindleOverridesFlex.AddItem(overridesPrimitive.spindleIncr10Button, 0, 1, false)
+	spindleOverridesFlex.AddItem(op.spindleStopButton, 0, 1, false)
+	spindleOverridesFlex.AddItem(op.spindleDecr10Button, 0, 1, false)
+	spindleOverridesFlex.AddItem(op.spindleDecr1Button, 0, 1, false)
+	spindleOverridesFlex.AddItem(op.spindle100Button, 0, 1, false)
+	spindleOverridesFlex.AddItem(op.spindleIncr1Button, 0, 1, false)
+	spindleOverridesFlex.AddItem(op.spindleIncr10Button, 0, 1, false)
 
-	overridesPrimitive.coolantFloodButton = tview.NewButton("Flood").SetSelectedFunc(func() {
-		overridesPrimitive.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandToggleFloodCoolant)
+	// Coolant Buttons
+	op.coolantFloodButton = tview.NewButton("Flood").SetSelectedFunc(func() {
+		op.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandToggleFloodCoolant)
 	})
-	overridesPrimitive.coolantMistButton = tview.NewButton("Mist").SetSelectedFunc(func() {
-		overridesPrimitive.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandToggleMistCoolant)
+	op.coolantMistButton = tview.NewButton("Mist").SetSelectedFunc(func() {
+		op.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandToggleMistCoolant)
 	})
 
+	// Coolant Flex
 	coolantOverridesFlex := tview.NewFlex()
 	coolantOverridesFlex.SetBorder(true)
 	coolantOverridesFlex.SetTitle("Coolant")
 	coolantOverridesFlex.SetDirection(tview.FlexColumn)
-	coolantOverridesFlex.AddItem(overridesPrimitive.coolantFloodButton, 0, 1, false)
-	coolantOverridesFlex.AddItem(overridesPrimitive.coolantMistButton, 0, 1, false)
+	coolantOverridesFlex.AddItem(op.coolantFloodButton, 0, 1, false)
+	coolantOverridesFlex.AddItem(op.coolantMistButton, 0, 1, false)
 
+	// Overrides Flex
 	overridesFlex := tview.NewFlex()
 	overridesFlex.SetBorder(true)
 	overridesFlex.SetTitle("Overrides")
@@ -137,9 +160,9 @@ func NewOverridesPrimitive(
 	overridesFlex.AddItem(rapidOverridesFlex, 0, 1, false)
 	overridesFlex.AddItem(spindleOverridesFlex, 0, 1, false)
 	overridesFlex.AddItem(coolantOverridesFlex, 0, 1, false)
-	overridesPrimitive.Flex = overridesFlex
+	op.Flex = overridesFlex
 
-	return overridesPrimitive
+	return op
 }
 
 func (op *OverridesPrimitive) processMessagePushStatusReport(
