@@ -162,7 +162,6 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	logsPrimitiveHandler := &EnabledOverrideHandler{
 		Handler: log.NewTerminalTreeHandler(
 			tview.ANSIWriter(logsPrimitive),
-			// FIXME pull TerminalHandlerOptions attributes from logger.Handler()
 			&log.TerminalHandlerOptions{
 				DisableGroupEmoji: true,
 				ForceColor:        true,

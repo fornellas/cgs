@@ -20,6 +20,7 @@ Features
     Keyboard navigation (tab / btab / arrows etc)
     https://github.com/fornellas/serialtcp
 Improvements
+    internal/
     Connect timeout
     Add line limits to various TextView
     Scrolling
