@@ -12,13 +12,8 @@ Concurrency
     Concurrent safe
         TextView
             io.Writer
+                concurrent safe
                 MUST use TextView.SetChangedFunc to redraw
-        Application
-            Draw
-                Can DEADLOCK if you call it from the main thread
-                    e.g. in a callback function of a widget
-    Misc
-        TextView
             SetChangedFunc
                 useful with concurrent io.Writer
                     writes won't refresh the screen
@@ -31,3 +26,7 @@ Concurrency
                             or any other primitive
                         MUST use
                             Application.QueueUpdate
+        Application
+            Draw
+                Can DEADLOCK if you call it from the main thread
+                    e.g. in a callback function of a widget

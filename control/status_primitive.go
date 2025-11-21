@@ -58,7 +58,6 @@ func (sp *StatusPrimitive) newStateTextView(ctx context.Context) {
 	textView.SetBorder(true).SetTitle("State")
 	textView.SetChangedFunc(func() {
 		logger.Debug("SetChangedFunc")
-		sp.app.Draw()
 	})
 	sp.stateTextView = textView
 }
@@ -73,7 +72,6 @@ func (sp *StatusPrimitive) newStatusTextView(ctx context.Context) {
 	textView.SetChangedFunc(func() {
 		logger.Debug("SetChangedFunc")
 		textView.ScrollToBeginning()
-		sp.app.Draw()
 	})
 	sp.statusTextView = textView
 }
