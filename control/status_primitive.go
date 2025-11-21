@@ -76,22 +76,34 @@ func (sp *StatusPrimitive) newStatusTextView(ctx context.Context) {
 	sp.statusTextView = textView
 }
 
-func (sp *StatusPrimitive) processMessagePushWelcome() {
+func (sp *StatusPrimitive) processMessagePushWelcome(ctx context.Context) {
+	_, logger := log.MustWithGroup(ctx, "StatusPrimitive.processMessagePushWelcome")
+	logger.Debug("Before QueueUpdateDraw")
 	sp.app.QueueUpdateDraw(func() {
+		logger.Debug("Inside QueueUpdateDraw")
 		sp.stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 		sp.stateTextView.Clear()
 		sp.statusTextView.Clear()
 	})
+	logger.Debug("After QueueUpdateDraw")
 }
 
-func (sp *StatusPrimitive) setMachineState(machineState *grblMod.StatusReportMachineState) {
+func (sp *StatusPrimitive) setMachineState(
+	ctx context.Context,
+	machineState *grblMod.StatusReportMachineState,
+) {
+	_, logger := log.MustWithGroup(ctx, "setMachineState")
+
 	stateColor := getMachineStateColor(machineState.State)
 
+	logger.Debug("Before QueueUpdateDraw")
 	sp.app.QueueUpdateDraw(func() {
+		logger.Debug("Inside QueueUpdateDraw")
 		sp.stateTextView.Clear()
 		sp.stateTextView.SetBackgroundColor(stateColor)
 		sp.statusTextView.Clear()
 	})
+	logger.Debug("After QueueUpdateDraw")
 	fmt.Fprintf(
 		sp.stateTextView, "%s\n",
 		tview.Escape(machineState.State),
@@ -183,11 +195,17 @@ func (sp *StatusPrimitive) writePositionStatus(w io.Writer, statusReport *grblMo
 
 //gocyclo:ignore
 func (sp *StatusPrimitive) updateStatusTextView(
+	ctx context.Context,
 	statusReport *grblMod.MessagePushStatusReport,
 ) {
+	_, logger := log.MustWithGroup(ctx, "StatusPrimitive.updateStatusTextView")
+
+	logger.Debug("Before QueueUpdateDraw")
 	sp.app.QueueUpdateDraw(func() {
+		logger.Debug("Inside QueueUpdateDraw")
 		sp.statusTextView.Clear()
 	})
+	logger.Debug("After QueueUpdateDraw")
 
 	sp.writePositionStatus(sp.statusTextView, statusReport)
 
@@ -246,19 +264,25 @@ func (sp *StatusPrimitive) updateStatusTextView(
 }
 
 func (sp *StatusPrimitive) processMessagePushStatusReport(
+	ctx context.Context,
 	statusReport *grblMod.MessagePushStatusReport,
 ) {
-	sp.setMachineState(&statusReport.MachineState)
-	sp.updateStatusTextView(statusReport)
+	_, logger := log.MustWithGroup(ctx, "StatusPrimitive.processMessagePushStatusReport")
+	logger.Debug("Run")
+	sp.setMachineState(ctx, &statusReport.MachineState)
+	sp.updateStatusTextView(ctx, statusReport)
 }
 
 func (sp *StatusPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
+	ctx, logger := log.MustWithGroup(ctx, "StatusPrimitive.ProcessMessage")
+	logger.Debug("Start")
 	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
-		sp.processMessagePushWelcome()
+		sp.processMessagePushWelcome(ctx)
 		return
 	}
 	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-		sp.processMessagePushStatusReport(messagePushStatusReport)
+		sp.processMessagePushStatusReport(ctx, messagePushStatusReport)
 		return
 	}
+	logger.Debug("End")
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"reflect"
 	"time"
 
@@ -132,7 +133,25 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	app.EnableMouse(true)
 
 	logsPrimitive := NewLogsPrimitive(ctx, app)
-	logger = slog.New(NewViewLogHandler(logger.Handler(), logsPrimitive))
+	logger = slog.New(log.NewMultiHandler(
+		logger.Handler(),
+		log.NewTerminalTreeHandler(
+			logsPrimitive,
+			// tview.ANSIWriter(w),
+			&log.TerminalHandlerOptions{
+				HandlerOptions: slog.HandlerOptions{
+					// AddSource: ,
+					Level: slog.Level(math.MinInt),
+					// ReplaceAttr: ,
+				},
+				DisableGroupEmoji: true,
+				// TimeLayout: ,
+				// NoColor: true,
+				ForceColor: true,
+				// ColorScheme: ,
+			},
+		),
+	))
 	ctx = log.WithLogger(ctx, logger)
 
 	var messageProcessors []MessageProcessor

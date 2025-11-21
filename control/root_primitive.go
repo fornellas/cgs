@@ -7,6 +7,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
+	"github.com/fornellas/slogxt/log"
+
 	grblMod "github.com/fornellas/cgs/grbl"
 )
 
@@ -210,8 +212,14 @@ func (rp *RootPrimitive) newRootFlex() {
 	rp.Flex = rootFlex
 }
 
-func (rp *RootPrimitive) setMachineState(machineState *grblMod.StatusReportMachineState) {
+func (rp *RootPrimitive) setMachineState(
+	ctx context.Context,
+	machineState *grblMod.StatusReportMachineState,
+) {
+	_, logger := log.MustWithGroup(ctx, "RootPrimitive.setMachineState")
+	logger.Debug("Before QueueUpdateDraw")
 	rp.app.QueueUpdateDraw(func() {
+		logger.Debug("Inside QueueUpdateDraw")
 		if machineState == nil {
 			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
@@ -319,13 +327,18 @@ func (rp *RootPrimitive) setMachineState(machineState *grblMod.StatusReportMachi
 			panic(fmt.Errorf("unknown state: %s", machineState.State))
 		}
 	})
+	logger.Debug("After QueueUpdateDraw")
 }
 
-func (rp *RootPrimitive) processMessagePushWelcome() {
-	rp.setMachineState(nil)
+func (rp *RootPrimitive) processMessagePushWelcome(ctx context.Context) {
+	_, logger := log.MustWithGroup(ctx, "RootPrimitive.processMessagePushWelcome")
+	rp.setMachineState(ctx, nil)
+	logger.Debug("Before QueueUpdateDraw")
 	rp.app.QueueUpdateDraw(func() {
+		logger.Debug("Inside QueueUpdateDraw")
 		rp.feedbackTextView.SetText("")
 	})
+	logger.Debug("After QueueUpdateDraw")
 }
 
 func getMachineStateColor(state string) tcell.Color {
@@ -360,14 +373,15 @@ func (rp *RootPrimitive) processMessagePushFeedback(
 }
 
 func (rp *RootPrimitive) processMessagePushStatusReport(
+	ctx context.Context,
 	statusReport *grblMod.MessagePushStatusReport,
 ) {
-	rp.setMachineState(&statusReport.MachineState)
+	rp.setMachineState(ctx, &statusReport.MachineState)
 }
 
 func (rp *RootPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
 	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
-		rp.processMessagePushWelcome()
+		rp.processMessagePushWelcome(ctx)
 		return
 	}
 	if messagePushFeedback, ok := message.(*grblMod.MessagePushFeedback); ok {
@@ -375,7 +389,7 @@ func (rp *RootPrimitive) ProcessMessage(ctx context.Context, message grblMod.Mes
 		return
 	}
 	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-		rp.processMessagePushStatusReport(messagePushStatusReport)
+		rp.processMessagePushStatusReport(ctx, messagePushStatusReport)
 		return
 	}
 }

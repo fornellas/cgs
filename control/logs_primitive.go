@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/fornellas/slogxt/log"
-
 	"github.com/rivo/tview"
 )
 

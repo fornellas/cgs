@@ -20,6 +20,8 @@ import (
 
 	"github.com/rivo/tview"
 
+	"github.com/fornellas/slogxt/log"
+
 	grblMod "github.com/fornellas/cgs/grbl"
 )
 
@@ -183,9 +185,13 @@ func (jp *JoggingPrimitive) jog() {
 }
 
 func (jp *JoggingPrimitive) processMessagePushGcodeState(
+	ctx context.Context,
 	messagePushGcodeState *grblMod.MessagePushGcodeState,
 ) {
+	_, logger := log.MustWithGroup(ctx, "JoggingPrimitive.processMessagePushGcodeState")
+	logger.Debug("Before QueueUpdateDraw")
 	jp.app.QueueUpdateDraw(func() {
+		logger.Debug("Inside QueueUpdateDraw")
 		modalGroup := messagePushGcodeState.ModalGroup
 		if modalGroup != nil {
 			units := modalGroup.Units
@@ -216,12 +222,17 @@ func (jp *JoggingPrimitive) processMessagePushGcodeState(
 		// $110, $111 and $112 – [X,Y,Z] Max rate, mm/min
 		// jp.feedRateInputField.SetText(fmt.Sprintf("%.4f", feedRate))
 	})
+	logger.Debug("After QueueUpdateDraw")
 }
 
 func (jp *JoggingPrimitive) processMessagePushStatusReport(
+	ctx context.Context,
 	messagePushStatusReport *grblMod.MessagePushStatusReport,
 ) {
-	jp.app.ForceDraw().QueueUpdateDraw(func() {
+	_, logger := log.MustWithGroup(ctx, "JoggingPrimitive.processMessagePushStatusReport")
+	logger.Debug("Before QueueUpdateDraw")
+	jp.app.QueueUpdateDraw(func() {
+		logger.Debug("Inside QueueUpdateDraw")
 		switch messagePushStatusReport.MachineState.State {
 		case "Idle":
 			jp.xInputField.SetDisabled(false)
@@ -261,15 +272,16 @@ func (jp *JoggingPrimitive) processMessagePushStatusReport(
 			panic(fmt.Sprintf("unknown machine state: %#v", messagePushStatusReport.MachineState.State))
 		}
 	})
+	logger.Debug("After QueueUpdateDraw")
 }
 
 func (jp *JoggingPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
 	if messagePushGcodeState, ok := message.(*grblMod.MessagePushGcodeState); ok {
-		jp.processMessagePushGcodeState(messagePushGcodeState)
+		jp.processMessagePushGcodeState(ctx, messagePushGcodeState)
 		return
 	}
 	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-		jp.processMessagePushStatusReport(messagePushStatusReport)
+		jp.processMessagePushStatusReport(ctx, messagePushStatusReport)
 		return
 	}
 }
