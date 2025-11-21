@@ -64,9 +64,17 @@ func (c *Control) statusQueryWorker(ctx context.Context) error {
 func (c *Control) messageProcessorWorker(
 	ctx context.Context,
 	pushMessageCh chan grblMod.Message,
+	controlPrimitive *ControlPrimitive,
 	messageProcessors ...MessageProcessor,
 ) error {
 	logger := log.MustLogger(ctx).WithGroup("messageProcessorWorker")
+
+	logger.Debug("Sending G-Code commands")
+	// Sending $G enables tracking of G-Code parsing state
+	controlPrimitive.QueueCommand("$G")
+	// Sending $G enables tracking of G-Code parameters
+	controlPrimitive.QueueCommand("$#")
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -127,7 +135,10 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	logger = slog.New(NewViewLogHandler(logger.Handler(), logsPrimitive))
 	ctx = log.WithLogger(ctx, logger)
 
+	var messageProcessors []MessageProcessor
+
 	statusPrimitive := NewStatusPrimitive(ctx, c.grbl, app)
+	messageProcessors = append(messageProcessors, statusPrimitive)
 
 	controlPrimitive := NewControlPrimitive(
 		ctx,
@@ -149,10 +160,13 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		}
 		return event
 	})
+	messageProcessors = append(messageProcessors, controlPrimitive)
 
 	overridesPrimitive := NewOverridesPrimitive(ctx, app, controlPrimitive)
+	messageProcessors = append(messageProcessors, overridesPrimitive)
 
 	joggingPrimitive := NewJoggingPrimitive(ctx, app, controlPrimitive)
+	messageProcessors = append(messageProcessors, joggingPrimitive)
 
 	rootPrimitive := NewRootPrimitive(
 		ctx,
@@ -164,6 +178,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		logsPrimitive,
 	)
 	app.SetRoot(rootPrimitive, true)
+	messageProcessors = append(messageProcessors, rootPrimitive)
 
 	sendCommandWorkerErrCh := make(chan error, 1)
 	go func() {
@@ -194,22 +209,13 @@ func (c *Control) Run(ctx context.Context) (err error) {
 			logger.Debug("Stopping app")
 			app.Stop()
 		}()
-		logger.Debug("Sending G-Code commands")
-		// Sending $G enables tracking of G-Code parsing state
-		controlPrimitive.QueueCommand("$G")
-		// Sending $G enables tracking of G-Code parameters
-		controlPrimitive.QueueCommand("$#")
 		logger.Debug("Starting")
 		messageProcessorWorkerErrCh <- c.messageProcessorWorker(
 			ctx,
 			pushMessageCh,
-			statusPrimitive,
 			controlPrimitive,
-			overridesPrimitive,
-			joggingPrimitive,
-			rootPrimitive,
+			messageProcessors...,
 		)
-		// TODO disconnect
 	}()
 
 	statusQueryErrCh := make(chan error, 1)
