@@ -52,7 +52,7 @@ func (c *Control) statusQueryWorker(ctx context.Context) error {
 			}
 			logger.Debug("Exiting", "err", err)
 			return err
-		case <-time.After(1000 * time.Millisecond):
+		case <-time.After(200 * time.Millisecond):
 			if err := c.grbl.SendRealTimeCommand(grblMod.RealTimeCommandStatusReportQuery); err != nil {
 				err := fmt.Errorf("failed to send periodic status query real-time command: %w", err)
 				logger.Debug("Exiting", "err", err)
@@ -136,7 +136,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	logger = slog.New(log.NewMultiHandler(
 		logger.Handler(),
 		log.NewTerminalTreeHandler(
-			logsPrimitive,
+			tview.ANSIWriter(logsPrimitive),
 			// tview.ANSIWriter(w),
 			&log.TerminalHandlerOptions{
 				HandlerOptions: slog.HandlerOptions{

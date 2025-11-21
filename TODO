@@ -1,27 +1,24 @@
-shell.go
-    control
-        Shutdown issues
-            control.RootPrimitive blocks randomly on shutdown (called from messageProcessorWorker)
-        Fix logging
-            Need to use a logger handler proxy
-                before App.Run, send to existing logger
-                after App.Run, send to TextView
-        TextView logging
-            debug why with DisableGroupEmoji=false, it wrecks UI (it looks like there's double last rune for every line that there's an emoji)
-        FIXME do not send $G/$# for:
-		    $SLP, maybe others
-        debug why status panel "flickers" every ~20s with text changes
-        random crashes
-            it is not panic
-            add debug logging everywhere, ensure logs go to file
-            play around with home, jog, cancel, sleep, reset etc, until it crashes
-        Change ScrollToEnd
-            Only if current view is at the end of the text
+Bugs
+    FIXME do not send $G/$# for:
+    $SLP, maybe others
+    Shutdown issues
+        control.RootPrimitive blocks randomly on shutdown (called from messageProcessorWorker)
+    Fix logging
+        Need to use a logger handler proxy
+            before App.Run, send to existing logger
+            after App.Run, send to TextView
+    TextView logging
+        debug why with DisableGroupEmoji=false, it wrecks UI (it looks like there's double last rune for every line that there's an emoji)
+    Status panel "flickers" every 10-20s
+    App.Stop() may be called from defer when the app failed to start, resoulting in segfault
+        Can use SetAfterDrawFunc to identify successful start
+Features
+    Jogging
+    Stream
+    Settings
+    Script
+    Keyboard navigation (tab / btab / arrows etc)
+Improvements
+    Scrolling
+        Only scroll to end if view position is already at the end
             if not, change color to indicate there's new text
-        Navigate across buttons / input with tab / btab
-        Alarm state should cancel send command context
-        FIX App.Stop() may be called from defer when the app failed to start, resoulting in segfault
-    grbl
-        implement stream
-        fix
-            when sendCommand times out before response message comes, it is discarded
