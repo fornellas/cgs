@@ -5,6 +5,7 @@ Bugs
     Scrolling
         Only scroll to end if view position is already at the end
             if not, change color to indicate there's new text
+    Connecting to Grbl via TCP sometimes hangs
     When $H is active, if ^C it locks on exit
         ControlPrimitive.RunSendCommandWorker calls app.QueueUpdate indirectly
         on Control.Run, on the defer, the context is cancelled, and at this point, the app is stopped.

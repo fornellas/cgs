@@ -88,8 +88,6 @@ func (sp *StatusPrimitive) setMachineState(
 	ctx context.Context,
 	machineState *grblMod.StatusReportMachineState,
 ) {
-	_, logger := log.MustWithGroup(ctx, "setMachineState")
-
 	stateColor := getMachineStateColor(machineState.State)
 
 	sp.app.QueueUpdateDraw(func() {
