@@ -370,6 +370,20 @@ func (rp *RootPrimitive) processMessagePushFeedback(
 	messagePushFeedback *grblMod.MessagePushFeedback,
 ) {
 	rp.feedbackTextView.SetText(messagePushFeedback.Text())
+
+	if messagePushFeedback.Text() == "Reset to continue" {
+		rp.app.QueueUpdateDraw(func() {
+			rp.homeButton.SetDisabled(true)
+			rp.unlockButton.SetDisabled(true)
+			rp.resetButton.SetDisabled(false)
+			rp.checkButton.SetDisabled(true)
+			rp.doorButton.SetDisabled(true)
+			rp.sleepButton.SetDisabled(true)
+			rp.helpButton.SetDisabled(true)
+			rp.holdButton.SetDisabled(true)
+			rp.resumeButton.SetDisabled(true)
+		})
+	}
 }
 
 func (rp *RootPrimitive) processMessagePushStatusReport(

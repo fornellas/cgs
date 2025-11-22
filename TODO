@@ -1,28 +1,25 @@
 Bugs
-    FIXME do not send $G/$# for:
-        $SLP, maybe others
-    Status panel "flickers" every 10-20s
-    App.Stop() may be called from defer when the app failed to start, resoulting in segfault
-        Can use SetAfterDrawFunc to identify successful start
     virtual status report: Home
         When it is in alarm state (ie: hit limit switch), grbl is waiting for reset
             [MSG:Reset to continue]
                 but the virtual state will be changed to Home
+    FIXME do not send $G/$# for:
+        $SLP, maybe others
+    Scrolling
+        Only scroll to end if view position is already at the end
+            if not, change color to indicate there's new text
+    Extra new line on top of Commands & Push Messages
 Features
     Jogging
     Stream
     Settings
     Script
     Keyboard navigation (tab / btab / arrows etc)
-    https://github.com/fornellas/serialtcp
 Improvements
-    Intermitent Push Message Status updates
-        Some attributes (ie: cooling) are only reported in some
+    https://github.com/fornellas/serialtcp
+    Limit Jogging to work area fetched from $$
     internal/
     Connect timeout
     Add line limits to various TextView
     TextView logging
         debug why with DisableGroupEmoji=false, it wrecks UI (it looks like there's double last rune for every line that there's an emoji)
-    Scrolling
-        Only scroll to end if view position is already at the end
-            if not, change color to indicate there's new text
