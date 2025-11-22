@@ -123,18 +123,17 @@ func (c *Control) messageProcessorWorker(
 	}
 }
 func (c *Control) startWorker(
-	ctx context.Context, app *tview.Application,
+	ctx context.Context, cancel context.CancelFunc,
+	app *tview.Application,
 	name string, fn func(context.Context) error,
 ) {
 	_, logger := log.MustWithGroupAttrs(ctx, "Worker", "name", name)
 	errCh := make(chan error, 1)
 	go func() {
-		defer func() {
-			app.Stop()
-			logger.Debug("Stopped")
-		}()
 		logger.Debug("Starting")
 		errCh <- fn(ctx)
+		logger.Debug("Stopped")
+		cancel()
 	}()
 	c.workers = append([]worker{{name: name, errCh: errCh}}, c.workers...)
 }
@@ -155,11 +154,10 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	app := tview.NewApplication()
 	app.EnableMouse(true)
 
-	// Application Logging
+	// Context & Logging
+	consoleCtx, consoleLogger := log.MustWithGroup(ctx, "Control")
 	logsPrimitive := NewLogsPrimitive(app)
-	ctx, logger := log.MustWithGroup(ctx, "Control")
-	originalHandler := logger.Handler()
-	logsPrimitiveHandler := &EnabledOverrideHandler{
+	appLogger := slog.New(&EnabledOverrideHandler{
 		Handler: log.NewTerminalTreeHandler(
 			tview.ANSIWriter(logsPrimitive),
 			&log.TerminalHandlerOptions{
@@ -167,48 +165,56 @@ func (c *Control) Run(ctx context.Context) (err error) {
 				ForceColor:        true,
 			},
 		),
-		EnabledHandler: originalHandler,
+		EnabledHandler: consoleLogger.Handler(),
+	})
+	appCtx := log.WithLogger(consoleCtx, appLogger)
+	appCtx, cancel := context.WithCancel(appCtx)
+	cleanup := func(ctx context.Context) {
+		cancel()
+		logger := log.MustLogger(ctx)
+		err = errors.Join(err, c.waitForWorkers(ctx))
+		logger.Info("Disconnecting")
+		err = errors.Join(err, c.grbl.Disconnect())
 	}
-	primitiveLogger := slog.New(logsPrimitiveHandler)
-	// From this point onwards:
-	// - While app.Run is active, logger from ctx must be used.
-	// - Otherwise, originalContext logger must be used.
-	originalContext := ctx
-	ctx = log.WithLogger(originalContext, primitiveLogger)
 
 	// Grbl
-	logger.Info("Connecting to Grbl")
-	pushMessageCh, err := c.grbl.Connect(ctx)
+	consoleLogger.Info("Connecting to Grbl")
+	pushMessageCh, err := c.grbl.Connect(appCtx)
 	if err != nil {
+		cancel()
 		return err
 	}
-	logger.Info("Connected to Grbl")
-
-	// Context Cancellation
-	ctx, cancelFn := context.WithCancel(ctx)
+	consoleLogger.Debug("Connected to Grbl")
 
 	// Message Processors
 	var messageProcessors []MessageProcessor
 
 	// StatusPrimitive
-	statusPrimitive := NewStatusPrimitive(ctx, c.grbl, app)
+	statusPrimitive := NewStatusPrimitive(appCtx, c.grbl, app)
 	messageProcessors = append(messageProcessors, statusPrimitive)
 
 	// ControlPrimitive
 	controlPrimitive := NewControlPrimitive(
-		ctx,
-		c.grbl, pushMessageCh,
+		appCtx, c.grbl, pushMessageCh,
 		app, statusPrimitive,
 		!c.options.DisplayGcodeParserStateComms,
 		!c.options.DisplayGcodeParamStateComms,
 		!c.options.DisplayStatusComms,
 	)
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		_, logger := log.MustWithGroup(ctx, "app.InputCapture")
+		appCtx, logger := log.MustWithGroup(appCtx, "Application.InputCapture")
 		logger.Debug("Called", "event", event)
 		if event.Key() == tcell.KeyCtrlX {
 			logger.Debug("QueueRealTimeCommand SoftReset")
 			controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset)
+			return nil
+		}
+		if event.Key() == tcell.KeyCtrlC {
+			go func() {
+				logger.Info("Exiting")
+				cleanup(appCtx)
+				app.Stop()
+			}()
 			return nil
 		}
 		return event
@@ -216,16 +222,16 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	messageProcessors = append(messageProcessors, controlPrimitive)
 
 	// OverridesPrimitive
-	overridesPrimitive := NewOverridesPrimitive(ctx, app, controlPrimitive)
+	overridesPrimitive := NewOverridesPrimitive(appCtx, app, controlPrimitive)
 	messageProcessors = append(messageProcessors, overridesPrimitive)
 
 	// JoggingPrimitive
-	joggingPrimitive := NewJoggingPrimitive(ctx, app, controlPrimitive)
+	joggingPrimitive := NewJoggingPrimitive(appCtx, app, controlPrimitive)
 	messageProcessors = append(messageProcessors, joggingPrimitive)
 
 	// RootPrimitive
 	rootPrimitive := NewRootPrimitive(
-		ctx, app,
+		appCtx, app,
 		statusPrimitive,
 		controlPrimitive,
 		overridesPrimitive,
@@ -237,7 +243,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	// Workers
 	c.startWorker(
-		ctx, app,
+		appCtx, cancel, app,
 		"Control.messageProcessorWorker",
 		func(ctx context.Context) error {
 			return c.messageProcessorWorker(
@@ -246,44 +252,21 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		},
 	)
 	c.startWorker(
-		ctx, app,
+		appCtx, cancel, app,
 		"ControlPrimitive.RunSendCommandWorker",
 		controlPrimitive.RunSendCommandWorker,
 	)
 	c.startWorker(
-		ctx, app,
+		appCtx, cancel, app,
 		"ControlPrimitive.RunSendRealTimeCommandWorker",
 		controlPrimitive.RunSendRealTimeCommandWorker,
 	)
-	c.startWorker(ctx, app, "Control.statusQueryWorker", c.statusQueryWorker)
+	c.startWorker(appCtx, cancel, app, "Control.statusQueryWorker", c.statusQueryWorker)
 
-	// Defer
-	defer func() {
-		logger := logger.WithGroup("Exit")
-		logger.Debug("Cancelling context")
-		cancelFn()
-		// There's a bug in tview. When Application.Run returns, any pending or future calls to
-		// Application.QueueUpdate will block indefinitely (it should fail these calls).
-		// Any worker that calls Application.QueueUpdate may get stuck on it, and not be able to
-		// process the context cancellation.
-		// This hack here spins the app again using a simulated screen, which enables any pending
-		// Application.QueueUpdate to be processed, unblocking them, so the worker can return from
-		// context cancellation.
-		app.SetScreen(tcell.NewSimulationScreen("UTF-8"))
-		errCh := make(chan error)
-		go func() {
-			logger.Debug("Running simulated screen app")
-			errCh <- errors.Join(err, app.Run())
-		}()
-		err = errors.Join(err, c.waitForWorkers(originalContext))
-		logger.Debug("Stopping simulated screen app")
-		app.Stop()
-		logger.Debug("Waiting for simulated screen app")
-		err = errors.Join(err, <-errCh)
-		logger.Info("Disconnecting")
-		err = errors.Join(err, c.grbl.Disconnect())
-		logger.Debug("Done")
-	}()
-
-	return app.Run()
+	if runErr := app.Run(); runErr != nil {
+		consoleLogger.Error("Application failed", "err", err)
+		err = errors.Join(err, runErr)
+		cleanup(consoleCtx)
+	}
+	return
 }

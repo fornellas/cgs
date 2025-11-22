@@ -5,42 +5,6 @@ Bugs
         debug if Dial hangs or if grbl connect hangs
         use net.Dialer insteaf of net.Dial
             set timeout
-    ^C
-        "Stopping simulated screen app" freezes sometimes
-            tview.Application.Stop has a lock, is it?
-            tcell.SimulationScreen has a lock, is it?
-    $H then ^C
-        Logging gets messy sometimes
-            $ ./cgs.linux.amd64 control --address 127.0.0.1:9999 --log-level debug
-            ⚙ cgs control
-            port-name:
-            address: 127.0.0.1:9999
-            🏷 Control
-                INFO Connecting to Grbl
-                INFO Connected to Grbl
-                🏷 Exit
-                DEBUG Cancelling context
-                🏷 waitForWorkers
-                total: 4
-                DEBUG Waiting for worker
-                    name: Control.statusQueryWorker
-                    number: 1
-                🏷 waitForWorkers
-                total: 4
-                DEBUG Waiting for worker
-                    name: ControlPrimitive.RunSendRealTimeCommandWorker
-                    number: 2
-                DEBUG Waiting for worker
-                    name: ControlPrimitive.RunSendCommandWorker
-                    number: 3
-                🏷 Exit
-                DEBUG Running simulated screen app
-                DEBUG Waiting for worker
-                                                name: Control.messageProcessorWorker
-                                                                                            number: 4
-                                                                                                            DEBUG All workers stopped
-                                🏷 Exit
-                                                DEBUG Stopping simulated screen app
 Features
     Jogging
     Stream
