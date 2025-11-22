@@ -177,11 +177,12 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	ctx = log.WithLogger(originalContext, primitiveLogger)
 
 	// Grbl
-	logger.Info("Connecting")
+	logger.Info("Connecting to Grbl")
 	pushMessageCh, err := c.grbl.Connect(ctx)
 	if err != nil {
 		return err
 	}
+	logger.Info("Connected to Grbl")
 
 	// Context Cancellation
 	ctx, cancelFn := context.WithCancel(ctx)
@@ -261,7 +262,21 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		logger := logger.WithGroup("Exit")
 		logger.Debug("Cancelling context")
 		cancelFn()
+		// There's a bug in tview. When Application.Run returns, any pending or future calls to
+		// Application.QueueUpdate will block indefinitely (it should fail these calls).
+		// Any worker that calls Application.QueueUpdate may get stuck on it, and not be able to
+		// process the context cancellation.
+		// This hack here spins the app again using a simulated screen, which enables any pending
+		// Application.QueueUpdate to be processed, unblocking them, so the worker can return from
+		// context cancellation.
+		app.SetScreen(tcell.NewSimulationScreen("UTF-8"))
+		errCh := make(chan error)
+		go func() {
+			errCh <- errors.Join(err, app.Run())
+		}()
 		err = errors.Join(err, c.waitForWorkers(originalContext))
+		app.Stop()
+		err = errors.Join(err, <-errCh)
 		logger.Info("Disconnecting")
 		err = errors.Join(err, c.grbl.Disconnect())
 		logger.Debug("Done")

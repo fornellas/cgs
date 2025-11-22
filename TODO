@@ -1,27 +1,22 @@
 Bugs
+    Connecting to Grbl via TCP sometimes hangs
+        use net.Dialer insteaf of net.Dial
+            set timeout
     do not send $G/$# for:
         $SLP, maybe others
-    Scrolling
-        Only scroll to end if view position is already at the end
-            if not, change color to indicate there's new text
-    Connecting to Grbl via TCP sometimes hangs
-    When $H is active, if ^C it locks on exit
-        ControlPrimitive.RunSendCommandWorker calls app.QueueUpdate indirectly
-        on Control.Run, on the defer, the context is cancelled, and at this point, the app is stopped.
-        app.QueueUpdate does not handle this case: it stalls, as there's no app run loop to process it
-        proper fix would require app.QueueUpdate to return when the app is stopped.
-        workaround is to run QueueUpdate in a separate goroutine (which may cause other concurrency issues
 Features
     Jogging
     Stream
     Settings
     Script
     Keyboard navigation (tab / btab / arrows etc)
+    Import server from https://github.com/fornellas/serialtcp
 Improvements
-    https://github.com/fornellas/serialtcp
     Limit Jogging to work area fetched from $$
     internal/
-    Connect timeout
     Add line limits to various TextView
     TextView logging
         debug why with DisableGroupEmoji=false, it wrecks UI (it looks like there's double last rune for every line that there's an emoji)
+    Scrolling
+        Only scroll to end if view position is already at the end
+            if not, change color to indicate there's new text
