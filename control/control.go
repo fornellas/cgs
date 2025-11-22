@@ -272,10 +272,13 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		app.SetScreen(tcell.NewSimulationScreen("UTF-8"))
 		errCh := make(chan error)
 		go func() {
+			logger.Debug("Running simulated screen app")
 			errCh <- errors.Join(err, app.Run())
 		}()
 		err = errors.Join(err, c.waitForWorkers(originalContext))
+		logger.Debug("Stopping simulated screen app")
 		app.Stop()
+		logger.Debug("Waiting for simulated screen app")
 		err = errors.Join(err, <-errCh)
 		logger.Info("Disconnecting")
 		err = errors.Join(err, c.grbl.Disconnect())

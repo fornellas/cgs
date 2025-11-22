@@ -53,6 +53,9 @@ func NewJoggingPrimitive(
 	}
 
 	acceptFloatFn := func(textToCheck string, lastChar rune) bool {
+		if len(textToCheck) > 0 && textToCheck[0] == '-' {
+			return true
+		}
 		_, err := strconv.ParseFloat(textToCheck, 64)
 		return err == nil
 	}
@@ -174,6 +177,10 @@ func (jp *JoggingPrimitive) jog() {
 		err = fmt.Errorf("missing feed rate")
 	}
 
+	if jp.machineCoordinatesCheckbox.IsChecked() {
+		fmt.Fprint(&buf, "G53")
+	}
+
 	if err != nil {
 		// TODO report error
 		return
@@ -220,7 +227,6 @@ func (jp *JoggingPrimitive) processMessagePushGcodeState(
 }
 
 func (jp *JoggingPrimitive) processMessagePushStatusReport(
-	ctx context.Context,
 	messagePushStatusReport *grblMod.MessagePushStatusReport,
 ) {
 	jp.app.QueueUpdateDraw(func() {
@@ -271,7 +277,7 @@ func (jp *JoggingPrimitive) ProcessMessage(ctx context.Context, message grblMod.
 		return
 	}
 	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-		jp.processMessagePushStatusReport(ctx, messagePushStatusReport)
+		jp.processMessagePushStatusReport(messagePushStatusReport)
 		return
 	}
 }
