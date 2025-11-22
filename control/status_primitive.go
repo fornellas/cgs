@@ -77,15 +77,11 @@ func (sp *StatusPrimitive) newStatusTextView(ctx context.Context) {
 }
 
 func (sp *StatusPrimitive) processMessagePushWelcome(ctx context.Context) {
-	_, logger := log.MustWithGroup(ctx, "StatusPrimitive.processMessagePushWelcome")
-	logger.Debug("Before QueueUpdateDraw")
 	sp.app.QueueUpdateDraw(func() {
-		logger.Debug("Inside QueueUpdateDraw")
 		sp.stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 		sp.stateTextView.Clear()
 		sp.statusTextView.Clear()
 	})
-	logger.Debug("After QueueUpdateDraw")
 }
 
 func (sp *StatusPrimitive) setMachineState(
@@ -96,14 +92,11 @@ func (sp *StatusPrimitive) setMachineState(
 
 	stateColor := getMachineStateColor(machineState.State)
 
-	logger.Debug("Before QueueUpdateDraw")
 	sp.app.QueueUpdateDraw(func() {
-		logger.Debug("Inside QueueUpdateDraw")
 		sp.stateTextView.Clear()
 		sp.stateTextView.SetBackgroundColor(stateColor)
 		sp.statusTextView.Clear()
 	})
-	logger.Debug("After QueueUpdateDraw")
 	fmt.Fprintf(
 		sp.stateTextView, "%s\n",
 		tview.Escape(machineState.State),
@@ -198,14 +191,9 @@ func (sp *StatusPrimitive) updateStatusTextView(
 	ctx context.Context,
 	statusReport *grblMod.MessagePushStatusReport,
 ) {
-	_, logger := log.MustWithGroup(ctx, "StatusPrimitive.updateStatusTextView")
-
-	logger.Debug("Before QueueUpdateDraw")
 	sp.app.QueueUpdateDraw(func() {
-		logger.Debug("Inside QueueUpdateDraw")
 		sp.statusTextView.Clear()
 	})
-	logger.Debug("After QueueUpdateDraw")
 
 	sp.writePositionStatus(sp.statusTextView, statusReport)
 

@@ -7,8 +7,6 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
-	"github.com/fornellas/slogxt/log"
-
 	grblMod "github.com/fornellas/cgs/grbl"
 )
 
@@ -216,10 +214,7 @@ func (rp *RootPrimitive) setMachineState(
 	ctx context.Context,
 	machineState *grblMod.StatusReportMachineState,
 ) {
-	_, logger := log.MustWithGroup(ctx, "RootPrimitive.setMachineState")
-	logger.Debug("Before QueueUpdateDraw")
 	rp.app.QueueUpdateDraw(func() {
-		logger.Debug("Inside QueueUpdateDraw")
 		if machineState == nil {
 			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
@@ -327,18 +322,13 @@ func (rp *RootPrimitive) setMachineState(
 			panic(fmt.Errorf("unknown state: %s", machineState.State))
 		}
 	})
-	logger.Debug("After QueueUpdateDraw")
 }
 
 func (rp *RootPrimitive) processMessagePushWelcome(ctx context.Context) {
-	_, logger := log.MustWithGroup(ctx, "RootPrimitive.processMessagePushWelcome")
 	rp.setMachineState(ctx, nil)
-	logger.Debug("Before QueueUpdateDraw")
 	rp.app.QueueUpdateDraw(func() {
-		logger.Debug("Inside QueueUpdateDraw")
 		rp.feedbackTextView.SetText("")
 	})
-	logger.Debug("After QueueUpdateDraw")
 }
 
 func getMachineStateColor(state string) tcell.Color {

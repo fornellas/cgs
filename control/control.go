@@ -171,9 +171,10 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	}
 	primitiveLogger := slog.New(logsPrimitiveHandler)
 	// From this point onwards:
-	// - Context logger goes to logsPrimitive.
-	// - logger is the original logger, that can NOT be used while app.Run is active.
-	ctx = log.WithLogger(ctx, primitiveLogger)
+	// - While app.Run is active, logger from ctx must be used.
+	// - Otherwise, originalContext logger must be used.
+	originalContext := ctx
+	ctx = log.WithLogger(originalContext, primitiveLogger)
 
 	// Grbl
 	logger.Info("Connecting")
@@ -260,7 +261,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		logger := logger.WithGroup("Exit")
 		logger.Debug("Cancelling context")
 		cancelFn()
-		err = errors.Join(err, c.waitForWorkers(ctx))
+		err = errors.Join(err, c.waitForWorkers(originalContext))
 		logger.Info("Disconnecting")
 		err = errors.Join(err, c.grbl.Disconnect())
 		logger.Debug("Done")

@@ -70,14 +70,9 @@ func NewControlPrimitive(
 		SetWrap(true)
 	commandsTextView.SetBorder(true).SetTitle("Commands")
 	commandsTextView.SetChangedFunc(func() {
-		_, logger := log.MustWithGroup(ctx, "commandsTextView")
-		logger.Debug("SetChangedFunc")
-		logger.Debug("Before QueueUpdate")
 		cp.app.QueueUpdate(func() {
-			logger.Debug("Inside QueueUpdate")
 			commandsTextView.ScrollToEnd()
 		})
-		logger.Debug("After QueueUpdate")
 	})
 	cp.commandsTextView = commandsTextView
 
@@ -88,14 +83,9 @@ func NewControlPrimitive(
 		SetWrap(true)
 	pushMessagesTextView.SetBorder(true).SetTitle("Push Messages")
 	pushMessagesTextView.SetChangedFunc(func() {
-		_, logger := log.MustWithGroup(ctx, "pushMessagesTextView")
-		logger.Debug("SetChangedFunc")
-		logger.Debug("Before QueueUpdate")
 		cp.app.QueueUpdate(func() {
-			logger.Debug("Inside QueueUpdate")
 			pushMessagesTextView.ScrollToEnd()
 		})
-		logger.Debug("After QueueUpdate")
 	})
 	cp.pushMessagesTextView = pushMessagesTextView
 
@@ -106,13 +96,8 @@ func NewControlPrimitive(
 		SetWrap(true)
 	gcodeParserTextView.SetBorder(true).SetTitle("G-Code Parser")
 	gcodeParserTextView.SetChangedFunc(func() {
-		_, logger := log.MustWithGroup(ctx, "gcodeParserTextView")
-		logger.Debug("SetChangedFunc")
-		logger.Debug("Before QueueUpdate")
 		cp.app.QueueUpdate(func() {
-			logger.Debug("Inside QueueUpdate")
 		})
-		logger.Debug("After QueueUpdate")
 	})
 	cp.gcodeParserTextView = gcodeParserTextView
 
@@ -123,13 +108,8 @@ func NewControlPrimitive(
 		SetWrap(true)
 	gcodeParamsTextView.SetBorder(true).SetTitle("G-Code Parameters")
 	gcodeParamsTextView.SetChangedFunc(func() {
-		_, logger := log.MustWithGroup(ctx, "gcodeParamsTextView")
-		logger.Debug("SetChangedFunc")
-		logger.Debug("Before QueueUpdate")
 		cp.app.QueueUpdate(func() {
-			logger.Debug("Inside QueueUpdate")
 		})
-		logger.Debug("Outside QueueUpdate")
 	})
 	cp.gcodeParamsTextView = gcodeParamsTextView
 
@@ -176,10 +156,7 @@ func NewControlPrimitive(
 }
 
 func (cp *ControlPrimitive) setDisabledState(ctx context.Context) {
-	_, logger := log.MustWithGroup(ctx, "ControlPrimitive.setDisabledState")
-	logger.Debug("Before QueueUpdate")
 	cp.app.QueueUpdate(func() {
-		logger.Debug("Inside QueueUpdate")
 		cp.mu.Lock()
 		defer cp.mu.Unlock()
 		if cp.disableCommandInput || cp.machineState == nil {
@@ -209,7 +186,6 @@ func (cp *ControlPrimitive) setDisabledState(ctx context.Context) {
 			panic(fmt.Errorf("unknown state: %s", *cp.machineState))
 		}
 	})
-	logger.Debug("After QueueUpdate")
 }
 
 func (cp *ControlPrimitive) setMachineState(ctx context.Context, machineState string) {
@@ -227,10 +203,7 @@ func (cp *ControlPrimitive) DisableCommandInput(ctx context.Context, disabled bo
 }
 
 //gocyclo:ignore
-func (cp *ControlPrimitive) sendCommand(
-	ctx context.Context,
-	command string,
-) {
+func (cp *ControlPrimitive) sendCommand(ctx context.Context, command string) {
 	textView := cp.commandsTextView
 
 	// Extract and send real-time commands
@@ -434,13 +407,9 @@ func (cp *ControlPrimitive) processMessagePushGcodeState(
 		fmt.Fprintf(&buf, "Speed: %.0f\n", *messagePushGcodeState.SpindleSpeed)
 	}
 
-	_, logger := log.MustWithGroup(ctx, "ControlPrimitive.processMessagePushGcodeState")
-	logger.Debug("Before QueueUpdate")
 	cp.app.QueueUpdate(func() {
-		logger.Debug("Inside QueueUpdate")
 		cp.gcodeParserTextView.Clear()
 	})
-	logger.Debug("After QueueUpdate")
 
 	fmt.Fprint(cp.gcodeParserTextView, tview.Escape(buf.String()))
 
@@ -544,13 +513,9 @@ func (cp *ControlPrimitive) processMessagePushGcodeParam(ctx context.Context) tc
 		fmt.Fprintf(&buf, "Successful: %v\n", params.Probe.Successful)
 	}
 
-	_, logger := log.MustWithGroup(ctx, "ControlPrimitive.processMessagePushGcodeParam")
-	logger.Debug("Before QueueUpdate")
 	cp.app.QueueUpdate(func() {
-		logger.Debug("Inside QueueUpdate")
 		cp.gcodeParamsTextView.Clear()
 	})
-	logger.Debug("After QueueUpdate")
 
 	fmt.Fprint(cp.gcodeParamsTextView, tview.Escape(buf.String()))
 
@@ -558,14 +523,10 @@ func (cp *ControlPrimitive) processMessagePushGcodeParam(ctx context.Context) tc
 }
 
 func (cp *ControlPrimitive) processMessagePushWelcome(ctx context.Context) {
-	_, logger := log.MustWithGroup(ctx, "ControlPrimitive.processMessagePushWelcome")
-	logger.Debug("Before QueueUpdate")
 	cp.app.QueueUpdate(func() {
-		logger.Debug("Inside QueueUpdate")
 		cp.gcodeParserTextView.Clear()
 		cp.gcodeParamsTextView.Clear()
 	})
-	logger.Debug("After QueueUpdate")
 	fmt.Fprintf(cp.pushMessagesTextView, "\n[%s]Soft-Reset detected[-]", tcell.ColorOrange)
 	// Sending $G enables tracking of G-Code parsing state
 	cp.QueueCommand("$G")

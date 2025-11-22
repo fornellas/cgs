@@ -6,8 +6,6 @@ import (
 
 	"github.com/rivo/tview"
 
-	"github.com/fornellas/slogxt/log"
-
 	grblMod "github.com/fornellas/cgs/grbl"
 )
 
@@ -171,10 +169,7 @@ func (op *OverridesPrimitive) processMessagePushStatusReport(
 	ctx context.Context,
 	messagePushStatusReport *grblMod.MessagePushStatusReport,
 ) {
-	_, logger := log.MustWithGroup(ctx, "OverridesPrimitive.processMessagePushStatusReport")
-	logger.Debug("Before QueueUpdateDraw")
 	op.app.QueueUpdateDraw(func() {
-		logger.Debug("Inside QueueUpdateDraw")
 		switch messagePushStatusReport.MachineState.State {
 		case "Idle":
 			op.feedDecr10Button.SetDisabled(false)
@@ -333,7 +328,6 @@ func (op *OverridesPrimitive) processMessagePushStatusReport(
 			panic(fmt.Sprintf("unknown machine state: %#v", messagePushStatusReport.MachineState.State))
 		}
 	})
-	logger.Debug("After QueueUpdateDraw")
 }
 
 func (op *OverridesPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {

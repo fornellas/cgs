@@ -1,14 +1,16 @@
 Bugs
-    virtual status report: Home
-        When it is in alarm state (ie: hit limit switch), grbl is waiting for reset
-            [MSG:Reset to continue]
-                but the virtual state will be changed to Home
-    FIXME do not send $G/$# for:
+    Extra new line on top of Commands & Push Messages
+    do not send $G/$# for:
         $SLP, maybe others
     Scrolling
         Only scroll to end if view position is already at the end
             if not, change color to indicate there's new text
-    Extra new line on top of Commands & Push Messages
+    When $H is active, if ^C it locks on exit
+        ControlPrimitive.RunSendCommandWorker calls app.QueueUpdate indirectly
+        on Control.Run, on the defer, the context is cancelled, and at this point, the app is stopped.
+        app.QueueUpdate does not handle this case: it stalls, as there's no app run loop to process it
+        proper fix would require app.QueueUpdate to return when the app is stopped.
+        workaround is to run QueueUpdate in a separate goroutine (which may cause other concurrency issues
 Features
     Jogging
     Stream
