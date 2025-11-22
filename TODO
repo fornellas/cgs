@@ -1,5 +1,4 @@
 Bugs
-    Extra new line on top of Commands & Push Messages
     do not send $G/$# for:
         $SLP, maybe others
     Scrolling

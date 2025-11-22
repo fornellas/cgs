@@ -71,6 +71,10 @@ func NewControlPrimitive(
 	commandsTextView.SetBorder(true).SetTitle("Commands")
 	commandsTextView.SetChangedFunc(func() {
 		cp.app.QueueUpdate(func() {
+			text := commandsTextView.GetText(false)
+			if len(text) > 0 && text[0] == '\n' {
+				commandsTextView.SetText(text[1:])
+			}
 			commandsTextView.ScrollToEnd()
 		})
 	})
@@ -84,6 +88,10 @@ func NewControlPrimitive(
 	pushMessagesTextView.SetBorder(true).SetTitle("Push Messages")
 	pushMessagesTextView.SetChangedFunc(func() {
 		cp.app.QueueUpdate(func() {
+			text := pushMessagesTextView.GetText(false)
+			if len(text) > 0 && text[0] == '\n' {
+				pushMessagesTextView.SetText(text[1:])
+			}
 			pushMessagesTextView.ScrollToEnd()
 		})
 	})
