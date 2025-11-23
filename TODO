@@ -103,9 +103,6 @@ Features
         Script
             TBD
     Misc
-        Consistent TextView Formatting
-            Coordinates
-                Same color, drop right zeroes
         Scrolling
             Only scroll to end if view position is already at the end
                 if not, change color to indicate there's new text
