@@ -10,6 +10,7 @@ Features
             Buffer
                 Use $I OPT values for max blocks / bytes
         Control
+            Use grid to hide Gcode row if height is too small
             Better handling of hidden comms
                 If $C, $# was user input
                     show command
@@ -33,6 +34,7 @@ Features
         Stream
             TBD
         Settings
+            SetDisable based on state / reset
             Settings
                 $$ - View Grbl settings
                 $x=val - Save Grbl setting
