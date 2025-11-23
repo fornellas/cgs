@@ -237,33 +237,25 @@ func (sp *StatusPrimitive) updateStatusTextView(statusReport *grblMod.MessagePus
 	}
 
 	sp.app.QueueUpdateDraw(func() {
-		if buf.String() == text sp.statusTextView.GetText(false) {
+		if buf.String() == sp.statusTextView.GetText(false) {
 			return
 		}
 		sp.statusTextView.SetText(buf.String())
 	})
 }
 
-func (sp *StatusPrimitive) processMessagePushStatusReport(
-	ctx context.Context,
-	statusReport *grblMod.MessagePushStatusReport,
-) {
-	_, logger := log.MustWithGroup(ctx, "StatusPrimitive.processMessagePushStatusReport")
-	logger.Debug("Run")
-	sp.setMachineState(ctx, &statusReport.MachineState)
-	sp.updateStatusTextView(ctx, statusReport)
+func (sp *StatusPrimitive) processMessagePushStatusReport(statusReport *grblMod.MessagePushStatusReport) {
+	sp.updateStateTextView(statusReport.MachineState)
+	sp.updateStatusTextView(statusReport)
 }
 
 func (sp *StatusPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
-	ctx, logger := log.MustWithGroup(ctx, "StatusPrimitive.ProcessMessage")
-	logger.Debug("Start")
 	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
-		sp.processMessagePushWelcome(ctx)
+		sp.processMessagePushWelcome()
 		return
 	}
 	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-		sp.processMessagePushStatusReport(ctx, messagePushStatusReport)
+		sp.processMessagePushStatusReport(messagePushStatusReport)
 		return
 	}
-	logger.Debug("End")
 }
