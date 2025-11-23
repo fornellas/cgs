@@ -14,7 +14,7 @@ import (
 
 type Grbl struct {
 	mu                         sync.Mutex
-	openPortFn                 func(*serial.Mode) (serial.Port, error)
+	openPortFn                 func(context.Context, *serial.Mode) (serial.Port, error)
 	port                       serial.Port
 	workCoordinateOffset       *StatusReportWorkCoordinateOffset
 	overrideValues             *StatusReportOverrideValues
@@ -26,7 +26,7 @@ type Grbl struct {
 	messageReceiverWorkerErrCh chan error
 }
 
-func NewGrbl(openPortFn func(*serial.Mode) (serial.Port, error)) *Grbl {
+func NewGrbl(openPortFn func(context.Context, *serial.Mode) (serial.Port, error)) *Grbl {
 	g := &Grbl{
 		openPortFn: openPortFn,
 	}
@@ -154,16 +154,14 @@ func (g *Grbl) waitForWelcomeMessage(ctx context.Context) error {
 //
 //gocyclo:ignore
 func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
 	mode := &serial.Mode{
 		BaudRate: 115200,
 		DataBits: 8,
 		Parity:   serial.NoParity,
 		StopBits: serial.OneStopBit,
 	}
-	port, err := g.openPortFn(mode)
+
+	port, err := g.openPortFn(ctx, mode)
 	if err != nil {
 		return nil, fmt.Errorf("grbl: serial port open error: %w", err)
 	}
@@ -176,6 +174,8 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 		}
 		return nil, errors.Join(fmt.Errorf("grbl: error setting read timeout: %w", err), closeErr)
 	}
+
+	g.mu.Lock()
 
 	g.port = port
 
@@ -192,8 +192,10 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 	go g.messageReceiverWorker(receiveCtx)
 
 	if err := g.waitForWelcomeMessage(ctx); err != nil {
-		return nil, errors.Join(err, g.Disconnect())
+		g.mu.Unlock()
+		return nil, errors.Join(err, g.Disconnect(ctx))
 	}
+	g.mu.Unlock()
 
 	return g.pushMessageCh, nil
 }
@@ -483,7 +485,7 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (*MessageRespons
 // }
 
 // Disconnect will stop all goroutines and close the serial port.
-func (g *Grbl) Disconnect() (err error) {
+func (g *Grbl) Disconnect(ctx context.Context) (err error) {
 	g.mu.Lock()
 	if g.port == nil {
 		g.mu.Unlock()

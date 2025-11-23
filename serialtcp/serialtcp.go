@@ -1,10 +1,12 @@
 package serialtcp
 
 import (
+	"context"
 	"errors"
 	"net"
 	"time"
 
+	"github.com/fornellas/slogxt/log"
 	"go.bug.st/serial"
 )
 
@@ -14,8 +16,13 @@ type TcpPort struct {
 	readTimeout time.Duration
 }
 
-func TcpPortDial(network, address string) (*TcpPort, error) {
-	conn, err := net.Dial(network, address)
+func TcpPortDial(ctx context.Context, address string, timeout time.Duration) (*TcpPort, error) {
+	logger := log.MustLogger(ctx)
+	logger.Info("Dialing TCP port", "address", address, "timeout", timeout)
+	dialer := &net.Dialer{
+		Timeout: timeout,
+	}
+	conn, err := dialer.DialContext(ctx, "tcp", address)
 	if err != nil {
 		return nil, err
 	}

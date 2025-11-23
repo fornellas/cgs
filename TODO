@@ -1,8 +1,3 @@
-Bugs
-    Connecting to Grbl via TCP sometimes hangs
-        debug if Dial hangs or if grbl connect hangs
-        use net.Dialer insteaf of net.Dial
-            set timeout
 Features
     Jogging
         Parameters

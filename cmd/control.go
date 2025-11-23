@@ -26,6 +26,10 @@ var ControlCmd = &cobra.Command{
 			cmd.Context(),
 			"port-name", portName,
 			"address", address,
+			"timeout", timeout,
+			"display-status-comms", displayStatusComms,
+			"display-gcode-parser-state-comms", displayGcodeParserStateComms,
+			"display-gcode-param-state-comms", displayGcodeParamStateComms,
 		)
 		cmd.SetContext(ctx)
 

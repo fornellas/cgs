@@ -167,17 +167,16 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		logger := log.MustLogger(ctx)
 		err = errors.Join(err, c.waitForWorkers(ctx))
 		logger.Info("Disconnecting")
-		err = errors.Join(err, c.grbl.Disconnect())
+		err = errors.Join(err, c.grbl.Disconnect(ctx))
 	}
 
 	// Grbl
 	consoleLogger.Info("Connecting to Grbl")
-	pushMessageCh, err := c.grbl.Connect(appCtx)
+	pushMessageCh, err := c.grbl.Connect(consoleCtx)
 	if err != nil {
 		cancel()
 		return err
 	}
-	consoleLogger.Debug("Connected to Grbl")
 
 	// Message Processors
 	var messageProcessors []MessageProcessor
