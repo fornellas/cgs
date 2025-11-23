@@ -8,8 +8,6 @@ Features
     Control
         Command history
     Jogging
-        Parameters
-            Only enable Jog button when inputs are valid
         Joystick
             Buttons
                 x+/-, y+/-, z+/-

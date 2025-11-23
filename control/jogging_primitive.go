@@ -77,26 +77,42 @@ func NewJoggingPrimitive(
 	parametersForm.AddInputField("X", "", width, acceptFloatFn, nil)
 	jp.xInputField = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
+
 	parametersForm.AddInputField("Y", "", width, acceptFloatFn, nil)
 	jp.yInputField = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
+
 	parametersForm.AddInputField("Z", "", width, acceptFloatFn, nil)
 	jp.zInputField = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
+
 	parametersForm.AddDropDown("Unit", jp.unitOptions, -1, nil)
 	jp.unitDropDown = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.DropDown)
+
 	parametersForm.AddDropDown("Distance mode", jp.distanceModeOptions, -1, nil)
 	jp.distanceModeDropDown = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.DropDown)
+
 	parametersForm.AddInputField("Feed rate", "", width, acceptFloatFn, nil)
 	jp.feedRateInputField = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
+
 	parametersForm.AddCheckbox("Machine Coordinates", false, nil)
 	jp.machineCoordinatesCheckbox = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.Checkbox)
+
+	jp.distanceModeDropDown.SetSelectedFunc(func(option string, optionIndex int) {
+		if option == "Incremental" {
+			jp.machineCoordinatesCheckbox.SetDisabled(true)
+		} else {
+			jp.machineCoordinatesCheckbox.SetDisabled(false)
+		}
+	})
+
 	parametersForm.AddButton("Jog", jp.jog)
 	jp.jogParametersButton = parametersForm.GetButton(parametersForm.GetButtonCount() - 1)
+
 	parametersForm.AddButton("Cancel", func() {
 		controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandJogCancel)
 	})
