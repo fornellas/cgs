@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
 	grblMod "github.com/fornellas/cgs/grbl"
@@ -335,31 +334,6 @@ func (rp *RootPrimitive) processMessagePushWelcome() {
 	rp.app.QueueUpdateDraw(func() {
 		rp.feedbackTextView.SetText("")
 	})
-}
-
-func getMachineStateColor(state string) tcell.Color {
-	switch state {
-	case "Idle":
-		return tcell.ColorBlack
-	case "Run":
-		return tcell.ColorGreen
-	case "Hold":
-		return tcell.ColorYellow
-	case "Jog":
-		return tcell.ColorDarkGreen
-	case "Alarm":
-		return tcell.ColorRed
-	case "Door":
-		return tcell.ColorOrange
-	case "Check":
-		return tcell.ColorDarkCyan
-	case "Home":
-		return tcell.ColorLightGreen
-	case "Sleep":
-		return tcell.ColorDarkBlue
-	default:
-		return tcell.ColorWhite
-	}
 }
 
 func (rp *RootPrimitive) processMessagePushFeedback(

@@ -103,14 +103,14 @@ Features
         Script
             TBD
     Misc
-        Keyboard navigation (tab / btab / arrows etc)
         Consistent TextView Formatting
             Coordinates
                 Same color, drop right zeroes
-        TCP serial port server from https://github.com/fornellas/serialtcp
         Scrolling
             Only scroll to end if view position is already at the end
                 if not, change color to indicate there's new text
+        TCP serial port server from https://github.com/fornellas/serialtcp
+        Keyboard navigation (tab / btab / arrows etc)
         Codebase
             Add internal/
             Add line limits to various TextView

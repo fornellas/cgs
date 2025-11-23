@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
 	grblMod "github.com/fornellas/cgs/grbl"
@@ -141,16 +142,16 @@ func (sp *StatusPrimitive) writePositionStatus(w io.Writer, statusReport *grblMo
 		nl = true
 	}
 	if wx != nil {
-		fmt.Fprintf(w, "X:%.3f\n", *wx)
+		fmt.Fprintf(w, "X:%s\n", sprintCoordinate(*wx))
 	}
 	if wy != nil {
-		fmt.Fprintf(w, "Y:%.3f\n", *wy)
+		fmt.Fprintf(w, "Y:%s\n", sprintCoordinate(*wy))
 	}
 	if wz != nil {
-		fmt.Fprintf(w, "Z:%.3f\n", *wz)
+		fmt.Fprintf(w, "Z:%s\n", sprintCoordinate(*wz))
 	}
 	if wa != nil {
-		fmt.Fprintf(w, "A:%.3f\n", *wa)
+		fmt.Fprintf(w, "A:%s\n", sprintCoordinate(*wa))
 	}
 	if mx != nil || my != nil || mz != nil || ma != nil {
 		if nl {
@@ -159,16 +160,16 @@ func (sp *StatusPrimitive) writePositionStatus(w io.Writer, statusReport *grblMo
 		fmt.Fprintf(w, "Machine\n")
 	}
 	if mx != nil {
-		fmt.Fprintf(w, "X:%.3f\n", *mx)
+		fmt.Fprintf(w, "X:%s\n", sprintCoordinate(*mx))
 	}
 	if my != nil {
-		fmt.Fprintf(w, "Y:%.3f\n", *my)
+		fmt.Fprintf(w, "Y:%s\n", sprintCoordinate(*my))
 	}
 	if mz != nil {
-		fmt.Fprintf(w, "Z:%.3f\n", *mz)
+		fmt.Fprintf(w, "Z:%s\n", sprintCoordinate(*mz))
 	}
 	if ma != nil {
-		fmt.Fprintf(w, "A:%.3f\n", *ma)
+		fmt.Fprintf(w, "A:%s\n", sprintCoordinate(*ma))
 	}
 }
 
@@ -180,42 +181,42 @@ func (sp *StatusPrimitive) updateStatusTextView(statusReport *grblMod.MessagePus
 
 	if statusReport.BufferState != nil {
 		fmt.Fprint(&buf, "\nBuffer\n")
-		fmt.Fprintf(&buf, "Blocks:%d\n", statusReport.BufferState.AvailableBlocks)
-		fmt.Fprintf(&buf, "Bytes:%d\n", statusReport.BufferState.AvailableBytes)
+		fmt.Fprintf(&buf, "Blocks:%s\n", sprintBlocks(statusReport.BufferState.AvailableBlocks))
+		fmt.Fprintf(&buf, "Bytes:%s\n", sprintBytes(statusReport.BufferState.AvailableBytes))
 	}
 
 	if statusReport.LineNumber != nil {
-		fmt.Fprintf(&buf, "\n\nLine:%d\n", *statusReport.LineNumber)
+		fmt.Fprintf(&buf, "\n\nLine:%s\n", sprintLine(int(*statusReport.LineNumber)))
 	}
 
 	if statusReport.Feed != nil {
-		fmt.Fprintf(&buf, "\nFeed:%.1f\n", *statusReport.Feed)
+		fmt.Fprintf(&buf, "\nFeed:%s\n", sprintFeed(float64(*statusReport.Feed)))
 	}
 
 	if statusReport.FeedSpindle != nil {
 		if statusReport.FeedSpindle.Feed != 0 {
-			fmt.Fprintf(&buf, "\nFeed:%.0f\n", statusReport.FeedSpindle.Feed)
+			fmt.Fprintf(&buf, "\nFeed:%s\n", sprintFeed(statusReport.FeedSpindle.Feed))
 		}
 		if statusReport.FeedSpindle.Speed != 0 {
-			fmt.Fprintf(&buf, "\nSpeed:%.0f\n", statusReport.FeedSpindle.Speed)
+			fmt.Fprintf(&buf, "\nSpeed:%s\n", sprintSpeed(statusReport.FeedSpindle.Speed))
 		}
 	}
 
 	if statusReport.PinState != nil {
-		fmt.Fprintf(&buf, "\nPin:%s\n", statusReport.PinState)
+		fmt.Fprintf(&buf, "\nPin:[%s]%s[-]\n", tcell.ColorOrange, statusReport.PinState)
 	}
 
 	overrideValues := sp.grbl.GetOverrideValues()
 	if overrideValues != nil && overrideValues.HasOverride() {
 		fmt.Fprint(&buf, "\nOverrides\n")
 		if overrideValues.Feed != 100.0 {
-			fmt.Fprintf(&buf, "Feed:%.0f%%\n", overrideValues.Feed)
+			fmt.Fprintf(&buf, "Feed:%s%%\n", sprintFeed(overrideValues.Feed))
 		}
 		if overrideValues.Rapids != 100.0 {
-			fmt.Fprintf(&buf, "Rapids:%.0f%%\n", overrideValues.Rapids)
+			fmt.Fprintf(&buf, "Rapids:%s%%\n", sprintFeed(overrideValues.Rapids))
 		}
 		if overrideValues.Spindle != 100.0 {
-			fmt.Fprintf(&buf, "Spindle:%.0f%%\n", overrideValues.Spindle)
+			fmt.Fprintf(&buf, "Spindle:%s%%\n", sprintSpindle(overrideValues.Spindle))
 		}
 	}
 
@@ -223,10 +224,10 @@ func (sp *StatusPrimitive) updateStatusTextView(statusReport *grblMod.MessagePus
 	if accessoryState != nil {
 		fmt.Fprint(&buf, "\nAccessory\n")
 		if accessoryState.SpindleCW != nil && *accessoryState.SpindleCW {
-			fmt.Fprint(&buf, "Spindle: CW")
+			fmt.Fprintf(&buf, "Spindle: [%s]CW[-]", tcell.ColorOrange)
 		}
 		if accessoryState.SpindleCCW != nil && *accessoryState.SpindleCCW {
-			fmt.Fprint(&buf, "Spindle: CCW")
+			fmt.Fprintf(&buf, "Spindle: [%s]CCW[-]", tcell.ColorOrange)
 		}
 		if accessoryState.FloodCoolant != nil && *accessoryState.FloodCoolant {
 			fmt.Fprint(&buf, "Flood Coolant")

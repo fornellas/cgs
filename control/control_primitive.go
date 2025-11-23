@@ -428,48 +428,54 @@ func (cp *ControlPrimitive) processMessagePushGcodeState(
 
 	if modalGroup := messagePushGcodeState.ModalGroup; modalGroup != nil {
 		if modalGroup.Motion != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.Motion.NormalizedString(), modalGroup.Motion.Name())
+			fmt.Fprintf(
+				&buf, "%s:%s\n",
+				sprintGcodeWord(modalGroup.Motion.NormalizedString()), modalGroup.Motion.Name(),
+			)
 		}
 		if modalGroup.PlaneSelection != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.PlaneSelection.NormalizedString(), modalGroup.PlaneSelection.Name())
+			fmt.Fprintf(
+				&buf, "%s:%s\n",
+				sprintGcodeWord(modalGroup.PlaneSelection.NormalizedString()), modalGroup.PlaneSelection.Name(),
+			)
 		}
 		if modalGroup.DistanceMode != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.DistanceMode.NormalizedString(), modalGroup.DistanceMode.Name())
+			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.DistanceMode.NormalizedString()), modalGroup.DistanceMode.Name())
 		}
 		if modalGroup.FeedRateMode != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.FeedRateMode.NormalizedString(), modalGroup.FeedRateMode.Name())
+			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.FeedRateMode.NormalizedString()), modalGroup.FeedRateMode.Name())
 		}
 		if modalGroup.Units != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", messagePushGcodeState.ModalGroup.Units.NormalizedString(), messagePushGcodeState.ModalGroup.Units.Name())
+			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(messagePushGcodeState.ModalGroup.Units.NormalizedString()), messagePushGcodeState.ModalGroup.Units.Name())
 		}
 		if modalGroup.CutterRadiusCompensation != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.CutterRadiusCompensation.NormalizedString(), modalGroup.CutterRadiusCompensation.Name())
+			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.CutterRadiusCompensation.NormalizedString()), modalGroup.CutterRadiusCompensation.Name())
 		}
 		if modalGroup.ToolLengthOffset != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.ToolLengthOffset.NormalizedString(), modalGroup.ToolLengthOffset.Name())
+			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.ToolLengthOffset.NormalizedString()), modalGroup.ToolLengthOffset.Name())
 		}
 		if modalGroup.CoordinateSystemSelection != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.CoordinateSystemSelection.NormalizedString(), modalGroup.CoordinateSystemSelection.Name())
+			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.CoordinateSystemSelection.NormalizedString()), modalGroup.CoordinateSystemSelection.Name())
 		}
 		if modalGroup.Stopping != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.Stopping.NormalizedString(), modalGroup.Stopping.Name())
+			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.Stopping.NormalizedString()), modalGroup.Stopping.Name())
 		}
 		if modalGroup.SpindleTurning != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", modalGroup.SpindleTurning.NormalizedString(), modalGroup.SpindleTurning.Name())
+			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.SpindleTurning.NormalizedString()), modalGroup.SpindleTurning.Name())
 		}
 		for _, word := range modalGroup.Coolant {
-			fmt.Fprintf(&buf, "%s:%s\n", word.NormalizedString(), word.Name())
+			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(word.NormalizedString()), word.Name())
 		}
 	}
 
 	if messagePushGcodeState.Tool != nil {
-		fmt.Fprintf(&buf, "Tool: %.0f\n", *messagePushGcodeState.Tool)
+		fmt.Fprintf(&buf, "Tool: %s\n", sprintTool(*messagePushGcodeState.Tool))
 	}
 	if messagePushGcodeState.FeedRate != nil {
-		fmt.Fprintf(&buf, "Feed Rate: %.0f\n", *messagePushGcodeState.FeedRate)
+		fmt.Fprintf(&buf, "Feed Rate: %s\n", sprintFeed(*messagePushGcodeState.FeedRate))
 	}
 	if messagePushGcodeState.SpindleSpeed != nil {
-		fmt.Fprintf(&buf, "Speed: %.0f\n", *messagePushGcodeState.SpindleSpeed)
+		fmt.Fprintf(&buf, "Speed: %s\n", sprintSpeed(*messagePushGcodeState.SpindleSpeed))
 	}
 
 	cp.app.QueueUpdate(func() {
@@ -483,7 +489,7 @@ func (cp *ControlPrimitive) processMessagePushGcodeState(
 }
 
 //gocyclo:ignore
-func (cp *ControlPrimitive) processMessagePushGcodeParam(ctx context.Context) tcell.Color {
+func (cp *ControlPrimitive) processMessagePushGcodeParam() tcell.Color {
 	color := tcell.ColorGreen
 
 	params := cp.grbl.GetGcodeParameters()
@@ -494,89 +500,48 @@ func (cp *ControlPrimitive) processMessagePushGcodeParam(ctx context.Context) tc
 	var buf bytes.Buffer
 
 	if params.CoordinateSystem1 != nil {
-		fmt.Fprintf(&buf, "G54:Coordinate System 1\n")
-		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.CoordinateSystem1.X, params.CoordinateSystem1.Y, params.CoordinateSystem1.Z)
-		if params.CoordinateSystem1.A != nil {
-			fmt.Fprintf(&buf, " A:%.4f", *params.CoordinateSystem1.A)
-		}
-		fmt.Fprintf(&buf, "\n")
+		fmt.Fprintf(&buf, "%s:Coordinate System 1\n", sprintGcodeWord("G54"))
+		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.CoordinateSystem1, " "))
 	}
 	if params.CoordinateSystem2 != nil {
-		fmt.Fprintf(&buf, "G55:Coordinate System 2\n")
-		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.CoordinateSystem2.X, params.CoordinateSystem2.Y, params.CoordinateSystem2.Z)
-		if params.CoordinateSystem2.A != nil {
-			fmt.Fprintf(&buf, " A:%.4f", *params.CoordinateSystem2.A)
-		}
-		fmt.Fprintf(&buf, "\n")
+		fmt.Fprintf(&buf, "%s:Coordinate System 2\n", sprintGcodeWord("G55"))
+		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.CoordinateSystem2, " "))
 	}
 	if params.CoordinateSystem3 != nil {
-		fmt.Fprintf(&buf, "G56:Coordinate System 3\n")
-		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.CoordinateSystem3.X, params.CoordinateSystem3.Y, params.CoordinateSystem3.Z)
-		if params.CoordinateSystem3.A != nil {
-			fmt.Fprintf(&buf, " A:%.4f", *params.CoordinateSystem3.A)
-		}
-		fmt.Fprintf(&buf, "\n")
+		fmt.Fprintf(&buf, "%s:Coordinate System 3\n", sprintGcodeWord("G56"))
+		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.CoordinateSystem3, " "))
 	}
 	if params.CoordinateSystem4 != nil {
-		fmt.Fprintf(&buf, "G57:Coordinate System 4\n")
-		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.CoordinateSystem4.X, params.CoordinateSystem4.Y, params.CoordinateSystem4.Z)
-		if params.CoordinateSystem4.A != nil {
-			fmt.Fprintf(&buf, " A:%.4f", *params.CoordinateSystem4.A)
-		}
-		fmt.Fprintf(&buf, "\n")
+		fmt.Fprintf(&buf, "%s:Coordinate System 4\n", sprintGcodeWord("G57"))
+		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.CoordinateSystem4, " "))
 	}
 	if params.CoordinateSystem5 != nil {
-		fmt.Fprintf(&buf, "G58:Coordinate System 5\n")
-		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.CoordinateSystem5.X, params.CoordinateSystem5.Y, params.CoordinateSystem5.Z)
-		if params.CoordinateSystem5.A != nil {
-			fmt.Fprintf(&buf, " A:%.4f", *params.CoordinateSystem5.A)
-		}
-		fmt.Fprintf(&buf, "\n")
+		fmt.Fprintf(&buf, "%s:Coordinate System 5\n", sprintGcodeWord("G58"))
+		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.CoordinateSystem5, " "))
 	}
 	if params.CoordinateSystem6 != nil {
-		fmt.Fprintf(&buf, "G59:Coordinate System 6\n")
-		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.CoordinateSystem6.X, params.CoordinateSystem6.Y, params.CoordinateSystem6.Z)
-		if params.CoordinateSystem6.A != nil {
-			fmt.Fprintf(&buf, " A:%.4f", *params.CoordinateSystem6.A)
-		}
-		fmt.Fprintf(&buf, "\n")
+		fmt.Fprintf(&buf, "%s:Coordinate System 6\n", sprintGcodeWord("G59"))
+		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.CoordinateSystem6, " "))
 	}
 	if params.PrimaryPreDefinedPosition != nil {
-		fmt.Fprintf(&buf, "G28:Primary Pre-Defined Position\n")
-		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.PrimaryPreDefinedPosition.X, params.PrimaryPreDefinedPosition.Y, params.PrimaryPreDefinedPosition.Z)
-		if params.PrimaryPreDefinedPosition.A != nil {
-			fmt.Fprintf(&buf, " A:%.4f", *params.PrimaryPreDefinedPosition.A)
-		}
-		fmt.Fprintf(&buf, "\n")
+		fmt.Fprintf(&buf, "%s:Primary Pre-Defined Position\n", sprintGcodeWord("G28"))
+		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.PrimaryPreDefinedPosition, " "))
 	}
 	if params.SecondaryPreDefinedPosition != nil {
-		fmt.Fprintf(&buf, "G30:Secondary Pre-Defined Position\n")
-		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.SecondaryPreDefinedPosition.X, params.SecondaryPreDefinedPosition.Y, params.SecondaryPreDefinedPosition.Z)
-		if params.SecondaryPreDefinedPosition.A != nil {
-			fmt.Fprintf(&buf, " A:%.4f", *params.SecondaryPreDefinedPosition.A)
-		}
-		fmt.Fprintf(&buf, "\n")
+		fmt.Fprintf(&buf, "%s:Secondary Pre-Defined Position\n", sprintGcodeWord("G30"))
+		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.SecondaryPreDefinedPosition, " "))
 	}
 	if params.CoordinateOffset != nil {
-		fmt.Fprintf(&buf, "G92:Coordinate Offset\n")
-		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.CoordinateOffset.X, params.CoordinateOffset.Y, params.CoordinateOffset.Z)
-		if params.CoordinateOffset.A != nil {
-			fmt.Fprintf(&buf, " A:%.4f", *params.CoordinateOffset.A)
-		}
-		fmt.Fprintf(&buf, "\n")
+		fmt.Fprintf(&buf, "%s:Coordinate Offset\n", sprintGcodeWord("G92"))
+		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.CoordinateOffset, " "))
 	}
 	if params.ToolLengthOffset != nil {
-		fmt.Fprintf(&buf, "Tool Length Offset\n")
-		fmt.Fprintf(&buf, "Z:%.4f\n", *params.ToolLengthOffset)
+		fmt.Fprintf(&buf, "Tool Length Offset:%s\n", sprintCoordinate(*params.ToolLengthOffset))
 	}
 	if params.Probe != nil {
 		fmt.Fprintf(&buf, "Last Probing Cycle\n")
-		fmt.Fprintf(&buf, "X:%.4f Y:%.4f Z:%.4f", params.Probe.Coordinates.X, params.Probe.Coordinates.Y, params.Probe.Coordinates.Z)
-		if params.Probe.Coordinates.A != nil {
-			fmt.Fprintf(&buf, " A:%.4f", *params.Probe.Coordinates.A)
-		}
-		fmt.Fprintf(&buf, "\n")
-		fmt.Fprintf(&buf, "Successful: %v\n", params.Probe.Successful)
+		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(&params.Probe.Coordinates, " "))
+		fmt.Fprintf(&buf, "  Successful: %s\n", sprintBool(params.Probe.Successful))
 	}
 
 	cp.app.QueueUpdate(func() {
@@ -630,7 +595,7 @@ func (cp *ControlPrimitive) ProcessMessage(ctx context.Context, message grblMod.
 	}
 
 	if _, ok := message.(*grblMod.MessagePushGcodeParam); ok {
-		color = cp.processMessagePushGcodeParam(ctx)
+		color = cp.processMessagePushGcodeParam()
 		if cp.quietGcodeParamStateComms {
 			return
 		}
