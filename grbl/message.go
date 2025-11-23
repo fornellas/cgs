@@ -297,7 +297,7 @@ func NewMessagePush(message string) (Message, error) {
 		}
 	}
 	if strings.HasPrefix(message, "[VER:") {
-		return NewMessagePushBuildInfo(message)
+		return NewMessagePushVersion(message)
 	}
 	if strings.HasPrefix(message, "[OPT:") {
 		return NewMessagePushCompileTimeOptions(message)
@@ -515,6 +515,38 @@ func (g *GcodeParameters) Update(messagePushGcodeParam *MessagePushGcodeParam) {
 	}
 }
 
+func (g *GcodeParameters) HasCoordinateSystem() bool {
+	if g.CoordinateSystem1 != nil {
+		return true
+	}
+	if g.CoordinateSystem2 != nil {
+		return true
+	}
+	if g.CoordinateSystem3 != nil {
+		return true
+	}
+	if g.CoordinateSystem4 != nil {
+		return true
+	}
+	if g.CoordinateSystem5 != nil {
+		return true
+	}
+	if g.CoordinateSystem6 != nil {
+		return true
+	}
+	return false
+}
+
+func (g *GcodeParameters) HasPreDefinedPosition() bool {
+	if g.PrimaryPreDefinedPosition != nil {
+		return true
+	}
+	if g.SecondaryPreDefinedPosition != nil {
+		return true
+	}
+	return false
+}
+
 type MessagePushGcodeParam struct {
 	Message         string
 	GcodeParameters GcodeParameters
@@ -621,13 +653,13 @@ func (m *MessagePushGcodeParam) String() string {
 	return m.Message
 }
 
-type MessagePushBuildInfo struct {
+type MessagePushVersion struct {
 	Message string
 	Version string
-	Id      string
+	Info    string
 }
 
-func NewMessagePushBuildInfo(message string) (*MessagePushBuildInfo, error) {
+func NewMessagePushVersion(message string) (*MessagePushVersion, error) {
 	const prefix = "[VER:"
 	const suffix = "]"
 	const sep = ":"
@@ -642,18 +674,18 @@ func NewMessagePushBuildInfo(message string) (*MessagePushBuildInfo, error) {
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("message format unknown: %#v", message)
 	}
-	return &MessagePushBuildInfo{
+	return &MessagePushVersion{
 		Message: message,
 		Version: parts[0],
-		Id:      parts[1],
+		Info:    parts[1],
 	}, nil
 }
 
-func (m *MessagePushBuildInfo) Type() MessageType {
+func (m *MessagePushVersion) Type() MessageType {
 	return MessageTypePush
 }
 
-func (m *MessagePushBuildInfo) String() string {
+func (m *MessagePushVersion) String() string {
 	return m.Message
 }
 
@@ -719,7 +751,7 @@ func NewMessagePushCompileTimeOptions(message string) (*MessagePushCompileTimeOp
 		return nil, fmt.Errorf("unable to parse planner blocks: %#v: %w", message, err)
 	}
 	var serialRxBufferBytes uint64
-	if serialRxBufferBytes, err = strconv.ParseUint(parts[1], 10, 64); err != nil {
+	if serialRxBufferBytes, err = strconv.ParseUint(parts[2], 10, 64); err != nil {
 		return nil, fmt.Errorf("unable to parse serial RX buffer bytes: %#v: %w", message, err)
 	}
 	return &MessagePushCompileTimeOptions{
