@@ -5,29 +5,112 @@ Bugs
             - after interacting with the buttons & dropdown, without a repeatable pattern.
             - sometimes, most of the screen goes black, and only a single column of "garbage chars" can be seen at the far right.
 Features
-    Control
-        Auto Complete
-    Jogging
-        Parameters
-            Jog Button
-                SetDisabled() based on current state (valid / invalid)
-        Joystick
-            Buttons
-                x+/-, y+/-, z+/-
-                Feed
-                Distance / Unit
-                Cancel
-    Stream
-    Settings
-    Script
-    Keyboard navigation (tab / btab / arrows etc)
-    Import server from https://github.com/fornellas/serialtcp
-Improvements
-    Limit Jogging to work area fetched from $$
-    internal/
-    Add line limits to various TextView
-    TextView logging
-        debug why with DisableGroupEmoji=false, it wrecks UI (it looks like there's double last rune for every line that there's an emoji)
-    Scrolling
-        Only scroll to end if view position is already at the end
-            if not, change color to indicate there's new text
+    Panels
+        Status
+            Buffer
+                Use $I OPT values for max blocks / bytes
+        Control
+            Better handling of hidden comms
+                If $C, $# was user input
+                    show command
+                    warn that output is hidden
+            G-Code Parser
+                UI setting of Mode Groups
+            G-Code Parameters
+                UI setting of values
+            Auto Complete
+        Jogging
+            Limit Jogging to work area fetched from $$
+            Parameters
+                Jog Button
+                    SetDisabled() based on current state (valid / invalid)
+            Joystick
+                Buttons
+                    x+/-, y+/-, z+/-
+                    Feed
+                    Distance / Unit
+                    Cancel
+        Stream
+            TBD
+        Settings
+            Build Info
+                View build info ($I)
+                    [VER:v1.1f.20170131:Some string]
+                        build version and date
+                        string ID
+                    [OPT:VL,16,128]
+                        compile-time options
+                            Variable spindle enabled (V)
+                            Line numbers enabled (N)
+                            Mist coolant enabled (M)
+                            CoreXY enabled (C)
+                            Parking motion enabled (P)
+                            Homing force origin enabled (Z)
+                            Homing single axis enabled (H)
+                            Two limit switches on axis enabled (T)
+                            Spindle direction pin used as enable pin (D)
+                            Spindle enable off when speed is zero enabled (0)
+                            Software limit pin debouncing enabled (S)
+                            Parking override control enabled (R)
+                            Allow feed rate overrides in probe cycles (A)
+                            Safety door input pin enabled (+)
+                            Restore all EEPROM disabled (*)
+                            Restore EEPROM `$` settings disabled ($)
+                            Restore EEPROM parameter data disabled (#)
+                            Build info write user string disabled (I)
+                            Force sync upon EEPROM write disabled (E)
+                            Force sync upon work coordinate offset change disabled (W)
+                            Homing initialization auto-lock disabled (L)
+                        total usable planner blocks
+                        serial RX buffer bytes
+                Set id string ($I=xxx)
+            Startup Lines
+                $N (Print startup lines)
+                $Nn=<gcode> (Store startup line, where n is the line number)
+            Settings
+                $$ - View Grbl settings
+                $x=val - Save Grbl setting
+                    $0 – Step pulse, microseconds
+                    $1 - Step idle delay, milliseconds
+                    $2 – Step port invert, mask
+                    $3 – Direction port invert, mask
+                    $4 - Step enable invert, boolean
+                    $5 -  Limit pins invert, boolean
+                    $6 -  Probe pin invert, boolean
+                    $10 - Status report, mask
+                    $11 - Junction deviation, mm
+                    $12 – Arc tolerance, mm
+                    $13 - Report inches, boolean
+                    $20 - Soft limits, boolean
+                    $21 - Hard limits, boolean
+                    $22 - Homing cycle, boolean
+                    $23 - Homing dir invert, mask
+                    $24 - Homing feed, mm/min
+                    $25 - Homing seek, mm/min
+                    $26 - Homing debounce, milliseconds
+                    $27 - Homing pull-off, mm
+                    $30 - Max spindle speed, RPM
+                    $31 - Min spindle speed, RPM
+                    $32 - Laser mode, boolean
+                    $100, $101 and $102 – [X,Y,Z] steps/mm
+                    $110, $111 and $112 – [X,Y,Z] Max rate, mm/min
+                    $120, $121, $122 – [X,Y,Z] Acceleration, mm/sec^2
+                    $130, $131, $132 – [X,Y,Z] Max travel, mm
+            Restore Defaults
+                $RST=$ (Restore Defaults: Settings ($$)
+                $RST=# (Restore Defaults: G-Code Parameters ($#))
+                $RST=* (Restore Defaults: All ($$, $#, $N, $I))
+        Script
+            TBD
+    Misc
+        Keyboard navigation (tab / btab / arrows etc)
+        Consistent TextView Formatting
+            Coordinates
+                Same color, drop right zeroes
+        TCP serial port server from https://github.com/fornellas/serialtcp
+        Scrolling
+            Only scroll to end if view position is already at the end
+                if not, change color to indicate there's new text
+        Codebase
+            Add internal/
+            Add line limits to various TextView
