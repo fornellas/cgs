@@ -154,6 +154,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		Handler: log.NewTerminalTreeHandler(
 			tview.ANSIWriter(logsPrimitive),
 			&log.TerminalHandlerOptions{
+				// tview.TextView does not handle emojis correctly: drawing is corrupted.
 				DisableGroupEmoji: true,
 				ForceColor:        true,
 			},
