@@ -32,7 +32,14 @@ Features
                     Distance / Unit
                     Cancel
         Stream
-            TBD
+            Tool changing
+                Intercept M6
+                Run macro, eg:
+                    Pause the machine (!).
+                    Move the spindle to a user-defined "Tool Change Position" (e.g., front of the machine).
+                    Wait for you to physically swap the bit.
+                    Run a Probe Cycle to measure the new tool length (critical step).
+                    Update the Z-zero height to match the new tool length.
         Settings
             SetDisable based on state / reset
             Settings
@@ -80,6 +87,7 @@ Features
         Script
             TBD
         Buttons
+            Per-axis homing (build option)
             Custom Programs
                 ie: probe, go to Predefined Position etc
     Misc
