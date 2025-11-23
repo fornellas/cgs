@@ -1,12 +1,18 @@
 Bugs
-    do not send $G/$# for:
-        $SLP, maybe others
     Connecting to Grbl via TCP sometimes hangs
         debug if Dial hangs or if grbl connect hangs
         use net.Dialer insteaf of net.Dial
             set timeout
 Features
     Jogging
+        Parameters
+            Only enable Jog button when inputs are valid
+        Joystick
+            Buttons
+                x+/-, y+/-, z+/-
+                Feed
+                Distance / Unit
+                Cancel
     Stream
     Settings
     Script

@@ -75,12 +75,6 @@ func (c *Control) messageProcessorWorker(
 ) error {
 	logger := log.MustLogger(ctx).WithGroup("messageProcessorWorker")
 
-	logger.Debug("Sending G-Code commands")
-	// Sending $G enables tracking of G-Code parsing state
-	controlPrimitive.QueueCommand("$G")
-	// Sending $G enables tracking of G-Code parameters
-	controlPrimitive.QueueCommand("$#")
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -107,7 +101,7 @@ func (c *Control) messageProcessorWorker(
 				// We generate this virtual status report push message here, to simplify the rest of the
 				// codebase, that only need to look for alarm state in a sigle place.
 				pushMessageCh <- &grblMod.MessagePushStatusReport{
-					Message: "(virtual status report: Alarm)",
+					Message: "(virtual push message: status report: Alarm)",
 					MachineState: grblMod.StatusReportMachineState{
 						State: "Alarm",
 					},
@@ -124,7 +118,6 @@ func (c *Control) messageProcessorWorker(
 }
 func (c *Control) startWorker(
 	ctx context.Context, cancel context.CancelFunc,
-	app *tview.Application,
 	name string, fn func(context.Context) error,
 ) {
 	_, logger := log.MustWithGroupAttrs(ctx, "Worker", "name", name)
@@ -243,7 +236,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	// Workers
 	c.startWorker(
-		appCtx, cancel, app,
+		appCtx, cancel,
 		"Control.messageProcessorWorker",
 		func(ctx context.Context) error {
 			return c.messageProcessorWorker(
@@ -252,16 +245,16 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		},
 	)
 	c.startWorker(
-		appCtx, cancel, app,
+		appCtx, cancel,
 		"ControlPrimitive.RunSendCommandWorker",
 		controlPrimitive.RunSendCommandWorker,
 	)
 	c.startWorker(
-		appCtx, cancel, app,
+		appCtx, cancel,
 		"ControlPrimitive.RunSendRealTimeCommandWorker",
 		controlPrimitive.RunSendRealTimeCommandWorker,
 	)
-	c.startWorker(appCtx, cancel, app, "Control.statusQueryWorker", c.statusQueryWorker)
+	c.startWorker(appCtx, cancel, "Control.statusQueryWorker", c.statusQueryWorker)
 
 	if runErr := app.Run(); runErr != nil {
 		consoleLogger.Error("Application failed", "err", err)
