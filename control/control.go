@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/fornellas/slogxt/log"
@@ -70,7 +71,6 @@ func (c *Control) statusQueryWorker(ctx context.Context) error {
 func (c *Control) messageProcessorWorker(
 	ctx context.Context,
 	pushMessageCh chan grblMod.Message,
-	controlPrimitive *ControlPrimitive,
 	messageProcessors ...MessageProcessor,
 ) error {
 	logger := log.MustLogger(ctx).WithGroup("messageProcessorWorker")
@@ -117,7 +117,7 @@ func (c *Control) messageProcessorWorker(
 	}
 }
 func (c *Control) startWorker(
-	ctx context.Context, cancel context.CancelFunc,
+	ctx context.Context, exitFn func(ctx context.Context, stop bool),
 	name string, fn func(context.Context) error,
 ) {
 	_, logger := log.MustWithGroupAttrs(ctx, "Worker", "name", name)
@@ -126,7 +126,7 @@ func (c *Control) startWorker(
 		logger.Debug("Starting")
 		errCh <- fn(ctx)
 		logger.Debug("Stopped")
-		cancel()
+		exitFn(ctx, true)
 	}()
 	c.workers = append([]worker{{name: name, errCh: errCh}}, c.workers...)
 }
@@ -163,12 +163,18 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	})
 	appCtx := log.WithLogger(consoleCtx, appLogger)
 	appCtx, cancel := context.WithCancel(appCtx)
-	cleanup := func(ctx context.Context) {
-		cancel()
-		logger := log.MustLogger(ctx)
-		err = errors.Join(err, c.waitForWorkers(ctx))
-		logger.Info("Disconnecting")
-		err = errors.Join(err, c.grbl.Disconnect(ctx))
+	var exitOnce sync.Once
+	exitFn := func(ctx context.Context, stop bool) {
+		exitOnce.Do(func() {
+			cancel()
+			logger := log.MustLogger(ctx)
+			err = errors.Join(err, c.waitForWorkers(ctx))
+			logger.Info("Disconnecting")
+			err = errors.Join(err, c.grbl.Disconnect(ctx))
+			if stop {
+				app.Stop()
+			}
+		})
 	}
 
 	// Grbl
@@ -205,8 +211,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		if event.Key() == tcell.KeyCtrlC {
 			go func() {
 				logger.Info("Exiting")
-				cleanup(appCtx)
-				app.Stop()
+				exitFn(appCtx, true)
 			}()
 			return nil
 		}
@@ -241,30 +246,28 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	// Workers
 	c.startWorker(
-		appCtx, cancel,
+		appCtx, exitFn,
 		"Control.messageProcessorWorker",
 		func(ctx context.Context) error {
-			return c.messageProcessorWorker(
-				ctx, pushMessageCh, controlPrimitive, messageProcessors...,
-			)
+			return c.messageProcessorWorker(ctx, pushMessageCh, messageProcessors...)
 		},
 	)
 	c.startWorker(
-		appCtx, cancel,
+		appCtx, exitFn,
 		"ControlPrimitive.RunSendCommandWorker",
 		controlPrimitive.RunSendCommandWorker,
 	)
 	c.startWorker(
-		appCtx, cancel,
+		appCtx, exitFn,
 		"ControlPrimitive.RunSendRealTimeCommandWorker",
 		controlPrimitive.RunSendRealTimeCommandWorker,
 	)
-	c.startWorker(appCtx, cancel, "Control.statusQueryWorker", c.statusQueryWorker)
+	c.startWorker(appCtx, exitFn, "Control.statusQueryWorker", c.statusQueryWorker)
 
 	if runErr := app.Run(); runErr != nil {
 		consoleLogger.Error("Application failed", "err", err)
 		err = errors.Join(err, runErr)
-		cleanup(consoleCtx)
+		exitFn(consoleCtx, false)
 	}
 	return
 }
