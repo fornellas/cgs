@@ -15,8 +15,9 @@ type RootPrimitive struct {
 	app                *tview.Application
 	statusPrimitive    *StatusPrimitive
 	controlPrimitive   *ControlPrimitive
-	overridesPrimitive *OverridesPrimitive
 	joggingPrimitive   *JoggingPrimitive
+	overridesPrimitive *OverridesPrimitive
+	settingsPrimitive  *SettingsPrimitive
 	logsPrimitive      *LogsPrimitive
 	feedbackTextView   *tview.TextView
 	homeButton         *tview.Button
@@ -36,16 +37,18 @@ func NewRootPrimitive(
 	app *tview.Application,
 	statusPrimitive *StatusPrimitive,
 	controlPrimitive *ControlPrimitive,
-	overridesPrimitive *OverridesPrimitive,
 	joggingPrimitive *JoggingPrimitive,
+	overridesPrimitive *OverridesPrimitive,
+	settingsPrimitive *SettingsPrimitive,
 	logsPrimitive *LogsPrimitive,
 ) *RootPrimitive {
 	rp := &RootPrimitive{
 		app:                app,
 		statusPrimitive:    statusPrimitive,
 		controlPrimitive:   controlPrimitive,
-		overridesPrimitive: overridesPrimitive,
 		joggingPrimitive:   joggingPrimitive,
+		overridesPrimitive: overridesPrimitive,
+		settingsPrimitive:  settingsPrimitive,
 		logsPrimitive:      logsPrimitive,
 	}
 
@@ -145,14 +148,9 @@ func (rp *RootPrimitive) getScriptPrimitive() tview.Primitive {
 	return tview.NewBox().SetBorder(true).SetTitle("Script")
 }
 
-func (rp *RootPrimitive) getSettingsPrimitive() tview.Primitive {
-	return tview.NewBox().SetBorder(true).SetTitle("Settings")
-}
-
 func (rp *RootPrimitive) getMainFlex() *tview.Flex {
 	stream := rp.getStreamPrimitive()
 	script := rp.getScriptPrimitive()
-	settings := rp.getSettingsPrimitive()
 
 	page := tview.NewPages()
 	page.AddPage("Control", rp.controlPrimitive, true, true)
@@ -160,7 +158,7 @@ func (rp *RootPrimitive) getMainFlex() *tview.Flex {
 	page.AddPage("Overrides", rp.overridesPrimitive, true, true)
 	page.AddPage("Stream", stream, true, true)
 	page.AddPage("Script", script, true, true)
-	page.AddPage("Settings", settings, true, true)
+	page.AddPage("Settings", rp.settingsPrimitive, true, true)
 	page.AddPage("Logs", rp.logsPrimitive, true, true)
 
 	buttonsFlex := tview.NewFlex()

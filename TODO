@@ -33,37 +33,6 @@ Features
         Stream
             TBD
         Settings
-            Build Info
-                View build info ($I)
-                    [VER:v1.1f.20170131:Some string]
-                        build version and date
-                        string ID
-                    [OPT:VL,16,128]
-                        compile-time options
-                            Variable spindle enabled (V)
-                            Line numbers enabled (N)
-                            Mist coolant enabled (M)
-                            CoreXY enabled (C)
-                            Parking motion enabled (P)
-                            Homing force origin enabled (Z)
-                            Homing single axis enabled (H)
-                            Two limit switches on axis enabled (T)
-                            Spindle direction pin used as enable pin (D)
-                            Spindle enable off when speed is zero enabled (0)
-                            Software limit pin debouncing enabled (S)
-                            Parking override control enabled (R)
-                            Allow feed rate overrides in probe cycles (A)
-                            Safety door input pin enabled (+)
-                            Restore all EEPROM disabled (*)
-                            Restore EEPROM `$` settings disabled ($)
-                            Restore EEPROM parameter data disabled (#)
-                            Build info write user string disabled (I)
-                            Force sync upon EEPROM write disabled (E)
-                            Force sync upon work coordinate offset change disabled (W)
-                            Homing initialization auto-lock disabled (L)
-                        total usable planner blocks
-                        serial RX buffer bytes
-                Set id string ($I=xxx)
             Settings
                 $$ - View Grbl settings
                 $x=val - Save Grbl setting
@@ -96,10 +65,42 @@ Features
             Startup Lines
                 $N (Print startup lines)
                 $Nn=<gcode> (Store startup line, where n is the line number)
+            Build Info
+                View build info ($I)
+                    [VER:v1.1f.20170131:Some string]
+                        build version and date
+                        string ID
+                    [OPT:VL,16,128]
+                        compile-time options
+                            Variable spindle enabled (V)
+                            Line numbers enabled (N)
+                            Mist coolant enabled (M)
+                            CoreXY enabled (C)
+                            Parking motion enabled (P)
+                            Homing force origin enabled (Z)
+                            Homing single axis enabled (H)
+                            Two limit switches on axis enabled (T)
+                            Spindle direction pin used as enable pin (D)
+                            Spindle enable off when speed is zero enabled (0)
+                            Software limit pin debouncing enabled (S)
+                            Parking override control enabled (R)
+                            Allow feed rate overrides in probe cycles (A)
+                            Safety door input pin enabled (+)
+                            Restore all EEPROM disabled (*)
+                            Restore EEPROM `$` settings disabled ($)
+                            Restore EEPROM parameter data disabled (#)
+                            Build info write user string disabled (I)
+                            Force sync upon EEPROM write disabled (E)
+                            Force sync upon work coordinate offset change disabled (W)
+                            Homing initialization auto-lock disabled (L)
+                        total usable planner blocks
+                        serial RX buffer bytes
+                Set id string ($I=xxx)
             Restore Defaults
                 $RST=$ (Restore Defaults: Settings ($$)
                 $RST=# (Restore Defaults: G-Code Parameters ($#))
                 $RST=* (Restore Defaults: All ($$, $#, $N, $I))
+            Save / Restore
         Script
             TBD
         Buttons

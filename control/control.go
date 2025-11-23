@@ -214,21 +214,26 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	})
 	messageProcessors = append(messageProcessors, controlPrimitive)
 
+	// JoggingPrimitive
+	joggingPrimitive := NewJoggingPrimitive(appCtx, app, controlPrimitive)
+	messageProcessors = append(messageProcessors, joggingPrimitive)
+
 	// OverridesPrimitive
 	overridesPrimitive := NewOverridesPrimitive(appCtx, app, controlPrimitive)
 	messageProcessors = append(messageProcessors, overridesPrimitive)
 
-	// JoggingPrimitive
-	joggingPrimitive := NewJoggingPrimitive(appCtx, app, controlPrimitive)
-	messageProcessors = append(messageProcessors, joggingPrimitive)
+	// settingsPrimitive
+	settingsPrimitive := NewSettingsPrimitive(appCtx, app, controlPrimitive)
+	messageProcessors = append(messageProcessors, settingsPrimitive)
 
 	// RootPrimitive
 	rootPrimitive := NewRootPrimitive(
 		appCtx, app,
 		statusPrimitive,
 		controlPrimitive,
-		overridesPrimitive,
 		joggingPrimitive,
+		overridesPrimitive,
+		settingsPrimitive,
 		logsPrimitive,
 	)
 	app.SetRoot(rootPrimitive, true)
