@@ -37,6 +37,8 @@ type ControlPrimitive struct {
 	gcodeParserTextView        *tview.TextView
 	gcodeParamsTextView        *tview.TextView
 	commandInputField          *tview.InputField
+	commandInputHistory        []string
+	commandInputHistoryIdx     int
 	mu                         sync.Mutex
 	disableCommandInput        bool
 	machineState               *string
@@ -62,6 +64,7 @@ func NewControlPrimitive(
 		quietStatusComms:           quietStatusComms,
 		sendCommandCh:              make(chan string, 10),
 		sendRealTimeCommandCh:      make(chan grblMod.RealTimeCommand, 10),
+		commandInputHistoryIdx:     -1,
 	}
 	ctx, _ = log.MustWithGroup(ctx, "ControlPrimitive")
 
@@ -132,7 +135,32 @@ func NewControlPrimitive(
 				return
 			}
 			cp.QueueCommand(command)
+			cp.commandInputHistory = append([]string{command}, cp.commandInputHistory...)
+			cp.commandInputHistoryIdx = -1
+			commandInputField.SetText("")
 		}
+	})
+	commandInputField.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyUp:
+			if cp.commandInputHistoryIdx == len(cp.commandInputHistory)-1 {
+				return nil
+			}
+			cp.commandInputHistoryIdx++
+			cp.commandInputField.SetText(cp.commandInputHistory[cp.commandInputHistoryIdx])
+			return nil
+		case tcell.KeyDown:
+			if cp.commandInputHistoryIdx == -1 {
+				return nil
+			}
+			cp.commandInputHistoryIdx--
+			if cp.commandInputHistoryIdx < 0 {
+				return nil
+			}
+			cp.commandInputField.SetText(cp.commandInputHistory[cp.commandInputHistoryIdx])
+			return nil
+		}
+		return event
 	})
 	cp.commandInputField = commandInputField
 
