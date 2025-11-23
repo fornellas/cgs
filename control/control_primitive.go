@@ -44,6 +44,7 @@ type ControlPrimitive struct {
 	machineState               *string
 }
 
+//gocyclo:ignore
 func NewControlPrimitive(
 	ctx context.Context,
 	grbl *grblMod.Grbl,
@@ -108,7 +109,14 @@ func NewControlPrimitive(
 		SetScrollable(true).
 		SetWrap(true)
 	gcodeParserTextView.SetBorder(true).SetTitle("G-Code Parser")
-	gcodeParserTextView.SetChangedFunc(func() { cp.app.QueueUpdate(func() {}) })
+	gcodeParserTextView.SetChangedFunc(func() {
+		cp.app.QueueUpdate(func() {
+			text := gcodeParserTextView.GetText(false)
+			if len(text) > 0 && text[len(text)-1] == '\n' {
+				gcodeParserTextView.SetText(text[:len(text)-1])
+			}
+		})
+	})
 	cp.gcodeParserTextView = gcodeParserTextView
 
 	// G-Code Parameters
@@ -117,7 +125,14 @@ func NewControlPrimitive(
 		SetScrollable(true).
 		SetWrap(true)
 	gcodeParamsTextView.SetBorder(true).SetTitle("G-Code Parameters")
-	gcodeParamsTextView.SetChangedFunc(func() { cp.app.QueueUpdate(func() {}) })
+	gcodeParamsTextView.SetChangedFunc(func() {
+		cp.app.QueueUpdate(func() {
+			text := gcodeParamsTextView.GetText(false)
+			if len(text) > 0 && text[len(text)-1] == '\n' {
+				gcodeParamsTextView.SetText(text[:len(text)-1])
+			}
+		})
+	})
 	cp.gcodeParamsTextView = gcodeParamsTextView
 
 	// Command
@@ -179,7 +194,7 @@ func NewControlPrimitive(
 	controlFlex.SetBorder(true)
 	controlFlex.SetTitle("Contrtol")
 	controlFlex.SetDirection(tview.FlexRow)
-	controlFlex.AddItem(gcodeFlex, 0, 1, false)
+	controlFlex.AddItem(gcodeFlex, 18, 0, false)
 	controlFlex.AddItem(commsFlex, 0, 1, false)
 	controlFlex.AddItem(commandInputField, 1, 0, true)
 	cp.Flex = controlFlex
@@ -499,41 +514,45 @@ func (cp *ControlPrimitive) processMessagePushGcodeParam() tcell.Color {
 
 	var buf bytes.Buffer
 
-	if params.CoordinateSystem1 != nil {
-		fmt.Fprintf(&buf, "%s:Coordinate System 1\n", sprintGcodeWord("G54"))
-		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.CoordinateSystem1, " "))
+	if params.HasCoordinateSystem() {
+		fmt.Fprint(&buf, "Coordinate System\n")
+		if params.CoordinateSystem1 != nil {
+			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G54"))
+			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(params.CoordinateSystem1, " "))
+		}
+		if params.CoordinateSystem2 != nil {
+			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G55"))
+			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(params.CoordinateSystem2, " "))
+		}
+		if params.CoordinateSystem3 != nil {
+			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G56"))
+			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(params.CoordinateSystem3, " "))
+		}
+		if params.CoordinateSystem4 != nil {
+			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G57"))
+			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(params.CoordinateSystem4, " "))
+		}
+		if params.CoordinateSystem5 != nil {
+			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G58"))
+			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(params.CoordinateSystem5, " "))
+		}
+		if params.CoordinateSystem6 != nil {
+			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G59"))
+			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(params.CoordinateSystem6, " "))
+		}
 	}
-	if params.CoordinateSystem2 != nil {
-		fmt.Fprintf(&buf, "%s:Coordinate System 2\n", sprintGcodeWord("G55"))
-		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.CoordinateSystem2, " "))
-	}
-	if params.CoordinateSystem3 != nil {
-		fmt.Fprintf(&buf, "%s:Coordinate System 3\n", sprintGcodeWord("G56"))
-		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.CoordinateSystem3, " "))
-	}
-	if params.CoordinateSystem4 != nil {
-		fmt.Fprintf(&buf, "%s:Coordinate System 4\n", sprintGcodeWord("G57"))
-		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.CoordinateSystem4, " "))
-	}
-	if params.CoordinateSystem5 != nil {
-		fmt.Fprintf(&buf, "%s:Coordinate System 5\n", sprintGcodeWord("G58"))
-		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.CoordinateSystem5, " "))
-	}
-	if params.CoordinateSystem6 != nil {
-		fmt.Fprintf(&buf, "%s:Coordinate System 6\n", sprintGcodeWord("G59"))
-		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.CoordinateSystem6, " "))
-	}
-	if params.PrimaryPreDefinedPosition != nil {
-		fmt.Fprintf(&buf, "%s:Primary Pre-Defined Position\n", sprintGcodeWord("G28"))
-		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.PrimaryPreDefinedPosition, " "))
-	}
-	if params.SecondaryPreDefinedPosition != nil {
-		fmt.Fprintf(&buf, "%s:Secondary Pre-Defined Position\n", sprintGcodeWord("G30"))
-		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.SecondaryPreDefinedPosition, " "))
+	if params.HasPreDefinedPosition() {
+		fmt.Fprintf(&buf, "Pre-Defined Position\n")
+		if params.PrimaryPreDefinedPosition != nil {
+			fmt.Fprintf(&buf, "  %s:%s\n", sprintGcodeWord("G28"), sprintCoordinatesSingleLine(params.PrimaryPreDefinedPosition, " "))
+		}
+		if params.SecondaryPreDefinedPosition != nil {
+			fmt.Fprintf(&buf, "  %s:%s\n", sprintGcodeWord("G30"), sprintCoordinatesSingleLine(params.SecondaryPreDefinedPosition, " "))
+		}
 	}
 	if params.CoordinateOffset != nil {
-		fmt.Fprintf(&buf, "%s:Coordinate Offset\n", sprintGcodeWord("G92"))
-		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(params.CoordinateOffset, " "))
+		fmt.Fprintf(&buf, "Coordinate Offset\n")
+		fmt.Fprintf(&buf, "  %s:%s\n", sprintGcodeWord("G92"), sprintCoordinatesSingleLine(params.CoordinateOffset, " "))
 	}
 	if params.ToolLengthOffset != nil {
 		fmt.Fprintf(&buf, "Tool Length Offset:%s\n", sprintCoordinate(*params.ToolLengthOffset))
