@@ -297,10 +297,10 @@ func NewMessagePush(message string) (Message, error) {
 		}
 	}
 	if strings.HasPrefix(message, "[VER:") {
-		return &MessagePushBuildInfo{Message: message}, nil
+		return NewMessagePushBuildInfo(message)
 	}
 	if strings.HasPrefix(message, "[OPT:") {
-		return &MessagePushCompileTimeOptions{Message: message}, nil
+		return NewMessagePushCompileTimeOptions(message)
 	}
 	if strings.HasPrefix(message, ">") {
 		return &MessagePushStartupLineExecution{Message: message}, nil
@@ -623,6 +623,30 @@ func (m *MessagePushGcodeParam) String() string {
 
 type MessagePushBuildInfo struct {
 	Message string
+	Version string
+	Id      string
+}
+
+func NewMessagePushBuildInfo(message string) (*MessagePushBuildInfo, error) {
+	const prefix = "[VER:"
+	const suffix = "]"
+	const sep = ":"
+	if !strings.HasPrefix(message, prefix) {
+		return nil, fmt.Errorf("message does not contain prefix %#v: %#v", prefix, message)
+	}
+	if !strings.HasSuffix(message, suffix) {
+		return nil, fmt.Errorf("message does not contain suffix %#v: %#v", suffix, message)
+	}
+	text := strings.TrimSuffix(strings.TrimPrefix(message, prefix), suffix)
+	parts := strings.Split(text, sep)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("message format unknown: %#v", message)
+	}
+	return &MessagePushBuildInfo{
+		Message: message,
+		Version: parts[0],
+		Id:      parts[1],
+	}, nil
 }
 
 func (m *MessagePushBuildInfo) Type() MessageType {
@@ -634,7 +658,76 @@ func (m *MessagePushBuildInfo) String() string {
 }
 
 type MessagePushCompileTimeOptions struct {
-	Message string
+	Message             string
+	CompileTimeOptions  []string
+	PlannerBlocks       uint64
+	SerialRxBufferBytes uint64
+}
+
+var buildOptionDescription = map[rune]string{
+	'V': "Variable spindle",
+	'N': "Line numbers",
+	'M': "Mist coolant M7",
+	'C': "CoreXY",
+	'P': "Parking motion",
+	'Z': "Homing force origin",
+	'H': "Homing single axis commands",
+	'T': "Two limit switches on axis",
+	'A': "Allow feed rate overrides in probe cycles",
+	'D': "Use spindle direction as enable pin",
+	'0': "Spindle enable off when speed is zero",
+	'S': "Software limit pin debouncing",
+	'R': "Parking override control",
+	'+': "Safety door input pin",
+	'*': "Restore all EEPROM command",
+	'$': "Restore EEPROM `$` settings command",
+	'#': "Restore EEPROM parameter data command",
+	'I': "Build info write user string command",
+	'E': "Force sync upon EEPROM write",
+	'W': "Force sync upon work coordinate offset change",
+	'L': "Homing initialization auto-lock",
+	'2': "Dual axis motors",
+}
+
+func NewMessagePushCompileTimeOptions(message string) (*MessagePushCompileTimeOptions, error) {
+	const prefix = "[OPT:"
+	const suffix = "]"
+	const sep = ","
+	if !strings.HasPrefix(message, prefix) {
+		return nil, fmt.Errorf("message does not contain prefix %#v: %#v", prefix, message)
+	}
+	if !strings.HasSuffix(message, suffix) {
+		return nil, fmt.Errorf("message does not contain suffix %#v: %#v", suffix, message)
+	}
+	text := strings.TrimSuffix(strings.TrimPrefix(message, prefix), suffix)
+	parts := strings.Split(text, sep)
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("message format unknown: %#v", message)
+	}
+	compileTimeOptions := []string{}
+	for _, code := range parts[0] {
+		var opt string
+		var ok bool
+		if opt, ok = buildOptionDescription[code]; !ok {
+			opt = fmt.Sprintf("unknown (%c)", code)
+		}
+		compileTimeOptions = append(compileTimeOptions, opt)
+	}
+	var plannerBlocks uint64
+	var err error
+	if plannerBlocks, err = strconv.ParseUint(parts[1], 10, 64); err != nil {
+		return nil, fmt.Errorf("unable to parse planner blocks: %#v: %w", message, err)
+	}
+	var serialRxBufferBytes uint64
+	if serialRxBufferBytes, err = strconv.ParseUint(parts[1], 10, 64); err != nil {
+		return nil, fmt.Errorf("unable to parse serial RX buffer bytes: %#v: %w", message, err)
+	}
+	return &MessagePushCompileTimeOptions{
+		Message:             message,
+		CompileTimeOptions:  compileTimeOptions,
+		PlannerBlocks:       plannerBlocks,
+		SerialRxBufferBytes: serialRxBufferBytes,
+	}, nil
 }
 
 func (m *MessagePushCompileTimeOptions) Type() MessageType {
