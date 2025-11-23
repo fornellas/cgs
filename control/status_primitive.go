@@ -1,13 +1,12 @@
 package control
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 
 	"github.com/rivo/tview"
-
-	"github.com/fornellas/slogxt/log"
 
 	grblMod "github.com/fornellas/cgs/grbl"
 )
@@ -18,6 +17,7 @@ type StatusPrimitive struct {
 	app            *tview.Application
 	stateTextView  *tview.TextView
 	statusTextView *tview.TextView
+	machineState   grblMod.StatusReportMachineState
 }
 
 func NewStatusPrimitive(
@@ -30,10 +30,8 @@ func NewStatusPrimitive(
 		app:  app,
 	}
 
-	ctx, _ = log.MustWithGroup(ctx, "StatusPrimitive")
-
-	sp.newStateTextView(ctx)
-	sp.newStatusTextView(ctx)
+	sp.newStateTextView()
+	sp.newStatusTextView()
 
 	statusFlex := tview.NewFlex()
 	statusFlex.SetDirection(tview.FlexRow)
@@ -48,35 +46,30 @@ func (sp *StatusPrimitive) FixedSize() int {
 	return 14
 }
 
-func (sp *StatusPrimitive) newStateTextView(ctx context.Context) {
-	_, logger := log.MustWithGroup(ctx, "StateTextView")
+func (sp *StatusPrimitive) newStateTextView() {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
 		SetTextAlign(tview.AlignCenter).
 		SetWrap(true)
 	textView.SetBorder(true).SetTitle("State")
-	textView.SetChangedFunc(func() {
-		logger.Debug("SetChangedFunc")
-	})
+	textView.SetChangedFunc(func() {})
 	sp.stateTextView = textView
 }
 
-func (sp *StatusPrimitive) newStatusTextView(ctx context.Context) {
-	_, logger := log.MustWithGroup(ctx, "StatusTextView")
+func (sp *StatusPrimitive) newStatusTextView() {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
 		SetWrap(true)
 	textView.SetBorder(true).SetTitle("Status")
 	textView.SetChangedFunc(func() {
-		logger.Debug("SetChangedFunc")
 		textView.ScrollToBeginning()
 	})
 	sp.statusTextView = textView
 }
 
-func (sp *StatusPrimitive) processMessagePushWelcome(ctx context.Context) {
+func (sp *StatusPrimitive) processMessagePushWelcome() {
 	sp.app.QueueUpdateDraw(func() {
 		sp.stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 		sp.stateTextView.Clear()
@@ -84,27 +77,22 @@ func (sp *StatusPrimitive) processMessagePushWelcome(ctx context.Context) {
 	})
 }
 
-func (sp *StatusPrimitive) setMachineState(
-	ctx context.Context,
-	machineState *grblMod.StatusReportMachineState,
-) {
-	stateColor := getMachineStateColor(machineState.State)
+func (sp *StatusPrimitive) updateStateTextView(machineState grblMod.StatusReportMachineState) {
+	if sp.machineState == machineState {
+		return
+	}
+	sp.machineState = machineState
+
+	stateColor := getMachineStateColor(sp.machineState.State)
 
 	sp.app.QueueUpdateDraw(func() {
 		sp.stateTextView.Clear()
 		sp.stateTextView.SetBackgroundColor(stateColor)
-		sp.statusTextView.Clear()
 	})
-	fmt.Fprintf(
-		sp.stateTextView, "%s\n",
-		tview.Escape(machineState.State),
-	)
-	subState := machineState.SubStateString()
+	fmt.Fprintf(sp.stateTextView, "%s\n", tview.Escape(sp.machineState.State))
+	subState := sp.machineState.SubStateString()
 	if len(subState) > 0 {
-		fmt.Fprintf(
-			sp.stateTextView, "(%s)\n",
-			tview.Escape(subState),
-		)
+		fmt.Fprintf(sp.stateTextView, "(%s)\n", tview.Escape(subState))
 	}
 }
 
@@ -185,73 +173,75 @@ func (sp *StatusPrimitive) writePositionStatus(w io.Writer, statusReport *grblMo
 }
 
 //gocyclo:ignore
-func (sp *StatusPrimitive) updateStatusTextView(
-	ctx context.Context,
-	statusReport *grblMod.MessagePushStatusReport,
-) {
-	sp.app.QueueUpdateDraw(func() {
-		sp.statusTextView.Clear()
-	})
+func (sp *StatusPrimitive) updateStatusTextView(statusReport *grblMod.MessagePushStatusReport) {
+	var buf bytes.Buffer
 
-	sp.writePositionStatus(sp.statusTextView, statusReport)
+	sp.writePositionStatus(&buf, statusReport)
 
 	if statusReport.BufferState != nil {
-		fmt.Fprint(sp.statusTextView, "\nBuffer\n")
-		fmt.Fprintf(sp.statusTextView, "Blocks:%d\n", statusReport.BufferState.AvailableBlocks)
-		fmt.Fprintf(sp.statusTextView, "Bytes:%d\n", statusReport.BufferState.AvailableBytes)
+		fmt.Fprint(&buf, "\nBuffer\n")
+		fmt.Fprintf(&buf, "Blocks:%d\n", statusReport.BufferState.AvailableBlocks)
+		fmt.Fprintf(&buf, "Bytes:%d\n", statusReport.BufferState.AvailableBytes)
 	}
 
 	if statusReport.LineNumber != nil {
-		fmt.Fprintf(sp.statusTextView, "\n\nLine:%d\n", *statusReport.LineNumber)
+		fmt.Fprintf(&buf, "\n\nLine:%d\n", *statusReport.LineNumber)
 	}
 
 	if statusReport.Feed != nil {
-		fmt.Fprintf(sp.statusTextView, "\nFeed:%.1f\n", *statusReport.Feed)
+		fmt.Fprintf(&buf, "\nFeed:%.1f\n", *statusReport.Feed)
 	}
 
 	if statusReport.FeedSpindle != nil {
 		if statusReport.FeedSpindle.Feed != 0 {
-			fmt.Fprintf(sp.statusTextView, "\nFeed:%.0f\n", statusReport.FeedSpindle.Feed)
+			fmt.Fprintf(&buf, "\nFeed:%.0f\n", statusReport.FeedSpindle.Feed)
 		}
 		if statusReport.FeedSpindle.Speed != 0 {
-			fmt.Fprintf(sp.statusTextView, "\nSpeed:%.0f\n", statusReport.FeedSpindle.Speed)
+			fmt.Fprintf(&buf, "\nSpeed:%.0f\n", statusReport.FeedSpindle.Speed)
 		}
 	}
 
 	if statusReport.PinState != nil {
-		fmt.Fprintf(sp.statusTextView, "\nPin:%s\n", statusReport.PinState)
+		fmt.Fprintf(&buf, "\nPin:%s\n", statusReport.PinState)
 	}
 
 	overrideValues := sp.grbl.GetOverrideValues()
 	if overrideValues != nil && overrideValues.HasOverride() {
-		fmt.Fprint(sp.statusTextView, "\nOverrides\n")
+		fmt.Fprint(&buf, "\nOverrides\n")
 		if overrideValues.Feed != 100.0 {
-			fmt.Fprintf(sp.statusTextView, "Feed:%.0f%%\n", overrideValues.Feed)
+			fmt.Fprintf(&buf, "Feed:%.0f%%\n", overrideValues.Feed)
 		}
 		if overrideValues.Rapids != 100.0 {
-			fmt.Fprintf(sp.statusTextView, "Rapids:%.0f%%\n", overrideValues.Rapids)
+			fmt.Fprintf(&buf, "Rapids:%.0f%%\n", overrideValues.Rapids)
 		}
 		if overrideValues.Spindle != 100.0 {
-			fmt.Fprintf(sp.statusTextView, "Spindle:%.0f%%\n", overrideValues.Spindle)
+			fmt.Fprintf(&buf, "Spindle:%.0f%%\n", overrideValues.Spindle)
 		}
 	}
 
 	accessoryState := sp.grbl.AccessoryState()
 	if accessoryState != nil {
-		fmt.Fprint(sp.statusTextView, "\nAccessory\n")
+		fmt.Fprint(&buf, "\nAccessory\n")
 		if accessoryState.SpindleCW != nil && *accessoryState.SpindleCW {
-			fmt.Fprint(sp.statusTextView, "Spindle: CW")
+			fmt.Fprint(&buf, "Spindle: CW")
 		}
 		if accessoryState.SpindleCCW != nil && *accessoryState.SpindleCCW {
-			fmt.Fprint(sp.statusTextView, "Spindle: CCW")
+			fmt.Fprint(&buf, "Spindle: CCW")
 		}
 		if accessoryState.FloodCoolant != nil && *accessoryState.FloodCoolant {
-			fmt.Fprint(sp.statusTextView, "Flood Coolant")
+			fmt.Fprint(&buf, "Flood Coolant")
 		}
 		if accessoryState.MistCoolant != nil && *accessoryState.MistCoolant {
-			fmt.Fprint(sp.statusTextView, "Mist Coolant")
+			fmt.Fprint(&buf, "Mist Coolant")
 		}
 	}
+
+	sp.app.QueueUpdateDraw(func() {
+		if buf.String() == text sp.statusTextView.GetText(false) {
+			return
+		}
+		sp.statusTextView.SetText(buf.String())
+	})
 }
 
 func (sp *StatusPrimitive) processMessagePushStatusReport(

@@ -38,6 +38,7 @@ type JoggingPrimitive struct {
 	machineCoordinatesCheckbox *tview.Checkbox
 	jogParametersButton        *tview.Button
 	cancelButton               *tview.Button
+	machineState               grblMod.StatusReportMachineState
 }
 
 func NewJoggingPrimitive(
@@ -190,7 +191,6 @@ func (jp *JoggingPrimitive) jog() {
 }
 
 func (jp *JoggingPrimitive) processMessagePushGcodeState(
-	ctx context.Context,
 	messagePushGcodeState *grblMod.MessagePushGcodeState,
 ) {
 	jp.app.QueueUpdateDraw(func() {
@@ -229,8 +229,14 @@ func (jp *JoggingPrimitive) processMessagePushGcodeState(
 func (jp *JoggingPrimitive) processMessagePushStatusReport(
 	messagePushStatusReport *grblMod.MessagePushStatusReport,
 ) {
+	if jp.machineState == messagePushStatusReport.MachineState {
+		return
+	}
+
+	jp.machineState = messagePushStatusReport.MachineState
+
 	jp.app.QueueUpdateDraw(func() {
-		switch messagePushStatusReport.MachineState.State {
+		switch jp.machineState.State {
 		case "Idle":
 			jp.xInputField.SetDisabled(false)
 			jp.yInputField.SetDisabled(false)
@@ -266,14 +272,14 @@ func (jp *JoggingPrimitive) processMessagePushStatusReport(
 			jp.jogParametersButton.SetDisabled(true)
 			jp.cancelButton.SetDisabled(true)
 		default:
-			panic(fmt.Sprintf("unknown machine state: %#v", messagePushStatusReport.MachineState.State))
+			panic(fmt.Sprintf("unknown machine state: %#v", jp.machineState.State))
 		}
 	})
 }
 
 func (jp *JoggingPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
 	if messagePushGcodeState, ok := message.(*grblMod.MessagePushGcodeState); ok {
-		jp.processMessagePushGcodeState(ctx, messagePushGcodeState)
+		jp.processMessagePushGcodeState(messagePushGcodeState)
 		return
 	}
 	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {

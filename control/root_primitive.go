@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -28,6 +29,7 @@ type RootPrimitive struct {
 	helpButton         *tview.Button
 	holdButton         *tview.Button
 	resumeButton       *tview.Button
+	machineState       *grblMod.StatusReportMachineState
 }
 
 func NewRootPrimitive(
@@ -211,11 +213,15 @@ func (rp *RootPrimitive) newRootFlex() {
 }
 
 func (rp *RootPrimitive) setMachineState(
-	ctx context.Context,
 	machineState *grblMod.StatusReportMachineState,
 ) {
+	if reflect.DeepEqual(rp.machineState, machineState) {
+		return
+	}
+	rp.machineState = machineState
+
 	rp.app.QueueUpdateDraw(func() {
-		if machineState == nil {
+		if rp.machineState == nil {
 			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(true)
@@ -227,7 +233,7 @@ func (rp *RootPrimitive) setMachineState(
 			rp.resumeButton.SetDisabled(true)
 			return
 		}
-		switch machineState.State {
+		switch rp.machineState.State {
 		case "Idle":
 			rp.homeButton.SetDisabled(false)
 			rp.unlockButton.SetDisabled(true)
@@ -319,13 +325,13 @@ func (rp *RootPrimitive) setMachineState(
 			rp.holdButton.SetDisabled(true)
 			rp.resumeButton.SetDisabled(true)
 		default:
-			panic(fmt.Errorf("unknown state: %s", machineState.State))
+			panic(fmt.Errorf("unknown state: %s", rp.machineState.State))
 		}
 	})
 }
 
-func (rp *RootPrimitive) processMessagePushWelcome(ctx context.Context) {
-	rp.setMachineState(ctx, nil)
+func (rp *RootPrimitive) processMessagePushWelcome() {
+	rp.setMachineState(nil)
 	rp.app.QueueUpdateDraw(func() {
 		rp.feedbackTextView.SetText("")
 	})
@@ -359,7 +365,13 @@ func getMachineStateColor(state string) tcell.Color {
 func (rp *RootPrimitive) processMessagePushFeedback(
 	messagePushFeedback *grblMod.MessagePushFeedback,
 ) {
-	rp.feedbackTextView.SetText(messagePushFeedback.Text())
+	rp.app.QueueUpdateDraw(func() {
+		text := tview.Escape(messagePushFeedback.Text())
+		if text == rp.feedbackTextView.GetText(false) {
+			return
+		}
+		rp.feedbackTextView.SetText(text)
+	})
 
 	if messagePushFeedback.Text() == "Reset to continue" {
 		rp.app.QueueUpdateDraw(func() {
@@ -377,15 +389,14 @@ func (rp *RootPrimitive) processMessagePushFeedback(
 }
 
 func (rp *RootPrimitive) processMessagePushStatusReport(
-	ctx context.Context,
 	statusReport *grblMod.MessagePushStatusReport,
 ) {
-	rp.setMachineState(ctx, &statusReport.MachineState)
+	rp.setMachineState(&statusReport.MachineState)
 }
 
 func (rp *RootPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
 	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
-		rp.processMessagePushWelcome(ctx)
+		rp.processMessagePushWelcome()
 		return
 	}
 	if messagePushFeedback, ok := message.(*grblMod.MessagePushFeedback); ok {
@@ -393,7 +404,7 @@ func (rp *RootPrimitive) ProcessMessage(ctx context.Context, message grblMod.Mes
 		return
 	}
 	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-		rp.processMessagePushStatusReport(ctx, messagePushStatusReport)
+		rp.processMessagePushStatusReport(messagePushStatusReport)
 		return
 	}
 }

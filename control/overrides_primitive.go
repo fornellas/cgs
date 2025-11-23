@@ -29,6 +29,7 @@ type OverridesPrimitive struct {
 	spindleIncr10Button *tview.Button
 	coolantFloodButton  *tview.Button
 	coolantMistButton   *tview.Button
+	machineState        grblMod.StatusReportMachineState
 }
 
 func NewOverridesPrimitive(
@@ -166,11 +167,16 @@ func NewOverridesPrimitive(
 }
 
 func (op *OverridesPrimitive) processMessagePushStatusReport(
-	ctx context.Context,
 	messagePushStatusReport *grblMod.MessagePushStatusReport,
 ) {
+	if op.machineState == messagePushStatusReport.MachineState {
+		return
+	}
+
+	op.machineState = messagePushStatusReport.MachineState
+
 	op.app.QueueUpdateDraw(func() {
-		switch messagePushStatusReport.MachineState.State {
+		switch op.machineState.State {
 		case "Idle":
 			op.feedDecr10Button.SetDisabled(false)
 			op.feedDecr1Button.SetDisabled(false)
@@ -325,14 +331,14 @@ func (op *OverridesPrimitive) processMessagePushStatusReport(
 			op.coolantFloodButton.SetDisabled(true)
 			op.coolantMistButton.SetDisabled(true)
 		default:
-			panic(fmt.Sprintf("unknown machine state: %#v", messagePushStatusReport.MachineState.State))
+			panic(fmt.Sprintf("unknown machine state: %#v", op.machineState.State))
 		}
 	})
 }
 
 func (op *OverridesPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
 	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-		op.processMessagePushStatusReport(ctx, messagePushStatusReport)
+		op.processMessagePushStatusReport(messagePushStatusReport)
 		return
 	}
 }

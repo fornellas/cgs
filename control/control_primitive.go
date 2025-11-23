@@ -105,10 +105,7 @@ func NewControlPrimitive(
 		SetScrollable(true).
 		SetWrap(true)
 	gcodeParserTextView.SetBorder(true).SetTitle("G-Code Parser")
-	gcodeParserTextView.SetChangedFunc(func() {
-		cp.app.QueueUpdate(func() {
-		})
-	})
+	gcodeParserTextView.SetChangedFunc(func() { cp.app.QueueUpdate(func() {}) })
 	cp.gcodeParserTextView = gcodeParserTextView
 
 	// G-Code Parameters
@@ -117,10 +114,7 @@ func NewControlPrimitive(
 		SetScrollable(true).
 		SetWrap(true)
 	gcodeParamsTextView.SetBorder(true).SetTitle("G-Code Parameters")
-	gcodeParamsTextView.SetChangedFunc(func() {
-		cp.app.QueueUpdate(func() {
-		})
-	})
+	gcodeParamsTextView.SetChangedFunc(func() { cp.app.QueueUpdate(func() {}) })
 	cp.gcodeParamsTextView = gcodeParamsTextView
 
 	// Command
@@ -170,7 +164,7 @@ func NewControlPrimitive(
 	return cp
 }
 
-func (cp *ControlPrimitive) setDisabledState(ctx context.Context) {
+func (cp *ControlPrimitive) setDisabledState() {
 	cp.app.QueueUpdate(func() {
 		cp.mu.Lock()
 		defer cp.mu.Unlock()
@@ -203,18 +197,18 @@ func (cp *ControlPrimitive) setDisabledState(ctx context.Context) {
 	})
 }
 
-func (cp *ControlPrimitive) setMachineState(ctx context.Context, machineState string) {
+func (cp *ControlPrimitive) setMachineState(machineState string) {
 	cp.mu.Lock()
 	cp.machineState = &machineState
 	cp.mu.Unlock()
-	cp.setDisabledState(ctx)
+	cp.setDisabledState()
 }
 
 func (cp *ControlPrimitive) DisableCommandInput(ctx context.Context, disabled bool) {
 	cp.mu.Lock()
 	cp.disableCommandInput = disabled
 	cp.mu.Unlock()
-	cp.setDisabledState(ctx)
+	cp.setDisabledState()
 }
 
 func (cp *ControlPrimitive) sendCommand(
@@ -400,7 +394,6 @@ func (cp *ControlPrimitive) RunSendRealTimeCommandWorker(ctx context.Context) er
 
 //gocyclo:ignore
 func (cp *ControlPrimitive) processMessagePushGcodeState(
-	ctx context.Context,
 	messagePushGcodeState *grblMod.MessagePushGcodeState,
 ) tcell.Color {
 	var buf bytes.Buffer
@@ -452,10 +445,11 @@ func (cp *ControlPrimitive) processMessagePushGcodeState(
 	}
 
 	cp.app.QueueUpdate(func() {
-		cp.gcodeParserTextView.Clear()
+		if buf.String() == cp.gcodeParserTextView.GetText(false) {
+			return
+		}
+		cp.gcodeParserTextView.SetText(buf.String())
 	})
-
-	fmt.Fprint(cp.gcodeParserTextView, tview.Escape(buf.String()))
 
 	return tcell.ColorGreen
 }
@@ -558,15 +552,16 @@ func (cp *ControlPrimitive) processMessagePushGcodeParam(ctx context.Context) tc
 	}
 
 	cp.app.QueueUpdate(func() {
-		cp.gcodeParamsTextView.Clear()
+		if buf.String() == cp.gcodeParamsTextView.GetText(false) {
+			return
+		}
+		cp.gcodeParamsTextView.SetText(buf.String())
 	})
-
-	fmt.Fprint(cp.gcodeParamsTextView, tview.Escape(buf.String()))
 
 	return color
 }
 
-func (cp *ControlPrimitive) processMessagePushWelcome(ctx context.Context) {
+func (cp *ControlPrimitive) processMessagePushWelcome() {
 	cp.app.QueueUpdate(func() {
 		cp.gcodeParserTextView.Clear()
 		cp.gcodeParamsTextView.Clear()
@@ -585,14 +580,13 @@ func (cp *ControlPrimitive) processMessagePushAlarm(
 }
 
 func (cp *ControlPrimitive) processMessagePushStatusReport(
-	ctx context.Context,
 	statusReport *grblMod.MessagePushStatusReport,
 ) tcell.Color {
 	color := getMachineStateColor(statusReport.MachineState.State)
 	if color == tcell.ColorBlack {
 		color = tcell.ColorWhite
 	}
-	cp.setMachineState(ctx, statusReport.MachineState.State)
+	cp.setMachineState(statusReport.MachineState.State)
 	return color
 }
 
@@ -601,7 +595,7 @@ func (cp *ControlPrimitive) ProcessMessage(ctx context.Context, message grblMod.
 	var extraInfo string
 
 	if messagePushGcodeState, ok := message.(*grblMod.MessagePushGcodeState); ok {
-		color = cp.processMessagePushGcodeState(ctx, messagePushGcodeState)
+		color = cp.processMessagePushGcodeState(messagePushGcodeState)
 		if cp.quietGcodeParserStateComms {
 			return
 		}
@@ -615,7 +609,7 @@ func (cp *ControlPrimitive) ProcessMessage(ctx context.Context, message grblMod.
 	}
 
 	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
-		cp.processMessagePushWelcome(ctx)
+		cp.processMessagePushWelcome()
 	}
 
 	if messagePushAlarm, ok := message.(*grblMod.MessagePushAlarm); ok {
@@ -623,7 +617,7 @@ func (cp *ControlPrimitive) ProcessMessage(ctx context.Context, message grblMod.
 	}
 
 	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-		color = cp.processMessagePushStatusReport(ctx, messagePushStatusReport)
+		color = cp.processMessagePushStatusReport(messagePushStatusReport)
 		if cp.quietStatusComms {
 			return
 		}
