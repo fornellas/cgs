@@ -64,9 +64,6 @@ Features
                         total usable planner blocks
                         serial RX buffer bytes
                 Set id string ($I=xxx)
-            Startup Lines
-                $N (Print startup lines)
-                $Nn=<gcode> (Store startup line, where n is the line number)
             Settings
                 $$ - View Grbl settings
                 $x=val - Save Grbl setting
@@ -96,6 +93,9 @@ Features
                     $110, $111 and $112 – [X,Y,Z] Max rate, mm/min
                     $120, $121, $122 – [X,Y,Z] Acceleration, mm/sec^2
                     $130, $131, $132 – [X,Y,Z] Max travel, mm
+            Startup Lines
+                $N (Print startup lines)
+                $Nn=<gcode> (Store startup line, where n is the line number)
             Restore Defaults
                 $RST=$ (Restore Defaults: Settings ($$)
                 $RST=# (Restore Defaults: G-Code Parameters ($#))
