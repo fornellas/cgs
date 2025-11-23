@@ -71,17 +71,23 @@ func NewSettingsPrimitive(
 	// Restore Defaults: Buttons
 	restoreSettingsButton := tview.NewButton("Settings")
 	restoreSettingsButton.SetSelectedFunc(func() {
-		sp.controlPrimitive.QueueCommand("$RST=$")
+		for _, cmd := range []string{"$RST=$", "$$"} {
+			sp.controlPrimitive.QueueCommand(cmd)
+		}
 	})
 	sp.restoreSettingsButton = restoreSettingsButton
 	restoreGcodeParametersButton := tview.NewButton("G-Code Parameters")
 	restoreGcodeParametersButton.SetSelectedFunc(func() {
-		sp.controlPrimitive.QueueCommand("$RST=#")
+		for _, cmd := range []string{"$RST=#", "$#"} {
+			sp.controlPrimitive.QueueCommand(cmd)
+		}
 	})
 	sp.restoreGcodeParametersButton = restoreGcodeParametersButton
 	restoreAllButton := tview.NewButton("All")
 	restoreAllButton.SetSelectedFunc(func() {
-		sp.controlPrimitive.QueueCommand("$RST=*")
+		for _, cmd := range []string{"$RST=*", "$$", "$#", "$N", "$I"} {
+			sp.controlPrimitive.QueueCommand(cmd)
+		}
 	})
 	sp.restoreAllButton = restoreAllButton
 
