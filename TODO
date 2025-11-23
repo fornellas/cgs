@@ -102,6 +102,9 @@ Features
                 $RST=* (Restore Defaults: All ($$, $#, $N, $I))
         Script
             TBD
+        Buttons
+            Custom Programs
+                ie: probe, go to Predefined Position etc
     Misc
         Scrolling
             Only scroll to end if view position is already at the end
