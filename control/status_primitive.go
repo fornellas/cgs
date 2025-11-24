@@ -72,6 +72,7 @@ func (sp *StatusPrimitive) newStatusTextView() {
 
 func (sp *StatusPrimitive) processMessagePushWelcome() {
 	sp.app.QueueUpdateDraw(func() {
+		sp.machineState = grblMod.StatusReportMachineState{}
 		sp.stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 		sp.stateTextView.Clear()
 		sp.statusTextView.Clear()
