@@ -1,3 +1,6 @@
+Bug
+    InputFields
+        When it looses focus, the entered value is not applied
 Features
     Panels
         Control
