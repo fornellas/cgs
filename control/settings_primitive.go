@@ -13,13 +13,51 @@ import (
 
 type SettingsPrimitive struct {
 	*tview.Flex
-	app                          *tview.Application
-	controlPrimitive             *ControlPrimitive
-	startupLine0InputField       *tview.InputField
-	startupLine1InputField       *tview.InputField
-	versionTextView              *tview.TextView
-	infoInputField               *tview.InputField
-	compileTimeOptionsTextView   *tview.TextView
+	app              *tview.Application
+	controlPrimitive *ControlPrimitive
+	// Settings
+	stepPulse           *tview.InputField
+	stepIdleDelay       *tview.InputField
+	stepPortInvert      *tview.InputField
+	directionPortInvert *tview.InputField
+	stepEnableInvert    *tview.Checkbox
+	limitPinsInvert     *tview.Checkbox
+	probePinInvert      *tview.Checkbox
+	statusReport        *tview.InputField
+	junctionDeviation   *tview.InputField
+	arcTolerance        *tview.InputField
+	reportInches        *tview.Checkbox
+	softLimits          *tview.Checkbox
+	hardLimits          *tview.Checkbox
+	homingCycle         *tview.Checkbox
+	homingDirInvert     *tview.InputField
+	homingFeed          *tview.InputField
+	homingSeek          *tview.InputField
+	homingDebounce      *tview.InputField
+	homingPullOff       *tview.InputField
+	maxSpindleSpeed     *tview.InputField
+	minSpindleSpeed     *tview.InputField
+	laserMode           *tview.Checkbox
+	xSteps              *tview.InputField
+	ySteps              *tview.InputField
+	zSteps              *tview.InputField
+	xMaxRate            *tview.InputField
+	yMaxRate            *tview.InputField
+	zMaxRate            *tview.InputField
+	xAcceleration       *tview.InputField
+	yAcceleration       *tview.InputField
+	zAcceleration       *tview.InputField
+	xMaxTravel          *tview.InputField
+	yMaxTravel          *tview.InputField
+	zMaxTravel          *tview.InputField
+	// Startup Lines
+	startupLine0InputField *tview.InputField
+	startupLine1InputField *tview.InputField
+	// Build Info
+	versionTextView            *tview.TextView
+	infoInputField             *tview.InputField
+	compileTimeOptionsTextView *tview.TextView
+	// Restore Defaults
 	restoreSettingsButton        *tview.Button
 	restoreGcodeParametersButton *tview.Button
 	restoreAllButton             *tview.Button
@@ -35,10 +73,183 @@ func NewSettingsPrimitive(
 		controlPrimitive: controlPrimitive,
 	}
 
+	// Settings: InputFields
+	// $0 Step pulse, microseconds
+	stepPulse := tview.NewInputField()
+	stepPulse.SetLabel("Step pulse (us)")
+	sp.stepPulse = stepPulse
+	// $1 Step idle delay, milliseconds
+	stepIdleDelay := tview.NewInputField()
+	stepIdleDelay.SetLabel("Step idle delay (ms)")
+	sp.stepIdleDelay = stepIdleDelay
+	// $2 Step port invert, mask
+	stepPortInvert := tview.NewInputField()
+	stepPortInvert.SetLabel("Step port invert (mask)")
+	sp.stepPortInvert = stepPortInvert
+	// $3 Direction port invert, mask
+	directionPortInvert := tview.NewInputField()
+	directionPortInvert.SetLabel("Direction port invert (mask)")
+	sp.directionPortInvert = directionPortInvert
+	// $4 Step enable invert, boolean
+	stepEnableInvert := tview.NewCheckbox()
+	sp.stepEnableInvert = stepEnableInvert
+	stepEnableInvert.SetLabel("Step enable invert")
+	// $5  Limit pins invert, boolean
+	limitPinsInvert := tview.NewCheckbox()
+	sp.limitPinsInvert = limitPinsInvert
+	limitPinsInvert.SetLabel("Limit pins invert")
+	// $6  Probe pin invert, boolean
+	probePinInvert := tview.NewCheckbox()
+	sp.probePinInvert = probePinInvert
+	probePinInvert.SetLabel("Probe pin invert")
+	// $10 Status report, mask
+	statusReport := tview.NewInputField()
+	statusReport.SetLabel("Status report (mask)")
+	sp.statusReport = statusReport
+	// $11 Junction deviation, mm
+	junctionDeviation := tview.NewInputField()
+	junctionDeviation.SetLabel("Junction deviation (mm)")
+	sp.junctionDeviation = junctionDeviation
+	// $12 Arc tolerance, mm
+	arcTolerance := tview.NewInputField()
+	arcTolerance.SetLabel("Arc tolerance (mm)")
+	sp.arcTolerance = arcTolerance
+	// $13 Report inches, boolean
+	reportInches := tview.NewCheckbox()
+	sp.reportInches = reportInches
+	reportInches.SetLabel("Report inches")
+	// $20 Soft limits, boolean
+	softLimits := tview.NewCheckbox()
+	sp.softLimits = softLimits
+	softLimits.SetLabel("Soft limits")
+	// $21 Hard limits, boolean
+	hardLimits := tview.NewCheckbox()
+	sp.hardLimits = hardLimits
+	hardLimits.SetLabel("Hard limits")
+	// $22 Homing cycle, boolean
+	homingCycle := tview.NewCheckbox()
+	sp.homingCycle = homingCycle
+	homingCycle.SetLabel("Homing cycle")
+	// $23 Homing dir invert, mask
+	homingDirInvert := tview.NewInputField()
+	homingDirInvert.SetLabel("Homing dir invert (mask)")
+	sp.homingDirInvert = homingDirInvert
+	// $24 Homing feed, mm/min
+	homingFeed := tview.NewInputField()
+	homingFeed.SetLabel("Homing feed (mm/min)")
+	sp.homingFeed = homingFeed
+	// $25 Homing seek, mm/min
+	homingSeek := tview.NewInputField()
+	homingSeek.SetLabel("Homing seek (mm/min)")
+	sp.homingSeek = homingSeek
+	// $26 Homing debounce, milliseconds
+	homingDebounce := tview.NewInputField()
+	homingDebounce.SetLabel("Homing debounce (ms)")
+	sp.homingDebounce = homingDebounce
+	// $27 Homing pull-off, mm
+	homingPullOff := tview.NewInputField()
+	homingPullOff.SetLabel("Homing pull-off (mm)")
+	sp.homingPullOff = homingPullOff
+	// $30 Max spindle speed, RPM
+	maxSpindleSpeed := tview.NewInputField()
+	maxSpindleSpeed.SetLabel("Max spindle speed (RPM)")
+	sp.maxSpindleSpeed = maxSpindleSpeed
+	// $31 Min spindle speed, RPM
+	minSpindleSpeed := tview.NewInputField()
+	minSpindleSpeed.SetLabel("Min spindle speed (RPM)")
+	sp.minSpindleSpeed = minSpindleSpeed
+	// $32 Laser mode, boolean
+	laserMode := tview.NewCheckbox()
+	sp.laserMode = laserMode
+	laserMode.SetLabel("Laser mode")
+	// $100 X steps/mm
+	xSteps := tview.NewInputField()
+	xSteps.SetLabel("X (steps/mm)")
+	sp.xSteps = xSteps
+	// $101 Y steps/mm
+	ySteps := tview.NewInputField()
+	ySteps.SetLabel("Y (steps/mm)")
+	sp.ySteps = ySteps
+	// $102 Z steps/mm
+	zSteps := tview.NewInputField()
+	zSteps.SetLabel("Z (steps/mm)")
+	sp.zSteps = zSteps
+	// $110 X Max rate, mm/min
+	xMaxRate := tview.NewInputField()
+	xMaxRate.SetLabel("X Max rate (mm/min)")
+	sp.xMaxRate = xMaxRate
+	// $111 Y Max rate, mm/min
+	yMaxRate := tview.NewInputField()
+	yMaxRate.SetLabel("Y Max rate (mm/min)")
+	sp.yMaxRate = yMaxRate
+	// $112 Z Max rate, mm/min
+	zMaxRate := tview.NewInputField()
+	zMaxRate.SetLabel("Z Max rate (mm/min)")
+	sp.zMaxRate = zMaxRate
+	// $120 X Acceleration, mm/sec^2
+	xAcceleration := tview.NewInputField()
+	xAcceleration.SetLabel("X Acceleration (mm/sec^2)")
+	sp.xAcceleration = xAcceleration
+	// $121 Y Acceleration, mm/sec^2
+	yAcceleration := tview.NewInputField()
+	yAcceleration.SetLabel("Y Acceleration (mm/sec^2)")
+	sp.yAcceleration = yAcceleration
+	// $122 Z Acceleration, mm/sec^2
+	zAcceleration := tview.NewInputField()
+	zAcceleration.SetLabel("Z Acceleration (mm/sec^2)")
+	sp.zAcceleration = zAcceleration
+	// $130 X Max travel, mm
+	xMaxTravel := tview.NewInputField()
+	xMaxTravel.SetLabel("X Max travel (mm)")
+	sp.xMaxTravel = xMaxTravel
+	// $131 Y Max travel, mm
+	yMaxTravel := tview.NewInputField()
+	yMaxTravel.SetLabel("Y Max travel (mm)")
+	sp.yMaxTravel = yMaxTravel
+	// $132 Z Max travel, mm
+	zMaxTravel := tview.NewInputField()
+	zMaxTravel.SetLabel("Z Max travel (mm)")
+	sp.zMaxTravel = zMaxTravel
+
 	// Settings
-	settingsFlex := tview.NewFlex()
-	settingsFlex.SetBorder(true)
-	settingsFlex.SetTitle("Settings")
+	mainSettings := tview.NewFlex()
+	mainSettings.SetBorder(true)
+	mainSettings.SetDirection(tview.FlexRow)
+	mainSettings.SetTitle("Settings")
+	mainSettings.AddItem(stepPulse, 0, 1, false)
+	mainSettings.AddItem(stepIdleDelay, 0, 1, false)
+	mainSettings.AddItem(stepPortInvert, 0, 1, false)
+	mainSettings.AddItem(directionPortInvert, 0, 1, false)
+	mainSettings.AddItem(stepEnableInvert, 0, 1, false)
+	mainSettings.AddItem(limitPinsInvert, 0, 1, false)
+	mainSettings.AddItem(probePinInvert, 0, 1, false)
+	mainSettings.AddItem(statusReport, 0, 1, false)
+	mainSettings.AddItem(junctionDeviation, 0, 1, false)
+	mainSettings.AddItem(arcTolerance, 0, 1, false)
+	mainSettings.AddItem(reportInches, 0, 1, false)
+	mainSettings.AddItem(softLimits, 0, 1, false)
+	mainSettings.AddItem(hardLimits, 0, 1, false)
+	mainSettings.AddItem(homingCycle, 0, 1, false)
+	mainSettings.AddItem(homingDirInvert, 0, 1, false)
+	mainSettings.AddItem(homingFeed, 0, 1, false)
+	mainSettings.AddItem(homingSeek, 0, 1, false)
+	mainSettings.AddItem(homingDebounce, 0, 1, false)
+	mainSettings.AddItem(homingPullOff, 0, 1, false)
+	mainSettings.AddItem(maxSpindleSpeed, 0, 1, false)
+	mainSettings.AddItem(minSpindleSpeed, 0, 1, false)
+	mainSettings.AddItem(laserMode, 0, 1, false)
+	mainSettings.AddItem(xSteps, 0, 1, false)
+	mainSettings.AddItem(ySteps, 0, 1, false)
+	mainSettings.AddItem(zSteps, 0, 1, false)
+	mainSettings.AddItem(xMaxRate, 0, 1, false)
+	mainSettings.AddItem(yMaxRate, 0, 1, false)
+	mainSettings.AddItem(zMaxRate, 0, 1, false)
+	mainSettings.AddItem(xAcceleration, 0, 1, false)
+	mainSettings.AddItem(yAcceleration, 0, 1, false)
+	mainSettings.AddItem(zAcceleration, 0, 1, false)
+	mainSettings.AddItem(xMaxTravel, 0, 1, false)
+	mainSettings.AddItem(yMaxTravel, 0, 1, false)
+	mainSettings.AddItem(zMaxTravel, 0, 1, false)
 
 	// Startup Lines: Input Fields
 	startupLine0InputField := tview.NewInputField()
@@ -56,7 +267,7 @@ func NewSettingsPrimitive(
 
 	// Startup Lines
 	startupLinesFlex := tview.NewFlex()
-	startupLinesFlex.SetDirection(tview.FlexColumn)
+	startupLinesFlex.SetDirection(tview.FlexRow)
 	startupLinesFlex.SetBorder(true)
 	startupLinesFlex.SetTitle("Startup Lines")
 	startupLinesFlex.AddItem(startupLine0InputField, 0, 1, false)
@@ -81,13 +292,8 @@ func NewSettingsPrimitive(
 	buildInfoFlex.SetBorder(true)
 	buildInfoFlex.SetTitle("Build Info")
 	buildInfoFlex.SetDirection(tview.FlexRow)
-	buildInfoFlex.AddItem(
-		tview.NewFlex().
-			SetDirection(tview.FlexColumn).
-			AddItem(sp.versionTextView, 0, 1, false).
-			AddItem(sp.infoInputField, 0, 1, false),
-		1, 0, false,
-	)
+	buildInfoFlex.AddItem(sp.versionTextView, 0, 1, false)
+	buildInfoFlex.AddItem(sp.infoInputField, 0, 1, false)
 	buildInfoFlex.AddItem(sp.compileTimeOptionsTextView, 0, 1, false)
 
 	// Restore Defaults: Buttons
@@ -112,19 +318,23 @@ func NewSettingsPrimitive(
 	restoreDefaultsFlex.SetBorderColor(tcell.ColorRed)
 	restoreDefaultsFlex.SetBorder(true)
 	restoreDefaultsFlex.SetTitle("Restore Defaults")
-	restoreDefaultsFlex.SetDirection(tview.FlexColumn)
+	restoreDefaultsFlex.SetDirection(tview.FlexRow)
 	restoreDefaultsFlex.AddItem(sp.restoreSettingsButton, 0, 1, false)
 	restoreDefaultsFlex.AddItem(sp.restoreGcodeParametersButton, 0, 1, false)
 	restoreDefaultsFlex.AddItem(sp.restoreAllButton, 0, 1, false)
 
+	otherSettingsFlex := tview.NewFlex()
+	otherSettingsFlex.SetDirection(tview.FlexRow)
+	otherSettingsFlex.AddItem(startupLinesFlex, 4, 0, false)
+	otherSettingsFlex.AddItem(buildInfoFlex, 0, 1, false)
+	otherSettingsFlex.AddItem(restoreDefaultsFlex, 5, 0, false)
+
 	settingsRootFlex := tview.NewFlex()
 	settingsRootFlex.SetBorder(true)
 	settingsRootFlex.SetTitle("Settings")
-	settingsRootFlex.SetDirection(tview.FlexRow)
-	settingsRootFlex.AddItem(settingsFlex, 0, 1, false)
-	settingsRootFlex.AddItem(startupLinesFlex, 3, 0, false)
-	settingsRootFlex.AddItem(buildInfoFlex, 5, 1, false)
-	settingsRootFlex.AddItem(restoreDefaultsFlex, 3, 0, false)
+	settingsRootFlex.SetDirection(tview.FlexColumn)
+	settingsRootFlex.AddItem(mainSettings, 0, 1, false)
+	settingsRootFlex.AddItem(otherSettingsFlex, 0, 1, false)
 	sp.Flex = settingsRootFlex
 
 	return sp
@@ -132,8 +342,45 @@ func NewSettingsPrimitive(
 
 func (sp *SettingsPrimitive) processMessagePushWelcome() {
 	sp.app.QueueUpdateDraw(func() {
+		// Settings
+		sp.stepPulse.SetText("")
+		sp.stepIdleDelay.SetText("")
+		sp.stepPortInvert.SetText("")
+		sp.directionPortInvert.SetText("")
+		sp.stepEnableInvert.SetChecked(false)
+		sp.limitPinsInvert.SetChecked(false)
+		sp.probePinInvert.SetChecked(false)
+		sp.statusReport.SetText("")
+		sp.junctionDeviation.SetText("")
+		sp.arcTolerance.SetText("")
+		sp.reportInches.SetChecked(false)
+		sp.softLimits.SetChecked(false)
+		sp.hardLimits.SetChecked(false)
+		sp.homingCycle.SetChecked(false)
+		sp.homingDirInvert.SetText("")
+		sp.homingFeed.SetText("")
+		sp.homingSeek.SetText("")
+		sp.homingDebounce.SetText("")
+		sp.homingPullOff.SetText("")
+		sp.maxSpindleSpeed.SetText("")
+		sp.minSpindleSpeed.SetText("")
+		sp.laserMode.SetChecked(false)
+		sp.xSteps.SetText("")
+		sp.ySteps.SetText("")
+		sp.zSteps.SetText("")
+		sp.xMaxRate.SetText("")
+		sp.yMaxRate.SetText("")
+		sp.zMaxRate.SetText("")
+		sp.xAcceleration.SetText("")
+		sp.yAcceleration.SetText("")
+		sp.zAcceleration.SetText("")
+		sp.xMaxTravel.SetText("")
+		sp.yMaxTravel.SetText("")
+		sp.zMaxTravel.SetText("")
+		// Startup Lines
 		sp.startupLine0InputField.SetText("")
 		sp.startupLine1InputField.SetText("")
+		// Build Info
 		sp.infoInputField.SetText("")
 	})
 }
@@ -154,15 +401,11 @@ func (sp *SettingsPrimitive) processMessagePushVersion(messagePushVersion *grblM
 func (sp *SettingsPrimitive) processMessagePushCompileTimeOptions(messagePushCompileTimeOptions *grblMod.MessagePushCompileTimeOptions) {
 	var buf bytes.Buffer
 
-	fmt.Fprintf(&buf, "[%s]Compile Time Options[-]", tcell.ColorYellow)
-	for i, opt := range messagePushCompileTimeOptions.CompileTimeOptions {
-		if i > 0 {
-			fmt.Fprintf(&buf, "[%s],[-]", tcell.ColorWhite)
-		}
-		fmt.Fprintf(&buf, "[%s]%s[-]", tcell.ColorWhite, tview.Escape(opt))
+	fmt.Fprintf(&buf, "[%s]Compile Time Options[-]\n", tcell.ColorYellow)
+	for _, opt := range messagePushCompileTimeOptions.CompileTimeOptions {
+		fmt.Fprintf(&buf, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(opt))
 	}
-	fmt.Fprint(&buf, "\n")
-	fmt.Fprintf(&buf, "[%s]Planner Blocks[-]%d ", tcell.ColorYellow, messagePushCompileTimeOptions.PlannerBlocks)
+	fmt.Fprintf(&buf, "[%s]Planner Blocks[-]%d\n", tcell.ColorYellow, messagePushCompileTimeOptions.PlannerBlocks)
 	fmt.Fprintf(&buf, "[%s]Serial RX buffer bytes[-]%d\n", tcell.ColorYellow, messagePushCompileTimeOptions.SerialRxBufferBytes)
 
 	sp.app.QueueUpdateDraw(func() {
@@ -173,9 +416,80 @@ func (sp *SettingsPrimitive) processMessagePushCompileTimeOptions(messagePushCom
 	})
 }
 
+//gocyclo:ignore
 func (sp *SettingsPrimitive) processMessagePushSetting(messagePushSetting *grblMod.MessagePushSetting) {
 	sp.app.QueueUpdateDraw(func() {
 		switch messagePushSetting.Key {
+		// Settings
+		case "0":
+			sp.stepPulse.SetText(messagePushSetting.Value)
+		case "1":
+			sp.stepIdleDelay.SetText(messagePushSetting.Value)
+		case "2":
+			sp.stepPortInvert.SetText(messagePushSetting.Value)
+		case "3":
+			sp.directionPortInvert.SetText(messagePushSetting.Value)
+		case "4":
+			sp.stepEnableInvert.SetChecked(messagePushSetting.Value != "0")
+		case "5":
+			sp.limitPinsInvert.SetChecked(messagePushSetting.Value != "0")
+		case "6":
+			sp.probePinInvert.SetChecked(messagePushSetting.Value != "0")
+		case "10":
+			sp.statusReport.SetText(messagePushSetting.Value)
+		case "11":
+			sp.junctionDeviation.SetText(messagePushSetting.Value)
+		case "12":
+			sp.arcTolerance.SetText(messagePushSetting.Value)
+		case "13":
+			sp.reportInches.SetChecked(messagePushSetting.Value != "0")
+		case "20":
+			sp.softLimits.SetChecked(messagePushSetting.Value != "0")
+		case "21":
+			sp.hardLimits.SetChecked(messagePushSetting.Value != "0")
+		case "22":
+			sp.homingCycle.SetChecked(messagePushSetting.Value != "0")
+		case "23":
+			sp.homingDirInvert.SetText(messagePushSetting.Value)
+		case "24":
+			sp.homingFeed.SetText(messagePushSetting.Value)
+		case "25":
+			sp.homingSeek.SetText(messagePushSetting.Value)
+		case "26":
+			sp.homingDebounce.SetText(messagePushSetting.Value)
+		case "27":
+			sp.homingPullOff.SetText(messagePushSetting.Value)
+		case "30":
+			sp.maxSpindleSpeed.SetText(messagePushSetting.Value)
+		case "31":
+			sp.minSpindleSpeed.SetText(messagePushSetting.Value)
+		case "32":
+			sp.laserMode.SetChecked(messagePushSetting.Value != "0")
+		case "100":
+			sp.xSteps.SetText(messagePushSetting.Value)
+		case "101":
+			sp.ySteps.SetText(messagePushSetting.Value)
+		case "102":
+			sp.zSteps.SetText(messagePushSetting.Value)
+		case "110":
+			sp.xMaxRate.SetText(messagePushSetting.Value)
+		case "111":
+			sp.yMaxRate.SetText(messagePushSetting.Value)
+		case "112":
+			sp.zMaxRate.SetText(messagePushSetting.Value)
+		case "120":
+			sp.xAcceleration.SetText(messagePushSetting.Value)
+		case "121":
+			sp.yAcceleration.SetText(messagePushSetting.Value)
+		case "122":
+			sp.zAcceleration.SetText(messagePushSetting.Value)
+		case "130":
+			sp.xMaxTravel.SetText(messagePushSetting.Value)
+		case "131":
+			sp.yMaxTravel.SetText(messagePushSetting.Value)
+		case "132":
+			sp.zMaxTravel.SetText(messagePushSetting.Value)
+		// Startup Lines
 		case "N0":
 			sp.startupLine0InputField.SetText(messagePushSetting.Value)
 		case "N1":
