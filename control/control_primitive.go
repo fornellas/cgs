@@ -651,6 +651,31 @@ func (cp *ControlPrimitive) processMessagePushStatusReport(
 	return color
 }
 
+func (cp *ControlPrimitive) processMessagePushSettings(
+	messagePushSettings *grblMod.MessagePushSettings,
+) tcell.Color {
+	color := tcell.ColorGreen
+	// TODO
+	return color
+}
+
+func (cp *ControlPrimitive) processMessagePushVersion(
+	messagePushVersion *grblMod.MessagePushVersion,
+) tcell.Color {
+	color := tcell.ColorGreen
+	// TODO
+	return color
+}
+
+func (cp *ControlPrimitive) processMessagePushCompileTimeOptions(
+	messagePushCompileTimeOptions *grblMod.MessagePushCompileTimeOptions,
+) tcell.Color {
+	color := tcell.ColorGreen
+	// TODO
+	return color
+}
+
+//gocyclo:ignore
 func (cp *ControlPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
 	var color = tcell.ColorGreen
 	var extraInfo string
@@ -679,6 +704,27 @@ func (cp *ControlPrimitive) ProcessMessage(ctx context.Context, message grblMod.
 
 	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
 		color = cp.processMessagePushStatusReport(messagePushStatusReport)
+		if cp.quietStatusComms {
+			return
+		}
+	}
+
+	if messagePushSettings, ok := message.(*grblMod.MessagePushSettings); ok {
+		color = cp.processMessagePushSettings(messagePushSettings)
+		if cp.quietStatusComms {
+			return
+		}
+	}
+
+	if messagePushVersion, ok := message.(*grblMod.MessagePushVersion); ok {
+		color = cp.processMessagePushVersion(messagePushVersion)
+		if cp.quietStatusComms {
+			return
+		}
+	}
+
+	if MessagePushCompileTimeOptions, ok := message.(*grblMod.MessagePushCompileTimeOptions); ok {
+		color = cp.processMessagePushCompileTimeOptions(MessagePushCompileTimeOptions)
 		if cp.quietStatusComms {
 			return
 		}
