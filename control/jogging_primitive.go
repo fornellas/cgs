@@ -97,40 +97,52 @@ func (jp *JoggingPrimitive) setJoystickJogOk() {
 }
 
 func (jp *JoggingPrimitive) newJoystickFlex() *tview.Flex {
+	jog := func(axis string) {
+		var buf bytes.Buffer
+		feed, err := strconv.ParseFloat(jp.joystickFeedRateInputField.GetText(), 64)
+		if err != nil {
+			panic(err)
+		}
+		distance, err := strconv.ParseFloat(jp.distanceInputField.GetText(), 64)
+		if err != nil {
+			panic(err)
+		}
+		var unitWord string
+		_, unit := jp.joystickUnitDropDown.GetCurrentOption()
+		switch unit {
+		case "Inches":
+			unitWord = "G20"
+		case "Millimeters":
+			unitWord = "G21"
+		default:
+			panic(fmt.Sprintf("bug: bad unit option: %#v", unit))
+		}
+		fmt.Fprintf(&buf, "$J=F%.4f%s%.4f%sG91", feed, axis, distance, unitWord)
+		jp.controlPrimitive.QueueCommand(buf.String())
+	}
+
 	xMinusButton := tview.NewButton("-X")
-	xMinusButton.SetSelectedFunc(func() {
-		// TODO
-	})
+	xMinusButton.SetSelectedFunc(func() { jog("X-") })
 	jp.xMinusButton = xMinusButton
 
 	xPlusButton := tview.NewButton("+X")
-	xPlusButton.SetSelectedFunc(func() {
-		// TODO
-	})
+	xPlusButton.SetSelectedFunc(func() { jog("X") })
 	jp.xPlusButton = xPlusButton
 
 	yMinusButton := tview.NewButton("-Y")
-	yMinusButton.SetSelectedFunc(func() {
-		// TODO
-	})
+	yMinusButton.SetSelectedFunc(func() { jog("Y-") })
 	jp.yMinusButton = yMinusButton
 
 	yPlusButton := tview.NewButton("+Y")
-	yPlusButton.SetSelectedFunc(func() {
-		// TODO
-	})
+	yPlusButton.SetSelectedFunc(func() { jog("Y") })
 	jp.yPlusButton = yPlusButton
 
 	zMinusButton := tview.NewButton("-Z")
-	zMinusButton.SetSelectedFunc(func() {
-		// TODO
-	})
+	zMinusButton.SetSelectedFunc(func() { jog("Z-") })
 	jp.zMinusButton = zMinusButton
 
 	zPlusButton := tview.NewButton("+Z")
-	zPlusButton.SetSelectedFunc(func() {
-		// TODO
-	})
+	zPlusButton.SetSelectedFunc(func() { jog("Z") })
 	jp.zPlusButton = zPlusButton
 
 	joystickGrid := tview.NewGrid()
