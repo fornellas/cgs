@@ -11,14 +11,10 @@ Features
                 Use $I OPT values for max blocks / bytes
         Control
             Use grid to hide Gcode row if height is too small
-            Better handling of hidden comms
-                If $C, $# was user input
-                    show command
-                    warn that output is hidden
             G-Code Parser
-                UI setting of Mode Groups
+                UI setting
             G-Code Parameters
-                UI setting of values
+                UI setting
             Auto Complete
         Jogging
             Limit Jogging to work area fetched from $$

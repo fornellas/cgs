@@ -26,9 +26,7 @@ type MessageProcessor interface {
 }
 
 type ControlOptions struct {
-	DisplayStatusComms           bool
-	DisplayGcodeParserStateComms bool
-	DisplayGcodeParamStateComms  bool
+	DisplayStatusComms bool
 }
 
 type Control struct {
@@ -196,8 +194,6 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	controlPrimitive := NewControlPrimitive(
 		appCtx, c.grbl, pushMessageCh,
 		app, statusPrimitive,
-		!c.options.DisplayGcodeParserStateComms,
-		!c.options.DisplayGcodeParamStateComms,
 		!c.options.DisplayStatusComms,
 	)
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {

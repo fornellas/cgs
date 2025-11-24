@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -21,27 +22,40 @@ import (
 
 var defaultCommandTimeout = 1 * time.Second
 
+var allStatusCommands = map[string]bool{
+	"$#": true,
+	"$$": true,
+	"$N": true,
+	"$I": true,
+	"$G": true,
+}
+
+type commandParameterType struct {
+	command string
+	timeout time.Duration
+	quiet   bool
+}
+
 type ControlPrimitive struct {
 	*tview.Flex
-	grbl                       *grblMod.Grbl
-	pushMessageCh              chan grblMod.Message
-	app                        *tview.Application
-	statusPrimitive            *StatusPrimitive
-	quietGcodeParserStateComms bool
-	quietGcodeParamStateComms  bool
-	quietStatusComms           bool
-	sendCommandCh              chan string
-	sendRealTimeCommandCh      chan grblMod.RealTimeCommand
-	commandsTextView           *tview.TextView
-	pushMessagesTextView       *tview.TextView
-	gcodeParserTextView        *tview.TextView
-	gcodeParamsTextView        *tview.TextView
-	commandInputField          *tview.InputField
-	commandInputHistory        []string
-	commandInputHistoryIdx     int
-	mu                         sync.Mutex
-	disableCommandInput        bool
-	machineState               *string
+	grbl                   *grblMod.Grbl
+	pushMessageCh          chan grblMod.Message
+	app                    *tview.Application
+	statusPrimitive        *StatusPrimitive
+	quietStatusComms       bool
+	sendStatusCommandCh    chan string
+	sendCommandCh          chan string
+	sendRealTimeCommandCh  chan grblMod.RealTimeCommand
+	commandsTextView       *tview.TextView
+	pushMessagesTextView   *tview.TextView
+	gcodeParserTextView    *tview.TextView
+	gcodeParamsTextView    *tview.TextView
+	commandInputField      *tview.InputField
+	commandInputHistory    []string
+	commandInputHistoryIdx int
+	mu                     sync.Mutex
+	disableCommandInput    bool
+	machineState           *string
 }
 
 //gocyclo:ignore
@@ -51,21 +65,18 @@ func NewControlPrimitive(
 	pushMessageCh chan grblMod.Message,
 	app *tview.Application,
 	statusPrimitive *StatusPrimitive,
-	quietGcodeParserStateComms bool,
-	quietGcodeParamStateComms bool,
 	quietStatusComms bool,
 ) *ControlPrimitive {
 	cp := &ControlPrimitive{
-		grbl:                       grbl,
-		pushMessageCh:              pushMessageCh,
-		app:                        app,
-		statusPrimitive:            statusPrimitive,
-		quietGcodeParserStateComms: quietGcodeParserStateComms,
-		quietGcodeParamStateComms:  quietGcodeParamStateComms,
-		quietStatusComms:           quietStatusComms,
-		sendCommandCh:              make(chan string, 10),
-		sendRealTimeCommandCh:      make(chan grblMod.RealTimeCommand, 10),
-		commandInputHistoryIdx:     -1,
+		grbl:                   grbl,
+		pushMessageCh:          pushMessageCh,
+		app:                    app,
+		statusPrimitive:        statusPrimitive,
+		quietStatusComms:       quietStatusComms,
+		sendStatusCommandCh:    make(chan string, 10),
+		sendCommandCh:          make(chan string, 10),
+		sendRealTimeCommandCh:  make(chan grblMod.RealTimeCommand, 10),
+		commandInputHistoryIdx: -1,
 	}
 	ctx, _ = log.MustWithGroup(ctx, "ControlPrimitive")
 
@@ -199,12 +210,15 @@ func NewControlPrimitive(
 	controlFlex.AddItem(commandInputField, 1, 0, true)
 	cp.Flex = controlFlex
 
-	// Sending $G enables tracking of G-Code parsing state
-	cp.QueueCommand("$G")
-	// Sending $G enables tracking of G-Code parameters
-	cp.QueueCommand("$#")
+	cp.sendStatusCommands()
 
 	return cp
+}
+
+func (cp *ControlPrimitive) sendStatusCommands() {
+	for command := range allStatusCommands {
+		cp.queueStatusCommand(command)
+	}
 }
 
 func (cp *ControlPrimitive) setDisabledState() {
@@ -256,130 +270,156 @@ func (cp *ControlPrimitive) DisableCommandInput(ctx context.Context, disabled bo
 
 func (cp *ControlPrimitive) sendCommand(
 	ctx context.Context,
-	command string,
-	timeout time.Duration,
-	quiet, skipGcodeStatusCmds bool,
+	commandParameter *commandParameterType,
 ) {
-	cp.DisableCommandInput(ctx, true)
-	defer cp.DisableCommandInput(ctx, false)
-
-	commands := []string{command}
-	if !skipGcodeStatusCmds {
-		// Sending $G enables tracking of G-Code parsing state
-		commands = append(commands, "$G")
-		// Sending $G enables tracking of G-Code parameters
-		commands = append(commands, "$#")
+	if !commandParameter.quiet {
+		fmt.Fprintf(cp.commandsTextView, "\n[%s]%s[-]", tcell.ColorWhite, tview.Escape(commandParameter.command))
 	}
 
-	for i, command := range commands {
-		quietCmd := quiet
-		if !quietCmd && i > 0 {
-			if command == "$G" && cp.quietGcodeParserStateComms {
-				quietCmd = true
-			}
-			if command == "$#" && cp.quietGcodeParamStateComms {
-				quietCmd = true
-			}
-		}
+	cmdCtx := ctx
+	if commandParameter.timeout > 0 {
+		var cancel context.CancelFunc
+		cmdCtx, cancel = context.WithDeadline(ctx, time.Now().Add(commandParameter.timeout))
+		defer cancel()
+	}
 
-		if !quietCmd {
-			fmt.Fprintf(cp.commandsTextView, "\n[%s]%s[-]", tcell.ColorWhite, tview.Escape(command))
-		}
+	messageResponse, err := cp.grbl.SendCommand(cmdCtx, commandParameter.command)
+	if err != nil {
+		fmt.Fprintf(cp.commandsTextView, "\n[%s]Send command failed: %#v: %s[-]", tcell.ColorRed, tview.Escape(commandParameter.command), tview.Escape(err.Error()))
+		return
+	}
 
-		cmdCtx := ctx
-		if i == 0 && timeout > 0 {
-			var cancel context.CancelFunc
-			cmdCtx, cancel = context.WithDeadline(ctx, time.Now().Add(timeout))
-			defer cancel()
-		}
+	if commandParameter.quiet {
+		return
+	}
 
-		messageResponse, err := cp.grbl.SendCommand(cmdCtx, command)
-		if err != nil {
-			fmt.Fprintf(cp.commandsTextView, "\n[%s]Send command failed: %s[-]", tcell.ColorRed, tview.Escape(err.Error()))
-			return
-		}
-
-		if quietCmd {
-			continue
-		}
-
-		if messageResponse.Error() == nil {
-			fmt.Fprintf(cp.commandsTextView, "\n[%s]%s[-]", tcell.ColorGreen, tview.Escape(messageResponse.String()))
-		} else {
-			fmt.Fprintf(cp.commandsTextView, "\n[%s]%s[-]", tcell.ColorRed, tview.Escape(messageResponse.String()))
-			fmt.Fprintf(cp.commandsTextView, "\n[%s]%s[-]", tcell.ColorRed, tview.Escape(messageResponse.Error().Error()))
-		}
+	if messageResponse.Error() == nil {
+		fmt.Fprintf(cp.commandsTextView, "\n[%s]%s[-]", tcell.ColorGreen, tview.Escape(messageResponse.String()))
+	} else {
+		fmt.Fprintf(cp.commandsTextView, "\n[%s]%s[-]", tcell.ColorRed, tview.Escape(messageResponse.String()))
+		fmt.Fprintf(cp.commandsTextView, "\n[%s]%s[-]", tcell.ColorRed, tview.Escape(messageResponse.Error().Error()))
 	}
 }
 
-func (cp *ControlPrimitive) processCommand(ctx context.Context, command string) {
-	// Extract and send real-time commands
-	var buf bytes.Buffer
+func (cp *ControlPrimitive) extractRealTimeCommands(command string) ([]grblMod.RealTimeCommand, string, error) {
+	var cmdBuffer bytes.Buffer
+	realTimeCommands := []grblMod.RealTimeCommand{}
 	for _, c := range []byte(command) {
-		rtc, err := grblMod.NewRealTimeCommand(c)
+		realTimeCommand, err := grblMod.NewRealTimeCommand(c)
 		if err != nil {
 			if !errors.Is(err, grblMod.ErrNotRealTimeCommand) {
-				fmt.Fprintf(cp.commandsTextView, "\n[%s]Real time command parsing fail: %s[-]", tcell.ColorRed, tview.Escape(err.Error()))
-				return
+				return nil, "", fmt.Errorf("real time command parsing fail: %s", err.Error())
 			}
-			buf.WriteByte(c)
+			cmdBuffer.WriteByte(c)
 		} else {
-			cp.sendRealTimeCommand(rtc)
+			realTimeCommands = append(realTimeCommands, realTimeCommand)
+			if realTimeCommand == grblMod.RealTimeCommandStatusReportQuery && cp.quietStatusComms {
+				fmt.Fprintf(cp.pushMessagesTextView, "\n[%s](push messages from ? omitted, results at Control panel)[-]", tcell.ColorYellow)
+			}
 		}
 	}
-	command = buf.String()
+	return realTimeCommands, cmdBuffer.String(), nil
+}
 
+func (cp *ControlPrimitive) processBLock(block *gcode.Block) (map[string]bool, time.Duration) {
+	statusCommands := map[string]bool{}
+	var timeout time.Duration
+	if block.IsSystem() {
+		if _, ok := allStatusCommands[block.String()]; ok && cp.quietStatusComms {
+			fmt.Fprintf(cp.pushMessagesTextView, "\n[%s](push messages from %s omitted, results at Control panel)[-]", tcell.ColorYellow, block.String())
+		}
+		switch block.String() {
+		case "$RST=#":
+			statusCommands["$#"] = true
+		case "$RST=*":
+			statusCommands["$#"] = true
+			statusCommands["$$"] = true
+			statusCommands["$N"] = true
+			statusCommands["$I"] = true
+		case "$RST=$":
+			statusCommands["$N"] = true
+		case "$H":
+			timeout = 120 * time.Second
+			// Grbl stops responding to status report queries while homing. Generating this
+			// virtual status report enables subscribers to process the otherwise unreported
+			//  state.
+			cp.pushMessageCh <- &grblMod.MessagePushStatusReport{
+				Message: "(virtual push message: status report: Home)",
+				MachineState: grblMod.StatusReportMachineState{
+					State: "Home",
+				},
+			}
+		}
+		matched, err := regexp.MatchString(`^\$[0-9]*`, block.String())
+		if err != nil {
+			panic(err)
+		}
+		if matched {
+			statusCommands["$$"] = true
+		}
+		if strings.HasPrefix(block.String(), "$I=") {
+			statusCommands["$I"] = true
+		}
+	} else if block.IsCommand() {
+		for _, word := range block.Words() {
+			if word.NormalizedString() == "M0" {
+				timeout = 0
+			}
+		}
+		statusCommands["$G"] = true
+		statusCommands["$#"] = true
+	} else {
+		panic("bug: unknown block")
+	}
+	return statusCommands, timeout
+}
+
+func (cp *ControlPrimitive) processCommand(ctx context.Context, command string) {
+	realTimeCommands, command, err := cp.extractRealTimeCommands(command)
+	if err != nil {
+		fmt.Fprintf(cp.commandsTextView, "\n[%s]%s[-]", tcell.ColorRed, tview.Escape(err.Error()))
+		return
+	}
+	for _, realTimeCommand := range realTimeCommands {
+		cp.sendRealTimeCommand(realTimeCommand)
+	}
 	if len(command) == 0 {
 		return
 	}
 
-	// Verbosity & timeout
-	var quiet bool
-	var skipGcodeStatusCmds bool
-	timeout := defaultCommandTimeout
-	parser := gcode.NewParser(strings.NewReader(command))
-	for {
-		block, err := parser.Next()
-		if err != nil {
-			fmt.Fprintf(cp.commandsTextView, "\n[%s]Failed to parse: %s[-]", tcell.ColorRed, tview.Escape(err.Error()))
-			return
-		}
-		if block == nil {
-			break
-		}
-		if block.IsSystem() {
-			skipGcodeStatusCmds = true
-			switch block.String() {
-			case "$G":
-				if cp.quietGcodeParserStateComms {
-					quiet = true
-				}
-			case "$#":
-				if cp.quietGcodeParamStateComms {
-					quiet = true
-				}
-			case "$H":
-				timeout = 120 * time.Second
-				// Grbl stops responding to status report queries while homing. Generating this
-				// virtual status report enables subscribers to process the otherwise unreported
-				//  state.
-				cp.pushMessageCh <- &grblMod.MessagePushStatusReport{
-					Message: "(virtual push message: status report: Home)",
-					MachineState: grblMod.StatusReportMachineState{
-						State: "Home",
-					},
-				}
-			}
-		} else {
-			switch block.String() {
-			case "M0":
-				timeout = 0
-			}
+	blocks, err := gcode.NewParser(strings.NewReader(command)).Blocks()
+	if err != nil {
+		fmt.Fprintf(cp.commandsTextView, "\n[%s]Failed to parse: %s[-]", tcell.ColorRed, tview.Escape(err.Error()))
+		return
+	}
+	if len(blocks) > 1 {
+		panic("bug: expected single block")
+	}
+
+	commandParameter := &commandParameterType{
+		command: command,
+		timeout: defaultCommandTimeout,
+	}
+	var statusCommands map[string]bool
+	if len(blocks) > 0 {
+		block := blocks[0]
+		var timeout time.Duration
+		statusCommands, timeout = cp.processBLock(block)
+		if timeout > 0 {
+			commandParameter.timeout = timeout
 		}
 	}
 
-	// Send command
-	cp.sendCommand(ctx, command, timeout, quiet, skipGcodeStatusCmds)
+	cp.DisableCommandInput(ctx, true)
+	defer cp.DisableCommandInput(ctx, false)
+	cp.sendCommand(ctx, commandParameter)
+	for command := range statusCommands {
+		cp.sendCommand(ctx, &commandParameterType{
+			command: command,
+			timeout: defaultCommandTimeout,
+			quiet:   cp.quietStatusComms,
+		})
+	}
 }
 
 func (cp *ControlPrimitive) RunSendCommandWorker(ctx context.Context) error {
@@ -391,10 +431,22 @@ func (cp *ControlPrimitive) RunSendCommandWorker(ctx context.Context) error {
 				err = nil
 			}
 			return err
+		case command := <-cp.sendStatusCommandCh:
+			cp.sendCommand(ctx, &commandParameterType{
+				command: command,
+				timeout: defaultCommandTimeout,
+				quiet:   cp.quietStatusComms,
+			})
 		case command := <-cp.sendCommandCh:
 			cp.processCommand(ctx, command)
 		}
 	}
+}
+
+func (cp *ControlPrimitive) queueStatusCommand(
+	command string,
+) {
+	cp.sendStatusCommandCh <- command
 }
 
 func (cp *ControlPrimitive) QueueCommand(
@@ -573,16 +625,13 @@ func (cp *ControlPrimitive) processMessagePushGcodeParam() tcell.Color {
 	return color
 }
 
-func (cp *ControlPrimitive) processMessagePushWelcome() {
+func (cp *ControlPrimitive) processMessagePushWelcome(ctx context.Context) {
 	cp.app.QueueUpdate(func() {
 		cp.gcodeParserTextView.Clear()
 		cp.gcodeParamsTextView.Clear()
 	})
 	fmt.Fprintf(cp.pushMessagesTextView, "\n[%s]Soft-Reset detected[-]", tcell.ColorOrange)
-	// Sending $G enables tracking of G-Code parsing state
-	cp.QueueCommand("$G")
-	// Sending $G enables tracking of G-Code parameters
-	cp.QueueCommand("$#")
+	cp.sendStatusCommands()
 }
 
 func (cp *ControlPrimitive) processMessagePushAlarm(
@@ -608,20 +657,20 @@ func (cp *ControlPrimitive) ProcessMessage(ctx context.Context, message grblMod.
 
 	if messagePushGcodeState, ok := message.(*grblMod.MessagePushGcodeState); ok {
 		color = cp.processMessagePushGcodeState(messagePushGcodeState)
-		if cp.quietGcodeParserStateComms {
+		if cp.quietStatusComms {
 			return
 		}
 	}
 
 	if _, ok := message.(*grblMod.MessagePushGcodeParam); ok {
 		color = cp.processMessagePushGcodeParam()
-		if cp.quietGcodeParamStateComms {
+		if cp.quietStatusComms {
 			return
 		}
 	}
 
 	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
-		cp.processMessagePushWelcome()
+		cp.processMessagePushWelcome(ctx)
 	}
 
 	if messagePushAlarm, ok := message.(*grblMod.MessagePushAlarm); ok {

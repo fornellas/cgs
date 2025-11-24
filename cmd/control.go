@@ -11,12 +11,6 @@ import (
 var displayStatusComms bool
 var defaultDisplayStatusComms = false
 
-var displayGcodeParserStateComms bool
-var defaultDisplayGcodeParserStateComms = false
-
-var displayGcodeParamStateComms bool
-var defaultDisplayGcodeParamStateComms = false
-
 var ControlCmd = &cobra.Command{
 	Use:   "control",
 	Short: "Open Grbl serial connection and provide a terminal control interface.",
@@ -28,8 +22,6 @@ var ControlCmd = &cobra.Command{
 			"address", address,
 			"timeout", timeout,
 			"display-status-comms", displayStatusComms,
-			"display-gcode-parser-state-comms", displayGcodeParserStateComms,
-			"display-gcode-param-state-comms", displayGcodeParamStateComms,
 		)
 		cmd.SetContext(ctx)
 
@@ -41,9 +33,7 @@ var ControlCmd = &cobra.Command{
 		grbl := grblMod.NewGrbl(openPortFn)
 
 		control := controlMod.NewControl(grbl, &controlMod.ControlOptions{
-			DisplayStatusComms:           displayStatusComms,
-			DisplayGcodeParserStateComms: displayGcodeParserStateComms,
-			DisplayGcodeParamStateComms:  displayGcodeParamStateComms,
+			DisplayStatusComms: displayStatusComms,
 		})
 
 		return control.Run(ctx)
@@ -57,21 +47,7 @@ func init() {
 		&displayStatusComms,
 		"display-status-comms",
 		defaultDisplayStatusComms,
-		"Display status report query real-time commands and status report push messages; this is always automatically polled and can be noisy",
-	)
-
-	ControlCmd.Flags().BoolVar(
-		&displayGcodeParserStateComms,
-		"display-gcode-parser-state-comms",
-		defaultDisplayGcodeParserStateComms,
-		"Display G-Code Parser State commands and report push messages; this is always automatically polled and can be noisy",
-	)
-
-	ControlCmd.Flags().BoolVar(
-		&displayGcodeParamStateComms,
-		"display-gcode-param-state-comms",
-		defaultDisplayGcodeParamStateComms,
-		"Display G-Code Param State commands and report push messages; this is always automatically polled and can be noisy",
+		"Various status commands ($#, $$, $N, $I, $G, ?) are polled automatically; this option enables showing such communication (very noisy)",
 	)
 
 	RootCmd.AddCommand(ControlCmd)

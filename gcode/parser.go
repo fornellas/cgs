@@ -280,3 +280,20 @@ func (p *Parser) Next() (*Block, error) {
 		}
 	}
 }
+
+// Blocks parses and returns all remaining blocks from the parser.
+// It calls Next() repeatedly until all blocks are consumed or an error occurs.
+// Returns a slice of all parsed blocks, or an error if parsing fails.
+func (p *Parser) Blocks() ([]*Block, error) {
+	blocks := []*Block{}
+	for {
+		block, err := p.Next()
+		if err != nil {
+			return nil, err
+		}
+		if block == nil {
+			return blocks, nil
+		}
+		blocks = append(blocks, block)
+	}
+}

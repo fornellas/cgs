@@ -187,6 +187,10 @@ func (b *Block) IsCommand() bool {
 	return len(b.words) > 0
 }
 
+func (b *Block) Words() []*Word {
+	return b.words
+}
+
 func (b *Block) AppendCommandWords(words ...*Word) {
 	if !b.IsCommand() {
 		panic("bug: attempting to add word to a block that's not command")
