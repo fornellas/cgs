@@ -14,12 +14,6 @@ Features
                 UI setting
             Auto Complete
         Jogging
-            Joystick
-                Buttons
-                    x+/-, y+/-, z+/-, a+/-
-                    Feed
-                    Distance / Unit
-                    Cancel
             Set default feed rate max($110, $111, $112)
             Limit Jogging to work area fetched from $$
         Stream
