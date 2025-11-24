@@ -73,6 +73,7 @@ func NewJoggingPrimitive(
 	// joystickFlex.AddItem(joystickGrid, 0, 1, false)
 
 	parametersForm := tview.NewForm()
+	parametersForm.SetButtonsAlign(tview.AlignCenter)
 	const width = len("100.0000")
 	parametersForm.AddInputField("X", "", width, acceptFloatFn, nil)
 	jp.xInputField = parametersForm.
