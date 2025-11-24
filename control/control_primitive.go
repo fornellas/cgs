@@ -200,7 +200,7 @@ func NewControlPrimitive(
 	controlFlex.SetBorder(true)
 	controlFlex.SetTitle("Contrtol")
 	controlFlex.SetDirection(tview.FlexRow)
-	controlFlex.AddItem(gcodeFlex, 18, 0, false)
+	controlFlex.AddItem(gcodeFlex, 17, 0, false)
 	controlFlex.AddItem(commsFlex, 0, 1, false)
 	controlFlex.AddItem(commandInputField, 1, 0, true)
 	cp.Flex = controlFlex
@@ -607,8 +607,7 @@ func (cp *ControlPrimitive) processMessagePushGcodeParam() tcell.Color {
 	}
 	if params.Probe != nil {
 		fmt.Fprintf(&buf, "Last Probing Cycle\n")
-		fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(&params.Probe.Coordinates, " "))
-		fmt.Fprintf(&buf, "  Successful: %s\n", sprintBool(params.Probe.Successful))
+		fmt.Fprintf(&buf, "  %s Success: %s", sprintCoordinatesSingleLine(&params.Probe.Coordinates, " "), sprintBool(params.Probe.Successful))
 	}
 
 	cp.app.QueueUpdate(func() {
@@ -621,7 +620,7 @@ func (cp *ControlPrimitive) processMessagePushGcodeParam() tcell.Color {
 	return color
 }
 
-func (cp *ControlPrimitive) processMessagePushWelcome(ctx context.Context) {
+func (cp *ControlPrimitive) processMessagePushWelcome() {
 	cp.app.QueueUpdate(func() {
 		cp.gcodeParserTextView.Clear()
 		cp.gcodeParamsTextView.Clear()
@@ -667,7 +666,7 @@ func (cp *ControlPrimitive) ProcessMessage(ctx context.Context, message grblMod.
 	}
 
 	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
-		cp.processMessagePushWelcome(ctx)
+		cp.processMessagePushWelcome()
 	}
 
 	if messagePushAlarm, ok := message.(*grblMod.MessagePushAlarm); ok {

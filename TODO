@@ -21,8 +21,6 @@ Features
                     Distance / Unit
                     Cancel
             Set default feed rate max($110, $111, $112)
-            Sync Unit with G-Code parser state
-            Sync Distance Mode with G-Code parser state
             Limit Jogging to work area fetched from $$
         Stream
             TBD
