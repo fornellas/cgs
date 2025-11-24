@@ -93,6 +93,7 @@ func NewSettingsPrimitive(
 
 	// Restore Defaults
 	restoreDefaultsFlex := tview.NewFlex()
+	restoreDefaultsFlex.SetBorderColor(tcell.ColorRed)
 	restoreDefaultsFlex.SetBorder(true)
 	restoreDefaultsFlex.SetTitle("Restore Defaults")
 	restoreDefaultsFlex.SetDirection(tview.FlexColumn)
