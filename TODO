@@ -1,10 +1,3 @@
-Bugs
-    Jogging UI buggy
-        Bug
-            [@jogging_primitive.go](file:///home/fornellas/src/cgs/control/jogging_primitive.go) review this file, and all places where JoggingPrimitive is used. The tview Application, when visualising this primitive, sometimes behaves erratically:
-            - after interacting with the buttons & dropdown, without a repeatable pattern.
-            - sometimes, most of the screen goes black, and only a single column of "garbage chars" can be seen at the far right.
-            suspicion: form primitive is buggy, drop usage
 Features
     Panels
         Control
