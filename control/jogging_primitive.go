@@ -406,6 +406,16 @@ func (jp *JoggingPrimitive) newParametersForm() *tview.Form {
 	return parametersForm
 }
 
+func (jp *JoggingPrimitive) processMessagePushWelcome() {
+	jp.app.QueueUpdateDraw(func() {
+		// Joystick
+		jp.joystickUnitDropDown.SetCurrentOption(-1)
+		// Parameters
+		jp.paramsUnitDropDown.SetCurrentOption(-1)
+		jp.distanceModeDropDown.SetCurrentOption(-1)
+	})
+}
+
 func (jp *JoggingPrimitive) processMessagePushGcodeState(
 	messagePushGcodeState *grblMod.MessagePushGcodeState,
 ) {
@@ -414,31 +424,25 @@ func (jp *JoggingPrimitive) processMessagePushGcodeState(
 		if modalGroup != nil {
 			units := modalGroup.Units
 			if units != nil {
-				if n, _ := jp.paramsUnitDropDown.GetCurrentOption(); n < 0 {
-					switch units.NormalizedString() {
-					case "G20":
-						jp.paramsUnitDropDown.SetCurrentOption(slices.Index(jp.unitOptions, "Inches"))
-					case "G21":
-						jp.paramsUnitDropDown.SetCurrentOption(slices.Index(jp.unitOptions, "Millimeters"))
-					}
+				switch units.NormalizedString() {
+				case "G20":
+					jp.joystickUnitDropDown.SetCurrentOption(slices.Index(jp.unitOptions, "Inches"))
+					jp.paramsUnitDropDown.SetCurrentOption(slices.Index(jp.unitOptions, "Inches"))
+				case "G21":
+					jp.joystickUnitDropDown.SetCurrentOption(slices.Index(jp.unitOptions, "Millimeters"))
+					jp.paramsUnitDropDown.SetCurrentOption(slices.Index(jp.unitOptions, "Millimeters"))
 				}
 			}
-			// distanceModeDropDown
 			distanceMode := modalGroup.DistanceMode
 			if distanceMode != nil {
-				if n, _ := jp.distanceModeDropDown.GetCurrentOption(); n < 0 {
-					switch distanceMode.NormalizedString() {
-					case "G90":
-						jp.distanceModeDropDown.SetCurrentOption(slices.Index(jp.distanceModeOptions, "Absolute"))
-					case "G91":
-						jp.distanceModeDropDown.SetCurrentOption(slices.Index(jp.distanceModeOptions, "Incremental"))
-					}
+				switch distanceMode.NormalizedString() {
+				case "G90":
+					jp.distanceModeDropDown.SetCurrentOption(slices.Index(jp.distanceModeOptions, "Absolute"))
+				case "G91":
+					jp.distanceModeDropDown.SetCurrentOption(slices.Index(jp.distanceModeOptions, "Incremental"))
 				}
 			}
 		}
-		// TODO initial feedRate to min of
-		// $110, $111 and $112 – [X,Y,Z] Max rate, mm/min
-		// jp.feedRateInputField.SetText(fmt.Sprintf("%.4f", feedRate))
 	})
 }
 
@@ -463,6 +467,11 @@ func (jp *JoggingPrimitive) processMessagePushStatusReport(
 }
 
 func (jp *JoggingPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
+	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
+		jp.processMessagePushWelcome()
+		return
+	}
+
 	if messagePushGcodeState, ok := message.(*grblMod.MessagePushGcodeState); ok {
 		jp.processMessagePushGcodeState(messagePushGcodeState)
 		return
