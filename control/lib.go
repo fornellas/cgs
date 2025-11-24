@@ -49,14 +49,6 @@ func sprintCoordinatesSingleLine(coordinates *grblMod.Coordinates, sep string) s
 	return buf.String()
 }
 
-func sprintBool(value bool) string {
-	color := tcell.ColorGreen
-	if !value {
-		color = tcell.ColorRed
-	}
-	return fmt.Sprintf("[%s]%v[-]", color, value)
-}
-
 func sprintBlocks(value int) string {
 	return fmt.Sprintf("[%s]%d[-]", tcell.ColorOrange, value)
 }

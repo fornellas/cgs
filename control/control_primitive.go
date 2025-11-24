@@ -607,7 +607,11 @@ func (cp *ControlPrimitive) processMessagePushGcodeParam() tcell.Color {
 	}
 	if params.Probe != nil {
 		fmt.Fprintf(&buf, "Last Probing Cycle\n")
-		fmt.Fprintf(&buf, "  %s Success: %s", sprintCoordinatesSingleLine(&params.Probe.Coordinates, " "), sprintBool(params.Probe.Successful))
+		if params.Probe.Successful {
+			fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(&params.Probe.Coordinates, " "))
+		} else {
+			fmt.Fprintf(&buf, "  [%s]Failed[-]\n", tcell.ColorRed)
+		}
 	}
 
 	cp.app.QueueUpdate(func() {
