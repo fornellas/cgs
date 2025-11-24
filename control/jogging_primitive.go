@@ -1,16 +1,5 @@
 package control
 
-// Like (G1)
-// Args:
-// 	One of:
-// 		[X$x | Y$y | Z$z]
-//  Required:
-// 		F$f
-//  Optional:
-//  	[G20|G21] Inches/Millimeters
-// 		[G90|G91] Absolute/Incremental
-// 		G53 Machine Coordinates
-
 import (
 	"bytes"
 	"context"
@@ -30,20 +19,30 @@ type JoggingPrimitive struct {
 	app              *tview.Application
 	controlPrimitive *ControlPrimitive
 	// Joystick
+	xMinusButton               *tview.Button
+	xPlusButton                *tview.Button
+	yMinusButton               *tview.Button
+	yPlusButton                *tview.Button
+	zMinusButton               *tview.Button
+	zPlusButton                *tview.Button
+	joystickFeedRateInputField *tview.InputField
+	distanceInputField         *tview.InputField
+	joystickUnitDropDown       *tview.DropDown
+	joystickCancelButton       *tview.Button
 	// Parameters
 	xInputField                *tview.InputField
 	yInputField                *tview.InputField
 	zInputField                *tview.InputField
 	unitOptions                []string
-	unitDropDown               *tview.DropDown
+	paramsUnitDropDown         *tview.DropDown
 	distanceModeOptions        []string
 	distanceModeDropDown       *tview.DropDown
-	feedRateInputField         *tview.InputField
+	paramsFeedRateInputField   *tview.InputField
 	machineCoordinatesCheckbox *tview.Checkbox
 	paramErrTextView           *tview.TextView
 	jogParametersButton        *tview.Button
-	jogBlock                   string
-	cancelButton               *tview.Button
+	paramsJogBlock             string
+	paramsCancelButton         *tview.Button
 	// Messages
 	machineState grblMod.StatusReportMachineState
 
@@ -62,16 +61,7 @@ func NewJoggingPrimitive(
 		distanceModeOptions: []string{"Absolute", "Incremental"},
 	}
 
-	//   A    A
-	// < V >  V
-	// Feed rate
-	// Distance
-	// Unit
-	// Cancel
-	joystickFlex := tview.NewFlex()
-	joystickFlex.SetBorder(true)
-	joystickFlex.SetTitle("Joystick")
-	// joystickFlex.AddItem(joystickGrid, 0, 1, false)
+	joystickFlex := jp.newJoystickFlex()
 
 	parametersForm := jp.newParametersForm()
 
@@ -91,7 +81,93 @@ func NewJoggingPrimitive(
 	return jp
 }
 
-func (jp *JoggingPrimitive) getJogBlock() (string, error) {
+func (jp *JoggingPrimitive) newJoystickFlex() *tview.Flex {
+	xMinusButton := tview.NewButton("-X")
+	xMinusButton.SetSelectedFunc(func() {
+		// TODO
+	})
+	jp.xMinusButton = xMinusButton
+
+	xPlusButton := tview.NewButton("+X")
+	xPlusButton.SetSelectedFunc(func() {
+		// TODO
+	})
+	jp.xPlusButton = xPlusButton
+
+	yMinusButton := tview.NewButton("-Y")
+	yMinusButton.SetSelectedFunc(func() {
+		// TODO
+	})
+	jp.yMinusButton = yMinusButton
+
+	yPlusButton := tview.NewButton("+Y")
+	yPlusButton.SetSelectedFunc(func() {
+		// TODO
+	})
+	jp.yPlusButton = yPlusButton
+
+	zMinusButton := tview.NewButton("-Z")
+	zMinusButton.SetSelectedFunc(func() {
+		// TODO
+	})
+	jp.zMinusButton = zMinusButton
+
+	zPlusButton := tview.NewButton("+Z")
+	zPlusButton.SetSelectedFunc(func() {
+		// TODO
+	})
+	jp.zPlusButton = zPlusButton
+
+	joystickGrid := tview.NewGrid()
+	joystickGrid.SetColumns(0, 0, 0, 0)
+	joystickGrid.SetRows(0, 0)
+	joystickGrid.SetGap(1, 1)
+	joystickGrid.AddItem(jp.xMinusButton, 1, 0, 1, 1, 0, 0, false)
+	joystickGrid.AddItem(jp.xPlusButton, 1, 2, 1, 1, 0, 0, false)
+	joystickGrid.AddItem(jp.yMinusButton, 1, 1, 1, 1, 0, 0, false)
+	joystickGrid.AddItem(jp.yPlusButton, 0, 1, 1, 1, 0, 0, false)
+	joystickGrid.AddItem(jp.zMinusButton, 1, 3, 1, 1, 0, 0, false)
+	joystickGrid.AddItem(jp.zPlusButton, 0, 3, 1, 1, 0, 0, false)
+
+	parametersForm := tview.NewForm()
+	parametersForm.SetButtonsAlign(tview.AlignCenter)
+
+	parametersForm.AddInputField("Feed rate", "", 0, acceptUFloat, nil)
+	jp.joystickFeedRateInputField = parametersForm.
+		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
+	jp.joystickFeedRateInputField.SetChangedFunc(func(string) {
+		// TODO
+	})
+
+	parametersForm.AddInputField("Distance", "", 0, acceptUFloat, nil)
+	jp.distanceInputField = parametersForm.
+		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
+	jp.distanceInputField.SetChangedFunc(func(string) {
+		// TODO
+	})
+
+	parametersForm.AddDropDown("Unit", jp.unitOptions, -1, nil)
+	jp.joystickUnitDropDown = parametersForm.
+		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.DropDown)
+	jp.joystickUnitDropDown.SetSelectedFunc(func(string, int) {
+		// TODO
+	})
+
+	parametersForm.AddButton("Cancel", func() {
+		// TODO
+	})
+	jp.joystickCancelButton = parametersForm.GetButton(parametersForm.GetButtonCount() - 1)
+
+	joystickFlex := tview.NewFlex()
+	joystickFlex.SetBorder(true)
+	joystickFlex.SetDirection(tview.FlexRow)
+	joystickFlex.SetTitle("Joystick")
+	joystickFlex.AddItem(joystickGrid, 0, 1, false)
+	joystickFlex.AddItem(parametersForm, 0, 1, false)
+	return joystickFlex
+}
+
+func (jp *JoggingPrimitive) getParamsJogBlock() (string, error) {
 	var buf bytes.Buffer
 	fmt.Fprintf(&buf, "$J=")
 
@@ -123,7 +199,7 @@ func (jp *JoggingPrimitive) getJogBlock() (string, error) {
 	}
 
 	var unitWord string
-	_, unit := jp.unitDropDown.GetCurrentOption()
+	_, unit := jp.paramsUnitDropDown.GetCurrentOption()
 	switch unit {
 	case "Inches":
 		unitWord = "G20"
@@ -146,7 +222,7 @@ func (jp *JoggingPrimitive) getJogBlock() (string, error) {
 	}
 	fmt.Fprintf(&buf, "%s", distanceModeWord)
 
-	if !printWord(jp.feedRateInputField.GetText(), "F") {
+	if !printWord(jp.paramsFeedRateInputField.GetText(), "F") {
 		return "", fmt.Errorf("missing feed rate")
 	}
 
@@ -161,64 +237,103 @@ func (jp *JoggingPrimitive) updateDisabled() {
 	jp.mu.Lock()
 	switch jp.machineState.State {
 	case "Idle":
+		// TODO
+		// Joystick
+		// jp.xMinusButton.SetDisabled()
+		// jp.xPlusButton.SetDisabled()
+		// jp.yMinusButton.SetDisabled()
+		// jp.yPlusButton.SetDisabled()
+		// jp.zMinusButton.SetDisabled()
+		// jp.zPlusButton.SetDisabled()
+		// jp.joystickFeedRateInputField.SetDisabled()
+		// jp.distanceInputField.SetDisabled()
+		// jp.joystickUnitDropDown.SetDisabled()
+		// jp.joystickCancelButton.SetDisabled()
+		// Parameters
 		jp.xInputField.SetDisabled(false)
 		jp.yInputField.SetDisabled(false)
 		jp.zInputField.SetDisabled(false)
-		jp.unitDropDown.SetDisabled(false)
+		jp.paramsUnitDropDown.SetDisabled(false)
 		jp.distanceModeDropDown.SetDisabled(false)
-		jp.feedRateInputField.SetDisabled(false)
+		jp.paramsFeedRateInputField.SetDisabled(false)
 		if _, option := jp.distanceModeDropDown.GetCurrentOption(); option == "Incremental" {
 			jp.machineCoordinatesCheckbox.SetDisabled(true)
 		} else {
 			jp.machineCoordinatesCheckbox.SetDisabled(false)
 		}
-		if jp.jogBlock != "" {
+		if jp.paramsJogBlock != "" {
 			jp.jogParametersButton.SetDisabled(false)
 		} else {
 			jp.jogParametersButton.SetDisabled(true)
 		}
-		jp.cancelButton.SetDisabled(true)
+		jp.paramsCancelButton.SetDisabled(true)
 	case "Jog":
+		// TODO
+		// Joystick
+		// jp.xMinusButton.SetDisabled()
+		// jp.xPlusButton.SetDisabled()
+		// jp.yMinusButton.SetDisabled()
+		// jp.yPlusButton.SetDisabled()
+		// jp.zMinusButton.SetDisabled()
+		// jp.zPlusButton.SetDisabled()
+		// jp.joystickFeedRateInputField.SetDisabled()
+		// jp.distanceInputField.SetDisabled()
+		// jp.joystickUnitDropDown.SetDisabled()
+		// jp.joystickCancelButton.SetDisabled()
+		// Parameters
 		jp.xInputField.SetDisabled(true)
 		jp.yInputField.SetDisabled(true)
 		jp.zInputField.SetDisabled(true)
-		jp.unitDropDown.SetDisabled(true)
+		jp.paramsUnitDropDown.SetDisabled(true)
 		jp.distanceModeDropDown.SetDisabled(true)
-		jp.feedRateInputField.SetDisabled(true)
+		jp.paramsFeedRateInputField.SetDisabled(true)
 		jp.machineCoordinatesCheckbox.SetDisabled(true)
 		jp.jogParametersButton.SetDisabled(true)
-		jp.cancelButton.SetDisabled(false)
+		jp.paramsCancelButton.SetDisabled(false)
 	case "Run", "Hold", "Alarm", "Door", "Check", "Home", "Sleep":
+		// TODO
+		// Joystick
+		// jp.xMinusButton.SetDisabled()
+		// jp.xPlusButton.SetDisabled()
+		// jp.yMinusButton.SetDisabled()
+		// jp.yPlusButton.SetDisabled()
+		// jp.zMinusButton.SetDisabled()
+		// jp.zPlusButton.SetDisabled()
+		// jp.joystickFeedRateInputField.SetDisabled()
+		// jp.distanceInputField.SetDisabled()
+		// jp.joystickUnitDropDown.SetDisabled()
+		// jp.joystickCancelButton.SetDisabled()
+		// Parameters
 		jp.xInputField.SetDisabled(true)
 		jp.yInputField.SetDisabled(true)
 		jp.zInputField.SetDisabled(true)
-		jp.unitDropDown.SetDisabled(true)
+		jp.paramsUnitDropDown.SetDisabled(true)
 		jp.distanceModeDropDown.SetDisabled(true)
-		jp.feedRateInputField.SetDisabled(true)
+		jp.paramsFeedRateInputField.SetDisabled(true)
 		jp.machineCoordinatesCheckbox.SetDisabled(true)
 		jp.jogParametersButton.SetDisabled(true)
-		jp.cancelButton.SetDisabled(true)
+		jp.paramsCancelButton.SetDisabled(true)
 	default:
 		panic(fmt.Sprintf("unknown machine state: %#v", jp.machineState.State))
 	}
 	jp.mu.Unlock()
 }
 
-func (jp *JoggingPrimitive) setJogBlock() {
-	jogBlock, err := jp.getJogBlock()
+func (jp *JoggingPrimitive) setParamsJogBlock() {
+	jogBlock, err := jp.getParamsJogBlock()
 	if err != nil {
 		jp.paramErrTextView.SetText(fmt.Sprintf("[%s]%s[-]", tcell.ColorRed, tview.Escape(err.Error())))
-		jp.jogBlock = ""
+		jp.paramsJogBlock = ""
 		return
 	}
-	if jogBlock == jp.jogBlock {
+	if jogBlock == jp.paramsJogBlock {
 		return
 	}
 
 	jp.paramErrTextView.SetText(fmt.Sprintf("[%s]None[-]", tcell.ColorGreen))
 
 	jp.mu.Lock()
-	jp.jogBlock = jogBlock
+	jp.paramsJogBlock = jogBlock
 	jp.mu.Unlock()
 
 	jp.updateDisabled()
@@ -227,42 +342,41 @@ func (jp *JoggingPrimitive) setJogBlock() {
 func (jp *JoggingPrimitive) newParametersForm() *tview.Form {
 	parametersForm := tview.NewForm()
 	parametersForm.SetButtonsAlign(tview.AlignCenter)
-	const width = len("100.0000")
 
-	parametersForm.AddInputField("X", "", width, acceptFloat, nil)
+	parametersForm.AddInputField("X", "", 0, acceptFloat, nil)
 	jp.xInputField = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
-	jp.xInputField.SetChangedFunc(func(string) { jp.setJogBlock() })
+	jp.xInputField.SetChangedFunc(func(string) { jp.setParamsJogBlock() })
 
-	parametersForm.AddInputField("Y", "", width, acceptFloat, nil)
+	parametersForm.AddInputField("Y", "", 0, acceptFloat, nil)
 	jp.yInputField = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
-	jp.yInputField.SetChangedFunc(func(string) { jp.setJogBlock() })
+	jp.yInputField.SetChangedFunc(func(string) { jp.setParamsJogBlock() })
 
-	parametersForm.AddInputField("Z", "", width, acceptFloat, nil)
+	parametersForm.AddInputField("Z", "", 0, acceptFloat, nil)
 	jp.zInputField = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
-	jp.zInputField.SetChangedFunc(func(string) { jp.setJogBlock() })
+	jp.zInputField.SetChangedFunc(func(string) { jp.setParamsJogBlock() })
 
 	parametersForm.AddDropDown("Unit", jp.unitOptions, -1, nil)
-	jp.unitDropDown = parametersForm.
+	jp.paramsUnitDropDown = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.DropDown)
-	jp.unitDropDown.SetSelectedFunc(func(string, int) { jp.setJogBlock() })
+	jp.paramsUnitDropDown.SetSelectedFunc(func(string, int) { jp.setParamsJogBlock() })
 
 	parametersForm.AddDropDown("Distance mode", jp.distanceModeOptions, -1, nil)
 	jp.distanceModeDropDown = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.DropDown)
-	jp.distanceModeDropDown.SetSelectedFunc(func(string, int) { jp.setJogBlock() })
+	jp.distanceModeDropDown.SetSelectedFunc(func(string, int) { jp.setParamsJogBlock() })
 
-	parametersForm.AddInputField("Feed rate", "", width, acceptUFloat, nil)
-	jp.feedRateInputField = parametersForm.
+	parametersForm.AddInputField("Feed rate", "", 0, acceptUFloat, nil)
+	jp.paramsFeedRateInputField = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
-	jp.feedRateInputField.SetChangedFunc(func(string) { jp.setJogBlock() })
+	jp.paramsFeedRateInputField.SetChangedFunc(func(string) { jp.setParamsJogBlock() })
 
 	parametersForm.AddCheckbox("Machine Coordinates", false, nil)
 	jp.machineCoordinatesCheckbox = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.Checkbox)
-	jp.machineCoordinatesCheckbox.SetChangedFunc(func(bool) { jp.setJogBlock() })
+	jp.machineCoordinatesCheckbox.SetChangedFunc(func(bool) { jp.setParamsJogBlock() })
 	jp.distanceModeDropDown.SetSelectedFunc(func(option string, optionIndex int) {
 		if option == "Incremental" {
 			jp.machineCoordinatesCheckbox.SetDisabled(true)
@@ -277,7 +391,7 @@ func (jp *JoggingPrimitive) newParametersForm() *tview.Form {
 
 	parametersForm.AddButton("Jog", func() {
 		jp.mu.Lock()
-		jp.controlPrimitive.QueueCommand(jp.jogBlock)
+		jp.controlPrimitive.QueueCommand(jp.paramsJogBlock)
 		jp.mu.Unlock()
 	})
 	jp.jogParametersButton = parametersForm.GetButton(parametersForm.GetButtonCount() - 1)
@@ -285,7 +399,7 @@ func (jp *JoggingPrimitive) newParametersForm() *tview.Form {
 	parametersForm.AddButton("Cancel", func() {
 		jp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandJogCancel)
 	})
-	jp.cancelButton = parametersForm.GetButton(parametersForm.GetButtonCount() - 1)
+	jp.paramsCancelButton = parametersForm.GetButton(parametersForm.GetButtonCount() - 1)
 
 	return parametersForm
 }
@@ -298,12 +412,12 @@ func (jp *JoggingPrimitive) processMessagePushGcodeState(
 		if modalGroup != nil {
 			units := modalGroup.Units
 			if units != nil {
-				if n, _ := jp.unitDropDown.GetCurrentOption(); n < 0 {
+				if n, _ := jp.paramsUnitDropDown.GetCurrentOption(); n < 0 {
 					switch units.NormalizedString() {
 					case "G20":
-						jp.unitDropDown.SetCurrentOption(slices.Index(jp.unitOptions, "Inches"))
+						jp.paramsUnitDropDown.SetCurrentOption(slices.Index(jp.unitOptions, "Inches"))
 					case "G21":
-						jp.unitDropDown.SetCurrentOption(slices.Index(jp.unitOptions, "Millimeters"))
+						jp.paramsUnitDropDown.SetCurrentOption(slices.Index(jp.unitOptions, "Millimeters"))
 					}
 				}
 			}
