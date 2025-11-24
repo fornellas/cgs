@@ -15,6 +15,8 @@ type SettingsPrimitive struct {
 	*tview.Flex
 	app                          *tview.Application
 	controlPrimitive             *ControlPrimitive
+	startupLine0InputField       *tview.InputField
+	startupLine1InputField       *tview.InputField
 	versionTextView              *tview.TextView
 	infoInputField               *tview.InputField
 	compileTimeOptionsTextView   *tview.TextView
@@ -38,10 +40,27 @@ func NewSettingsPrimitive(
 	settingsFlex.SetBorder(true)
 	settingsFlex.SetTitle("Settings")
 
+	// Startup Lines: Input Fields
+	startupLine0InputField := tview.NewInputField()
+	startupLine0InputField.SetLabel("0")
+	startupLine0InputField.SetDoneFunc(func(tcell.Key) {
+		sp.controlPrimitive.QueueCommand(fmt.Sprintf("$N0=%s", startupLine0InputField.GetText()))
+	})
+	sp.startupLine0InputField = startupLine0InputField
+	startupLine1InputField := tview.NewInputField()
+	startupLine1InputField.SetLabel("1")
+	startupLine1InputField.SetDoneFunc(func(tcell.Key) {
+		sp.controlPrimitive.QueueCommand(fmt.Sprintf("$N1=%s", startupLine1InputField.GetText()))
+	})
+	sp.startupLine1InputField = startupLine1InputField
+
 	// Startup Lines
 	startupLinesFlex := tview.NewFlex()
+	startupLinesFlex.SetDirection(tview.FlexColumn)
 	startupLinesFlex.SetBorder(true)
 	startupLinesFlex.SetTitle("Startup Lines")
+	startupLinesFlex.AddItem(startupLine0InputField, 0, 1, false)
+	startupLinesFlex.AddItem(startupLine1InputField, 0, 1, false)
 
 	// Build Info: Primitives
 	versionTextView := tview.NewTextView()
@@ -49,11 +68,8 @@ func NewSettingsPrimitive(
 	sp.versionTextView = versionTextView
 	infoInputField := tview.NewInputField()
 	infoInputField.SetLabel("Info")
-	infoInputField.SetDoneFunc(func(key tcell.Key) {
-		switch key {
-		case tcell.KeyEnter:
-			sp.controlPrimitive.QueueCommand(fmt.Sprintf("$I=%s", infoInputField.GetText()))
-		}
+	infoInputField.SetDoneFunc(func(tcell.Key) {
+		sp.controlPrimitive.QueueCommand(fmt.Sprintf("$I=%s", infoInputField.GetText()))
 	})
 	sp.infoInputField = infoInputField
 	compileTimeOptionsTextView := tview.NewTextView()
@@ -106,12 +122,20 @@ func NewSettingsPrimitive(
 	settingsRootFlex.SetTitle("Settings")
 	settingsRootFlex.SetDirection(tview.FlexRow)
 	settingsRootFlex.AddItem(settingsFlex, 0, 1, false)
-	settingsRootFlex.AddItem(startupLinesFlex, 4, 0, false)
+	settingsRootFlex.AddItem(startupLinesFlex, 3, 0, false)
 	settingsRootFlex.AddItem(buildInfoFlex, 5, 1, false)
 	settingsRootFlex.AddItem(restoreDefaultsFlex, 3, 0, false)
 	sp.Flex = settingsRootFlex
 
 	return sp
+}
+
+func (sp *SettingsPrimitive) processMessagePushWelcome() {
+	sp.app.QueueUpdateDraw(func() {
+		sp.startupLine0InputField.SetText("")
+		sp.startupLine1InputField.SetText("")
+		sp.infoInputField.SetText("")
+	})
 }
 
 func (sp *SettingsPrimitive) processMessagePushVersion(messagePushVersion *grblMod.MessagePushVersion) {
@@ -150,6 +174,10 @@ func (sp *SettingsPrimitive) processMessagePushCompileTimeOptions(messagePushCom
 }
 
 func (sp *SettingsPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
+	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
+		sp.processMessagePushWelcome()
+		return
+	}
 	if messagePushVersion, ok := message.(*grblMod.MessagePushVersion); ok {
 		sp.processMessagePushVersion(messagePushVersion)
 		return

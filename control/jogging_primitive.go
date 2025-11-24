@@ -515,7 +515,6 @@ func (jp *JoggingPrimitive) ProcessMessage(ctx context.Context, message grblMod.
 		jp.processMessagePushWelcome()
 		return
 	}
-
 	if messagePushGcodeState, ok := message.(*grblMod.MessagePushGcodeState); ok {
 		jp.processMessagePushGcodeState(messagePushGcodeState)
 		return
