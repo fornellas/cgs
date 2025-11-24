@@ -20,6 +20,7 @@ Features
                     Feed
                     Distance / Unit
                     Cancel
+            Set default feed rate max($110, $111, $112)
             Limit Jogging to work area fetched from $$
         Stream
             TBD
