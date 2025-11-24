@@ -101,73 +101,39 @@ func NewSettingsPrimitive(
 	}
 
 	// Settings: InputFields
-	// $0 Step pulse, microseconds
 	sp.stepPulse = newQueueSettingInputField("0", "Step pulse(us)")
-	// $1 Step idle delay, milliseconds
 	sp.stepIdleDelay = newQueueSettingInputField("1", "Step idle delay(ms)")
-	// $2 Step port invert, mask
 	sp.stepPortInvert = newQueueSettingInputField("2", "Step port invert(mask)")
-	// $3 Direction port invert, mask
 	sp.directionPortInvert = newQueueSettingInputField("3", "Direction port invert(mask)")
-	// $4 Step enable invert, boolean
 	sp.stepEnableInvert = newQueueSettingCheckbox("4", "Step enable invert")
-	// $5  Limit pins invert, boolean
 	sp.limitPinsInvert = newQueueSettingCheckbox("5", "Limit pins invert")
-	// $6  Probe pin invert, boolean
 	sp.probePinInvert = newQueueSettingCheckbox("6", "Probe pin invert")
-	// $10 Status report, mask
 	sp.statusReport = newQueueSettingInputField("10", "Status report(mask)")
-	// $11 Junction deviation, mm
 	sp.junctionDeviation = newQueueSettingInputField("11", "Junction deviation(mm)")
-	// $12 Arc tolerance, mm
 	sp.arcTolerance = newQueueSettingInputField("12", "Arc tolerance(mm)")
-	// $13 Report inches, boolean
 	sp.reportInches = newQueueSettingCheckbox("13", "Report inches")
-	// $20 Soft limits, boolean
 	sp.softLimits = newQueueSettingCheckbox("20", "Soft limits")
-	// $21 Hard limits, boolean
 	sp.hardLimits = newQueueSettingCheckbox("21", "Hard limits")
-	// $22 Homing cycle, boolean
 	sp.homingCycle = newQueueSettingCheckbox("22", "Homing cycle")
-	// $23 Homing dir invert, mask
 	sp.homingDirInvert = newQueueSettingInputField("23", "Homing dir invert(mask)")
-	// $24 Homing feed, mm/min
 	sp.homingFeed = newQueueSettingInputField("24", "Homing feed(mm/min)")
-	// $25 Homing seek, mm/min
 	sp.homingSeek = newQueueSettingInputField("25", "Homing seek(mm/min)")
-	// $26 Homing debounce, milliseconds
 	sp.homingDebounce = newQueueSettingInputField("26", "Homing debounce(ms)")
-	// $27 Homing pull-off, mm
 	sp.homingPullOff = newQueueSettingInputField("27", "Homing pull-off(mm)")
-	// $30 Max spindle speed, RPM
 	sp.maxSpindleSpeed = newQueueSettingInputField("30", "Max spindle speed(RPM)")
-	// $31 Min spindle speed, RPM
 	sp.minSpindleSpeed = newQueueSettingInputField("31", "Min spindle speed(RPM)")
-	// $32 Laser mode, boolean
 	sp.laserMode = newQueueSettingCheckbox("32", "Laser mode")
-	// $100 X steps/mm
 	sp.xSteps = newQueueSettingInputField("100", "X(steps/mm)")
-	// $101 Y steps/mm
 	sp.ySteps = newQueueSettingInputField("101", "Y(steps/mm)")
-	// $102 Z steps/mm
 	sp.zSteps = newQueueSettingInputField("102", "Z(steps/mm)")
-	// $110 X Max rate, mm/min
 	sp.xMaxRate = newQueueSettingInputField("110", "X Max rate(mm/min)")
-	// $111 Y Max rate, mm/min
 	sp.yMaxRate = newQueueSettingInputField("111", "Y Max rate(mm/min)")
-	// $112 Z Max rate, mm/min
 	sp.zMaxRate = newQueueSettingInputField("112", "Z Max rate(mm/min)")
-	// $120 X Acceleration, mm/sec^2
 	sp.xAcceleration = newQueueSettingInputField("120", "X Acceleration(mm/sec^2)")
-	// $121 Y Acceleration, mm/sec^2
 	sp.yAcceleration = newQueueSettingInputField("121", "Y Acceleration(mm/sec^2)")
-	// $122 Z Acceleration, mm/sec^2
 	sp.zAcceleration = newQueueSettingInputField("122", "Z Acceleration(mm/sec^2)")
-	// $130 X Max travel, mm
 	sp.xMaxTravel = newQueueSettingInputField("130", "X Max travel(mm)")
-	// $131 Y Max travel, mm
 	sp.yMaxTravel = newQueueSettingInputField("131", "Y Max travel(mm)")
-	// $132 Z Max travel, mm
 	sp.zMaxTravel = newQueueSettingInputField("132", "Z Max travel(mm)")
 
 	// Settings
