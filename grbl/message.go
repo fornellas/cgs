@@ -279,7 +279,7 @@ func NewMessagePush(message string) (Message, error) {
 		return &MessagePushAlarm{Message: message}, nil
 	}
 	if strings.HasPrefix(message, "$") {
-		return &MessagePushSettings{Message: message}, nil
+		return NewMessagePushSetting(message)
 	}
 	if strings.HasPrefix(message, "[MSG:") {
 		return &MessagePushFeedback{Message: message}, nil
@@ -318,15 +318,32 @@ func NewMessagePush(message string) (Message, error) {
 	return &MessagePushUnknown{Message: message}, nil
 }
 
-type MessagePushSettings struct {
+type MessagePushSetting struct {
 	Message string
+	Key     string
+	Value   string
 }
 
-func (m *MessagePushSettings) Type() MessageType {
+func NewMessagePushSetting(message string) (*MessagePushSetting, error) {
+	if !strings.HasPrefix(message, "$") {
+		return nil, fmt.Errorf("setting message does not start with $: %s", message)
+	}
+	parts := strings.Split(message[1:], "=")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("setting message does not contain exactly one =: %s", message)
+	}
+	return &MessagePushSetting{
+		Message: message,
+		Key:     parts[0],
+		Value:   parts[1],
+	}, nil
+}
+
+func (m *MessagePushSetting) Type() MessageType {
 	return MessageTypePush
 }
 
-func (m *MessagePushSettings) String() string {
+func (m *MessagePushSetting) String() string {
 	return m.Message
 }
 

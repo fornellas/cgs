@@ -684,7 +684,7 @@ func (cp *ControlPrimitive) ProcessMessage(ctx context.Context, message grblMod.
 		}
 	}
 
-	if _, ok := message.(*grblMod.MessagePushSettings); ok {
+	if _, ok := message.(*grblMod.MessagePushSetting); ok {
 		if cp.quietStatusComms {
 			return
 		}
