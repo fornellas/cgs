@@ -49,6 +49,12 @@ func NewSettingsPrimitive(
 	sp.versionTextView = versionTextView
 	infoInputField := tview.NewInputField()
 	infoInputField.SetLabel("Info")
+	infoInputField.SetDoneFunc(func(key tcell.Key) {
+		switch key {
+		case tcell.KeyEnter:
+			sp.controlPrimitive.QueueCommand(fmt.Sprintf("$I=%s", infoInputField.GetText()))
+		}
+	})
 	sp.infoInputField = infoInputField
 	compileTimeOptionsTextView := tview.NewTextView()
 	compileTimeOptionsTextView.SetDynamicColors(true)
@@ -71,23 +77,17 @@ func NewSettingsPrimitive(
 	// Restore Defaults: Buttons
 	restoreSettingsButton := tview.NewButton("Settings")
 	restoreSettingsButton.SetSelectedFunc(func() {
-		for _, cmd := range []string{"$RST=$", "$$"} {
-			sp.controlPrimitive.QueueCommand(cmd)
-		}
+		sp.controlPrimitive.QueueCommand("$RST=$")
 	})
 	sp.restoreSettingsButton = restoreSettingsButton
 	restoreGcodeParametersButton := tview.NewButton("G-Code Parameters")
 	restoreGcodeParametersButton.SetSelectedFunc(func() {
-		for _, cmd := range []string{"$RST=#", "$#"} {
-			sp.controlPrimitive.QueueCommand(cmd)
-		}
+		sp.controlPrimitive.QueueCommand("$RST=#")
 	})
 	sp.restoreGcodeParametersButton = restoreGcodeParametersButton
 	restoreAllButton := tview.NewButton("All")
 	restoreAllButton.SetSelectedFunc(func() {
-		for _, cmd := range []string{"$RST=*", "$$", "$#", "$N", "$I"} {
-			sp.controlPrimitive.QueueCommand(cmd)
-		}
+		sp.controlPrimitive.QueueCommand("$RST=*")
 	})
 	sp.restoreAllButton = restoreAllButton
 

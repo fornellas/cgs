@@ -14,8 +14,6 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
-	"github.com/fornellas/slogxt/log"
-
 	"github.com/fornellas/cgs/gcode"
 	grblMod "github.com/fornellas/cgs/grbl"
 )
@@ -78,7 +76,6 @@ func NewControlPrimitive(
 		sendRealTimeCommandCh:  make(chan grblMod.RealTimeCommand, 10),
 		commandInputHistoryIdx: -1,
 	}
-	ctx, _ = log.MustWithGroup(ctx, "ControlPrimitive")
 
 	// Commands
 	commandsTextView := tview.NewTextView().
@@ -150,8 +147,6 @@ func NewControlPrimitive(
 	commandInputField := tview.NewInputField()
 	commandInputField.SetLabel("Command: ")
 	commandInputField.SetDoneFunc(func(key tcell.Key) {
-		_, logger := log.MustWithGroup(ctx, "commandInputField")
-		logger.Debug("SetDoneFunc")
 		switch key {
 		case tcell.KeyEscape:
 			commandInputField.SetText("")
