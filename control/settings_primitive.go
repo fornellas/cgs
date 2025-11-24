@@ -80,16 +80,16 @@ func NewSettingsPrimitive(
 
 	// Settings: InputFields
 	stepPulse := tview.NewInputField()
-	stepPulse.SetLabel("Step pulse (us)")
+	stepPulse.SetLabel("Step pulse(us)")
 	sp.stepPulse = stepPulse
 	stepIdleDelay := tview.NewInputField()
-	stepIdleDelay.SetLabel("Step idle delay (ms)")
+	stepIdleDelay.SetLabel("Step idle delay(ms)")
 	sp.stepIdleDelay = stepIdleDelay
 	stepPortInvert := tview.NewInputField()
-	stepPortInvert.SetLabel("Step port invert (mask)")
+	stepPortInvert.SetLabel("Step port invert(mask)")
 	sp.stepPortInvert = stepPortInvert
 	directionPortInvert := tview.NewInputField()
-	directionPortInvert.SetLabel("Direction port invert (mask)")
+	directionPortInvert.SetLabel("Direction port invert(mask)")
 	sp.directionPortInvert = directionPortInvert
 	stepEnableInvert := tview.NewCheckbox()
 	sp.stepEnableInvert = stepEnableInvert
@@ -101,13 +101,13 @@ func NewSettingsPrimitive(
 	sp.probePinInvert = probePinInvert
 	probePinInvert.SetLabel("Probe pin invert")
 	statusReport := tview.NewInputField()
-	statusReport.SetLabel("Status report (mask)")
+	statusReport.SetLabel("Status report(mask)")
 	sp.statusReport = statusReport
 	junctionDeviation := tview.NewInputField()
-	junctionDeviation.SetLabel("Junction deviation (mm)")
+	junctionDeviation.SetLabel("Junction deviation(mm)")
 	sp.junctionDeviation = junctionDeviation
 	arcTolerance := tview.NewInputField()
-	arcTolerance.SetLabel("Arc tolerance (mm)")
+	arcTolerance.SetLabel("Arc tolerance(mm)")
 	sp.arcTolerance = arcTolerance
 	reportInches := tview.NewCheckbox()
 	sp.reportInches = reportInches
@@ -122,64 +122,64 @@ func NewSettingsPrimitive(
 	sp.homingCycle = homingCycle
 	homingCycle.SetLabel("Homing cycle")
 	homingDirInvert := tview.NewInputField()
-	homingDirInvert.SetLabel("Homing dir invert (mask)")
+	homingDirInvert.SetLabel("Homing dir invert(mask)")
 	sp.homingDirInvert = homingDirInvert
 	homingFeed := tview.NewInputField()
-	homingFeed.SetLabel("Homing feed (mm/min)")
+	homingFeed.SetLabel("Homing feed(mm/min)")
 	sp.homingFeed = homingFeed
 	homingSeek := tview.NewInputField()
-	homingSeek.SetLabel("Homing seek (mm/min)")
+	homingSeek.SetLabel("Homing seek(mm/min)")
 	sp.homingSeek = homingSeek
 	homingDebounce := tview.NewInputField()
-	homingDebounce.SetLabel("Homing debounce (ms)")
+	homingDebounce.SetLabel("Homing debounce(ms)")
 	sp.homingDebounce = homingDebounce
 	homingPullOff := tview.NewInputField()
-	homingPullOff.SetLabel("Homing pull-off (mm)")
+	homingPullOff.SetLabel("Homing pull-off(mm)")
 	sp.homingPullOff = homingPullOff
 	maxSpindleSpeed := tview.NewInputField()
-	maxSpindleSpeed.SetLabel("Max spindle speed (RPM)")
+	maxSpindleSpeed.SetLabel("Max spindle speed(RPM)")
 	sp.maxSpindleSpeed = maxSpindleSpeed
 	minSpindleSpeed := tview.NewInputField()
-	minSpindleSpeed.SetLabel("Min spindle speed (RPM)")
+	minSpindleSpeed.SetLabel("Min spindle speed(RPM)")
 	sp.minSpindleSpeed = minSpindleSpeed
 	laserMode := tview.NewCheckbox()
 	sp.laserMode = laserMode
 	laserMode.SetLabel("Laser mode")
 	xSteps := tview.NewInputField()
-	xSteps.SetLabel("X (steps/mm)")
+	xSteps.SetLabel("X(steps/mm)")
 	sp.xSteps = xSteps
 	ySteps := tview.NewInputField()
-	ySteps.SetLabel("Y (steps/mm)")
+	ySteps.SetLabel("Y(steps/mm)")
 	sp.ySteps = ySteps
 	zSteps := tview.NewInputField()
-	zSteps.SetLabel("Z (steps/mm)")
+	zSteps.SetLabel("Z(steps/mm)")
 	sp.zSteps = zSteps
 	xMaxRate := tview.NewInputField()
-	xMaxRate.SetLabel("X Max rate (mm/min)")
+	xMaxRate.SetLabel("X Max rate(mm/min)")
 	sp.xMaxRate = xMaxRate
 	yMaxRate := tview.NewInputField()
-	yMaxRate.SetLabel("Y Max rate (mm/min)")
+	yMaxRate.SetLabel("Y Max rate(mm/min)")
 	sp.yMaxRate = yMaxRate
 	zMaxRate := tview.NewInputField()
-	zMaxRate.SetLabel("Z Max rate (mm/min)")
+	zMaxRate.SetLabel("Z Max rate(mm/min)")
 	sp.zMaxRate = zMaxRate
 	xAcceleration := tview.NewInputField()
-	xAcceleration.SetLabel("X Acceleration (mm/sec^2)")
+	xAcceleration.SetLabel("X Acceleration(mm/sec^2)")
 	sp.xAcceleration = xAcceleration
 	yAcceleration := tview.NewInputField()
-	yAcceleration.SetLabel("Y Acceleration (mm/sec^2)")
+	yAcceleration.SetLabel("Y Acceleration(mm/sec^2)")
 	sp.yAcceleration = yAcceleration
 	zAcceleration := tview.NewInputField()
-	zAcceleration.SetLabel("Z Acceleration (mm/sec^2)")
+	zAcceleration.SetLabel("Z Acceleration(mm/sec^2)")
 	sp.zAcceleration = zAcceleration
 	xMaxTravel := tview.NewInputField()
-	xMaxTravel.SetLabel("X Max travel (mm)")
+	xMaxTravel.SetLabel("X Max travel(mm)")
 	sp.xMaxTravel = xMaxTravel
 	yMaxTravel := tview.NewInputField()
-	yMaxTravel.SetLabel("Y Max travel (mm)")
+	yMaxTravel.SetLabel("Y Max travel(mm)")
 	sp.yMaxTravel = yMaxTravel
 	zMaxTravel := tview.NewInputField()
-	zMaxTravel.SetLabel("Z Max travel (mm)")
+	zMaxTravel.SetLabel("Z Max travel(mm)")
 	sp.zMaxTravel = zMaxTravel
 
 	// Settings
