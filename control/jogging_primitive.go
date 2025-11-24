@@ -29,6 +29,7 @@ type JoggingPrimitive struct {
 	*tview.Flex
 	app              *tview.Application
 	controlPrimitive *ControlPrimitive
+	// Joystick
 	// Parameters
 	xInputField                *tview.InputField
 	yInputField                *tview.InputField
@@ -61,19 +62,6 @@ func NewJoggingPrimitive(
 		distanceModeOptions: []string{"Absolute", "Incremental"},
 	}
 
-	acceptFloatFn := func(textToCheck string, lastChar rune) bool {
-		if len(textToCheck) > 0 && textToCheck[0] == '-' {
-			return true
-		}
-		_, err := strconv.ParseFloat(textToCheck, 64)
-		return err == nil
-	}
-
-	acceptUFloatFn := func(textToCheck string, lastChar rune) bool {
-		_, err := strconv.ParseFloat(textToCheck, 64)
-		return err == nil
-	}
-
 	//   A    A
 	// < V >  V
 	// Feed rate
@@ -85,21 +73,40 @@ func NewJoggingPrimitive(
 	joystickFlex.SetTitle("Joystick")
 	// joystickFlex.AddItem(joystickGrid, 0, 1, false)
 
+	parametersForm := jp.newParametersForm()
+
+	parametersFlex := tview.NewFlex()
+	parametersFlex.SetBorder(true)
+	parametersFlex.SetTitle("Parameters")
+	parametersFlex.AddItem(parametersForm, 0, 1, false)
+
+	joggingFlex := tview.NewFlex()
+	joggingFlex.SetBorder(true)
+	joggingFlex.SetTitle("Jogging")
+	joggingFlex.SetDirection(tview.FlexColumn)
+	joggingFlex.AddItem(joystickFlex, 0, 1, false)
+	joggingFlex.AddItem(parametersFlex, 0, 1, false)
+	jp.Flex = joggingFlex
+
+	return jp
+}
+
+func (jp *JoggingPrimitive) newParametersForm() *tview.Form {
 	parametersForm := tview.NewForm()
 	parametersForm.SetButtonsAlign(tview.AlignCenter)
 	const width = len("100.0000")
 
-	parametersForm.AddInputField("X", "", width, acceptFloatFn, nil)
+	parametersForm.AddInputField("X", "", width, acceptFloat, nil)
 	jp.xInputField = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
 	jp.xInputField.SetChangedFunc(func(string) { jp.setJogBlock() })
 
-	parametersForm.AddInputField("Y", "", width, acceptFloatFn, nil)
+	parametersForm.AddInputField("Y", "", width, acceptFloat, nil)
 	jp.yInputField = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
 	jp.yInputField.SetChangedFunc(func(string) { jp.setJogBlock() })
 
-	parametersForm.AddInputField("Z", "", width, acceptFloatFn, nil)
+	parametersForm.AddInputField("Z", "", width, acceptFloat, nil)
 	jp.zInputField = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
 	jp.zInputField.SetChangedFunc(func(string) { jp.setJogBlock() })
@@ -114,7 +121,7 @@ func NewJoggingPrimitive(
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.DropDown)
 	jp.distanceModeDropDown.SetSelectedFunc(func(string, int) { jp.setJogBlock() })
 
-	parametersForm.AddInputField("Feed rate", "", width, acceptUFloatFn, nil)
+	parametersForm.AddInputField("Feed rate", "", width, acceptUFloat, nil)
 	jp.feedRateInputField = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
 	jp.feedRateInputField.SetChangedFunc(func(string) { jp.setJogBlock() })
@@ -139,24 +146,11 @@ func NewJoggingPrimitive(
 	jp.jogParametersButton = parametersForm.GetButton(parametersForm.GetButtonCount() - 1)
 
 	parametersForm.AddButton("Cancel", func() {
-		controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandJogCancel)
+		jp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandJogCancel)
 	})
 	jp.cancelButton = parametersForm.GetButton(parametersForm.GetButtonCount() - 1)
 
-	parametersFlex := tview.NewFlex()
-	parametersFlex.SetBorder(true)
-	parametersFlex.SetTitle("Parameters")
-	parametersFlex.AddItem(parametersForm, 0, 1, false)
-
-	joggingFlex := tview.NewFlex()
-	joggingFlex.SetBorder(true)
-	joggingFlex.SetTitle("Jogging")
-	joggingFlex.SetDirection(tview.FlexColumn)
-	joggingFlex.AddItem(joystickFlex, 0, 1, false)
-	joggingFlex.AddItem(parametersFlex, 0, 1, false)
-	jp.Flex = joggingFlex
-
-	return jp
+	return parametersForm
 }
 
 func (jp *JoggingPrimitive) getJogBlock() (string, error) {

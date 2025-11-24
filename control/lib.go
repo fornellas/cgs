@@ -3,12 +3,26 @@ package control
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
 
 	grblMod "github.com/fornellas/cgs/grbl"
 )
+
+func acceptFloat(textToCheck string, lastChar rune) bool {
+	if len(textToCheck) > 0 && textToCheck[0] == '-' {
+		return true
+	}
+	_, err := strconv.ParseFloat(textToCheck, 64)
+	return err == nil
+}
+
+func acceptUFloat(textToCheck string, lastChar rune) bool {
+	_, err := strconv.ParseFloat(textToCheck, 64)
+	return err == nil
+}
 
 func sprintFloat(value float64, decimal uint) string {
 	var floatStr string
