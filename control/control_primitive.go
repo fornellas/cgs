@@ -333,7 +333,8 @@ func (cp *ControlPrimitive) processBLock(block *gcode.Block) (map[string]bool, t
 			statusCommands["$I"] = true
 		case "$RST=$":
 			statusCommands["$N"] = true
-		case "$H":
+		}
+		if strings.HasPrefix(block.String(), "$H") {
 			timeout = 120 * time.Second
 			// Grbl stops responding to status report queries while homing. Generating this
 			// virtual status report enables subscribers to process the otherwise unreported
