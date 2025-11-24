@@ -78,181 +78,154 @@ func NewSettingsPrimitive(
 		controlPrimitive: controlPrimitive,
 	}
 
+	newQueueSettingInputField := func(key, label string) *tview.InputField {
+		field := tview.NewInputField()
+		field.SetLabel(label)
+		field.SetDoneFunc(func(tcell.Key) {
+			sp.controlPrimitive.QueueCommand(fmt.Sprintf("$%s=%s", key, field.GetText()))
+		})
+		return field
+	}
+
+	newQueueSettingCheckbox := func(key, label string) *tview.Checkbox {
+		cb := tview.NewCheckbox()
+		cb.SetLabel(label)
+		cb.SetChangedFunc(func(checked bool) {
+			value := "0"
+			if checked {
+				value = "1"
+			}
+			sp.controlPrimitive.QueueCommand(fmt.Sprintf("$%s=%s", key, value))
+		})
+		return cb
+	}
+
 	// Settings: InputFields
-	stepPulse := tview.NewInputField()
-	stepPulse.SetLabel("Step pulse(us)")
-	sp.stepPulse = stepPulse
-	stepIdleDelay := tview.NewInputField()
-	stepIdleDelay.SetLabel("Step idle delay(ms)")
-	sp.stepIdleDelay = stepIdleDelay
-	stepPortInvert := tview.NewInputField()
-	stepPortInvert.SetLabel("Step port invert(mask)")
-	sp.stepPortInvert = stepPortInvert
-	directionPortInvert := tview.NewInputField()
-	directionPortInvert.SetLabel("Direction port invert(mask)")
-	sp.directionPortInvert = directionPortInvert
-	stepEnableInvert := tview.NewCheckbox()
-	sp.stepEnableInvert = stepEnableInvert
-	stepEnableInvert.SetLabel("Step enable invert")
-	limitPinsInvert := tview.NewCheckbox()
-	sp.limitPinsInvert = limitPinsInvert
-	limitPinsInvert.SetLabel("Limit pins invert")
-	probePinInvert := tview.NewCheckbox()
-	sp.probePinInvert = probePinInvert
-	probePinInvert.SetLabel("Probe pin invert")
-	statusReport := tview.NewInputField()
-	statusReport.SetLabel("Status report(mask)")
-	sp.statusReport = statusReport
-	junctionDeviation := tview.NewInputField()
-	junctionDeviation.SetLabel("Junction deviation(mm)")
-	sp.junctionDeviation = junctionDeviation
-	arcTolerance := tview.NewInputField()
-	arcTolerance.SetLabel("Arc tolerance(mm)")
-	sp.arcTolerance = arcTolerance
-	reportInches := tview.NewCheckbox()
-	sp.reportInches = reportInches
-	reportInches.SetLabel("Report inches")
-	softLimits := tview.NewCheckbox()
-	sp.softLimits = softLimits
-	softLimits.SetLabel("Soft limits")
-	hardLimits := tview.NewCheckbox()
-	sp.hardLimits = hardLimits
-	hardLimits.SetLabel("Hard limits")
-	homingCycle := tview.NewCheckbox()
-	sp.homingCycle = homingCycle
-	homingCycle.SetLabel("Homing cycle")
-	homingDirInvert := tview.NewInputField()
-	homingDirInvert.SetLabel("Homing dir invert(mask)")
-	sp.homingDirInvert = homingDirInvert
-	homingFeed := tview.NewInputField()
-	homingFeed.SetLabel("Homing feed(mm/min)")
-	sp.homingFeed = homingFeed
-	homingSeek := tview.NewInputField()
-	homingSeek.SetLabel("Homing seek(mm/min)")
-	sp.homingSeek = homingSeek
-	homingDebounce := tview.NewInputField()
-	homingDebounce.SetLabel("Homing debounce(ms)")
-	sp.homingDebounce = homingDebounce
-	homingPullOff := tview.NewInputField()
-	homingPullOff.SetLabel("Homing pull-off(mm)")
-	sp.homingPullOff = homingPullOff
-	maxSpindleSpeed := tview.NewInputField()
-	maxSpindleSpeed.SetLabel("Max spindle speed(RPM)")
-	sp.maxSpindleSpeed = maxSpindleSpeed
-	minSpindleSpeed := tview.NewInputField()
-	minSpindleSpeed.SetLabel("Min spindle speed(RPM)")
-	sp.minSpindleSpeed = minSpindleSpeed
-	laserMode := tview.NewCheckbox()
-	sp.laserMode = laserMode
-	laserMode.SetLabel("Laser mode")
-	xSteps := tview.NewInputField()
-	xSteps.SetLabel("X(steps/mm)")
-	sp.xSteps = xSteps
-	ySteps := tview.NewInputField()
-	ySteps.SetLabel("Y(steps/mm)")
-	sp.ySteps = ySteps
-	zSteps := tview.NewInputField()
-	zSteps.SetLabel("Z(steps/mm)")
-	sp.zSteps = zSteps
-	xMaxRate := tview.NewInputField()
-	xMaxRate.SetLabel("X Max rate(mm/min)")
-	sp.xMaxRate = xMaxRate
-	yMaxRate := tview.NewInputField()
-	yMaxRate.SetLabel("Y Max rate(mm/min)")
-	sp.yMaxRate = yMaxRate
-	zMaxRate := tview.NewInputField()
-	zMaxRate.SetLabel("Z Max rate(mm/min)")
-	sp.zMaxRate = zMaxRate
-	xAcceleration := tview.NewInputField()
-	xAcceleration.SetLabel("X Acceleration(mm/sec^2)")
-	sp.xAcceleration = xAcceleration
-	yAcceleration := tview.NewInputField()
-	yAcceleration.SetLabel("Y Acceleration(mm/sec^2)")
-	sp.yAcceleration = yAcceleration
-	zAcceleration := tview.NewInputField()
-	zAcceleration.SetLabel("Z Acceleration(mm/sec^2)")
-	sp.zAcceleration = zAcceleration
-	xMaxTravel := tview.NewInputField()
-	xMaxTravel.SetLabel("X Max travel(mm)")
-	sp.xMaxTravel = xMaxTravel
-	yMaxTravel := tview.NewInputField()
-	yMaxTravel.SetLabel("Y Max travel(mm)")
-	sp.yMaxTravel = yMaxTravel
-	zMaxTravel := tview.NewInputField()
-	zMaxTravel.SetLabel("Z Max travel(mm)")
-	sp.zMaxTravel = zMaxTravel
+	// $0 Step pulse, microseconds
+	sp.stepPulse = newQueueSettingInputField("0", "Step pulse(us)")
+	// $1 Step idle delay, milliseconds
+	sp.stepIdleDelay = newQueueSettingInputField("1", "Step idle delay(ms)")
+	// $2 Step port invert, mask
+	sp.stepPortInvert = newQueueSettingInputField("2", "Step port invert(mask)")
+	// $3 Direction port invert, mask
+	sp.directionPortInvert = newQueueSettingInputField("3", "Direction port invert(mask)")
+	// $4 Step enable invert, boolean
+	sp.stepEnableInvert = newQueueSettingCheckbox("4", "Step enable invert")
+	// $5  Limit pins invert, boolean
+	sp.limitPinsInvert = newQueueSettingCheckbox("5", "Limit pins invert")
+	// $6  Probe pin invert, boolean
+	sp.probePinInvert = newQueueSettingCheckbox("6", "Probe pin invert")
+	// $10 Status report, mask
+	sp.statusReport = newQueueSettingInputField("10", "Status report(mask)")
+	// $11 Junction deviation, mm
+	sp.junctionDeviation = newQueueSettingInputField("11", "Junction deviation(mm)")
+	// $12 Arc tolerance, mm
+	sp.arcTolerance = newQueueSettingInputField("12", "Arc tolerance(mm)")
+	// $13 Report inches, boolean
+	sp.reportInches = newQueueSettingCheckbox("13", "Report inches")
+	// $20 Soft limits, boolean
+	sp.softLimits = newQueueSettingCheckbox("20", "Soft limits")
+	// $21 Hard limits, boolean
+	sp.hardLimits = newQueueSettingCheckbox("21", "Hard limits")
+	// $22 Homing cycle, boolean
+	sp.homingCycle = newQueueSettingCheckbox("22", "Homing cycle")
+	// $23 Homing dir invert, mask
+	sp.homingDirInvert = newQueueSettingInputField("23", "Homing dir invert(mask)")
+	// $24 Homing feed, mm/min
+	sp.homingFeed = newQueueSettingInputField("24", "Homing feed(mm/min)")
+	// $25 Homing seek, mm/min
+	sp.homingSeek = newQueueSettingInputField("25", "Homing seek(mm/min)")
+	// $26 Homing debounce, milliseconds
+	sp.homingDebounce = newQueueSettingInputField("26", "Homing debounce(ms)")
+	// $27 Homing pull-off, mm
+	sp.homingPullOff = newQueueSettingInputField("27", "Homing pull-off(mm)")
+	// $30 Max spindle speed, RPM
+	sp.maxSpindleSpeed = newQueueSettingInputField("30", "Max spindle speed(RPM)")
+	// $31 Min spindle speed, RPM
+	sp.minSpindleSpeed = newQueueSettingInputField("31", "Min spindle speed(RPM)")
+	// $32 Laser mode, boolean
+	sp.laserMode = newQueueSettingCheckbox("32", "Laser mode")
+	// $100 X steps/mm
+	sp.xSteps = newQueueSettingInputField("100", "X(steps/mm)")
+	// $101 Y steps/mm
+	sp.ySteps = newQueueSettingInputField("101", "Y(steps/mm)")
+	// $102 Z steps/mm
+	sp.zSteps = newQueueSettingInputField("102", "Z(steps/mm)")
+	// $110 X Max rate, mm/min
+	sp.xMaxRate = newQueueSettingInputField("110", "X Max rate(mm/min)")
+	// $111 Y Max rate, mm/min
+	sp.yMaxRate = newQueueSettingInputField("111", "Y Max rate(mm/min)")
+	// $112 Z Max rate, mm/min
+	sp.zMaxRate = newQueueSettingInputField("112", "Z Max rate(mm/min)")
+	// $120 X Acceleration, mm/sec^2
+	sp.xAcceleration = newQueueSettingInputField("120", "X Acceleration(mm/sec^2)")
+	// $121 Y Acceleration, mm/sec^2
+	sp.yAcceleration = newQueueSettingInputField("121", "Y Acceleration(mm/sec^2)")
+	// $122 Z Acceleration, mm/sec^2
+	sp.zAcceleration = newQueueSettingInputField("122", "Z Acceleration(mm/sec^2)")
+	// $130 X Max travel, mm
+	sp.xMaxTravel = newQueueSettingInputField("130", "X Max travel(mm)")
+	// $131 Y Max travel, mm
+	sp.yMaxTravel = newQueueSettingInputField("131", "Y Max travel(mm)")
+	// $132 Z Max travel, mm
+	sp.zMaxTravel = newQueueSettingInputField("132", "Z Max travel(mm)")
 
 	// Settings
 	mainSettings := NewScrollContainer()
 	mainSettings.SetBorder(true)
 	mainSettings.SetTitle("Settings")
-	mainSettings.AddPrimitive(stepPulse, 1)
-	mainSettings.AddPrimitive(stepIdleDelay, 1)
-	mainSettings.AddPrimitive(stepPortInvert, 1)
-	mainSettings.AddPrimitive(directionPortInvert, 1)
-	mainSettings.AddPrimitive(stepEnableInvert, 1)
-	mainSettings.AddPrimitive(limitPinsInvert, 1)
-	mainSettings.AddPrimitive(probePinInvert, 1)
-	mainSettings.AddPrimitive(statusReport, 1)
-	mainSettings.AddPrimitive(junctionDeviation, 1)
-	mainSettings.AddPrimitive(arcTolerance, 1)
-	mainSettings.AddPrimitive(reportInches, 1)
-	mainSettings.AddPrimitive(softLimits, 1)
-	mainSettings.AddPrimitive(hardLimits, 1)
-	mainSettings.AddPrimitive(homingCycle, 1)
-	mainSettings.AddPrimitive(homingDirInvert, 1)
-	mainSettings.AddPrimitive(homingFeed, 1)
-	mainSettings.AddPrimitive(homingSeek, 1)
-	mainSettings.AddPrimitive(homingDebounce, 1)
-	mainSettings.AddPrimitive(homingPullOff, 1)
-	mainSettings.AddPrimitive(maxSpindleSpeed, 1)
-	mainSettings.AddPrimitive(minSpindleSpeed, 1)
-	mainSettings.AddPrimitive(laserMode, 1)
-	mainSettings.AddPrimitive(xSteps, 1)
-	mainSettings.AddPrimitive(ySteps, 1)
-	mainSettings.AddPrimitive(zSteps, 1)
-	mainSettings.AddPrimitive(xMaxRate, 1)
-	mainSettings.AddPrimitive(yMaxRate, 1)
-	mainSettings.AddPrimitive(zMaxRate, 1)
-	mainSettings.AddPrimitive(xAcceleration, 1)
-	mainSettings.AddPrimitive(yAcceleration, 1)
-	mainSettings.AddPrimitive(zAcceleration, 1)
-	mainSettings.AddPrimitive(xMaxTravel, 1)
-	mainSettings.AddPrimitive(yMaxTravel, 1)
-	mainSettings.AddPrimitive(zMaxTravel, 1)
+	mainSettings.AddPrimitive(sp.stepPulse, 1)
+	mainSettings.AddPrimitive(sp.stepIdleDelay, 1)
+	mainSettings.AddPrimitive(sp.stepPortInvert, 1)
+	mainSettings.AddPrimitive(sp.directionPortInvert, 1)
+	mainSettings.AddPrimitive(sp.stepEnableInvert, 1)
+	mainSettings.AddPrimitive(sp.limitPinsInvert, 1)
+	mainSettings.AddPrimitive(sp.probePinInvert, 1)
+	mainSettings.AddPrimitive(sp.statusReport, 1)
+	mainSettings.AddPrimitive(sp.junctionDeviation, 1)
+	mainSettings.AddPrimitive(sp.arcTolerance, 1)
+	mainSettings.AddPrimitive(sp.reportInches, 1)
+	mainSettings.AddPrimitive(sp.softLimits, 1)
+	mainSettings.AddPrimitive(sp.hardLimits, 1)
+	mainSettings.AddPrimitive(sp.homingCycle, 1)
+	mainSettings.AddPrimitive(sp.homingDirInvert, 1)
+	mainSettings.AddPrimitive(sp.homingFeed, 1)
+	mainSettings.AddPrimitive(sp.homingSeek, 1)
+	mainSettings.AddPrimitive(sp.homingDebounce, 1)
+	mainSettings.AddPrimitive(sp.homingPullOff, 1)
+	mainSettings.AddPrimitive(sp.maxSpindleSpeed, 1)
+	mainSettings.AddPrimitive(sp.minSpindleSpeed, 1)
+	mainSettings.AddPrimitive(sp.laserMode, 1)
+	mainSettings.AddPrimitive(sp.xSteps, 1)
+	mainSettings.AddPrimitive(sp.ySteps, 1)
+	mainSettings.AddPrimitive(sp.zSteps, 1)
+	mainSettings.AddPrimitive(sp.xMaxRate, 1)
+	mainSettings.AddPrimitive(sp.yMaxRate, 1)
+	mainSettings.AddPrimitive(sp.zMaxRate, 1)
+	mainSettings.AddPrimitive(sp.xAcceleration, 1)
+	mainSettings.AddPrimitive(sp.yAcceleration, 1)
+	mainSettings.AddPrimitive(sp.zAcceleration, 1)
+	mainSettings.AddPrimitive(sp.xMaxTravel, 1)
+	mainSettings.AddPrimitive(sp.yMaxTravel, 1)
+	mainSettings.AddPrimitive(sp.zMaxTravel, 1)
 
 	// Startup Lines: Input Fields
-	startupLine0InputField := tview.NewInputField()
-	startupLine0InputField.SetLabel("0")
-	startupLine0InputField.SetDoneFunc(func(tcell.Key) {
-		sp.controlPrimitive.QueueCommand(fmt.Sprintf("$N0=%s", startupLine0InputField.GetText()))
-	})
-	sp.startupLine0InputField = startupLine0InputField
-	startupLine1InputField := tview.NewInputField()
-	startupLine1InputField.SetLabel("1")
-	startupLine1InputField.SetDoneFunc(func(tcell.Key) {
-		sp.controlPrimitive.QueueCommand(fmt.Sprintf("$N1=%s", startupLine1InputField.GetText()))
-	})
-	sp.startupLine1InputField = startupLine1InputField
+	sp.startupLine0InputField = newQueueSettingInputField("N0", "0")
+	sp.startupLine1InputField = newQueueSettingInputField("N1", "1")
 
 	// Startup Lines
 	startupLinesFlex := tview.NewFlex()
 	startupLinesFlex.SetDirection(tview.FlexRow)
 	startupLinesFlex.SetBorder(true)
 	startupLinesFlex.SetTitle("Startup Lines")
-	startupLinesFlex.AddItem(startupLine0InputField, 0, 1, false)
-	startupLinesFlex.AddItem(startupLine1InputField, 0, 1, false)
+	startupLinesFlex.AddItem(sp.startupLine0InputField, 0, 1, false)
+	startupLinesFlex.AddItem(sp.startupLine1InputField, 0, 1, false)
 
 	// Build Info: Primitives
 	versionTextView := tview.NewTextView()
 	versionTextView.SetLabel("Version")
 	sp.versionTextView = versionTextView
-	infoInputField := tview.NewInputField()
-	infoInputField.SetLabel("Info")
-	infoInputField.SetDoneFunc(func(tcell.Key) {
-		sp.controlPrimitive.QueueCommand(fmt.Sprintf("$I=%s", infoInputField.GetText()))
-	})
-	sp.infoInputField = infoInputField
+	sp.infoInputField = newQueueSettingInputField("I", "Info")
 	compileTimeOptionsTextView := tview.NewTextView()
 	compileTimeOptionsTextView.SetDynamicColors(true)
 	sp.compileTimeOptionsTextView = compileTimeOptionsTextView
