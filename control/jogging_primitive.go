@@ -237,18 +237,22 @@ func (jp *JoggingPrimitive) updateDisabled() {
 	jp.mu.Lock()
 	switch jp.machineState.State {
 	case "Idle":
-		// TODO
 		// Joystick
-		// jp.xMinusButton.SetDisabled()
-		// jp.xPlusButton.SetDisabled()
-		// jp.yMinusButton.SetDisabled()
-		// jp.yPlusButton.SetDisabled()
-		// jp.zMinusButton.SetDisabled()
-		// jp.zPlusButton.SetDisabled()
-		// jp.joystickFeedRateInputField.SetDisabled()
-		// jp.distanceInputField.SetDisabled()
-		// jp.joystickUnitDropDown.SetDisabled()
-		// jp.joystickCancelButton.SetDisabled()
+		var jogDisabled bool
+		// TODO
+		// if jp.joystickJogBlock == "" {
+		jogDisabled = true
+		// }
+		jp.xMinusButton.SetDisabled(jogDisabled)
+		jp.xPlusButton.SetDisabled(jogDisabled)
+		jp.yMinusButton.SetDisabled(jogDisabled)
+		jp.yPlusButton.SetDisabled(jogDisabled)
+		jp.zMinusButton.SetDisabled(jogDisabled)
+		jp.zPlusButton.SetDisabled(jogDisabled)
+		jp.joystickFeedRateInputField.SetDisabled(false)
+		jp.distanceInputField.SetDisabled(false)
+		jp.joystickUnitDropDown.SetDisabled(false)
+		jp.joystickCancelButton.SetDisabled(true)
 		// Parameters
 		jp.xInputField.SetDisabled(false)
 		jp.yInputField.SetDisabled(false)
@@ -268,18 +272,17 @@ func (jp *JoggingPrimitive) updateDisabled() {
 		}
 		jp.paramsCancelButton.SetDisabled(true)
 	case "Jog":
-		// TODO
 		// Joystick
-		// jp.xMinusButton.SetDisabled()
-		// jp.xPlusButton.SetDisabled()
-		// jp.yMinusButton.SetDisabled()
-		// jp.yPlusButton.SetDisabled()
-		// jp.zMinusButton.SetDisabled()
-		// jp.zPlusButton.SetDisabled()
-		// jp.joystickFeedRateInputField.SetDisabled()
-		// jp.distanceInputField.SetDisabled()
-		// jp.joystickUnitDropDown.SetDisabled()
-		// jp.joystickCancelButton.SetDisabled()
+		jp.xMinusButton.SetDisabled(true)
+		jp.xPlusButton.SetDisabled(true)
+		jp.yMinusButton.SetDisabled(true)
+		jp.yPlusButton.SetDisabled(true)
+		jp.zMinusButton.SetDisabled(true)
+		jp.zPlusButton.SetDisabled(true)
+		jp.joystickFeedRateInputField.SetDisabled(true)
+		jp.distanceInputField.SetDisabled(true)
+		jp.joystickUnitDropDown.SetDisabled(true)
+		jp.joystickCancelButton.SetDisabled(false)
 		// Parameters
 		jp.xInputField.SetDisabled(true)
 		jp.yInputField.SetDisabled(true)
@@ -291,18 +294,17 @@ func (jp *JoggingPrimitive) updateDisabled() {
 		jp.jogParametersButton.SetDisabled(true)
 		jp.paramsCancelButton.SetDisabled(false)
 	case "Run", "Hold", "Alarm", "Door", "Check", "Home", "Sleep":
-		// TODO
 		// Joystick
-		// jp.xMinusButton.SetDisabled()
-		// jp.xPlusButton.SetDisabled()
-		// jp.yMinusButton.SetDisabled()
-		// jp.yPlusButton.SetDisabled()
-		// jp.zMinusButton.SetDisabled()
-		// jp.zPlusButton.SetDisabled()
-		// jp.joystickFeedRateInputField.SetDisabled()
-		// jp.distanceInputField.SetDisabled()
-		// jp.joystickUnitDropDown.SetDisabled()
-		// jp.joystickCancelButton.SetDisabled()
+		jp.xMinusButton.SetDisabled(true)
+		jp.xPlusButton.SetDisabled(true)
+		jp.yMinusButton.SetDisabled(true)
+		jp.yPlusButton.SetDisabled(true)
+		jp.zMinusButton.SetDisabled(true)
+		jp.zPlusButton.SetDisabled(true)
+		jp.joystickFeedRateInputField.SetDisabled(true)
+		jp.distanceInputField.SetDisabled(true)
+		jp.joystickUnitDropDown.SetDisabled(true)
+		jp.joystickCancelButton.SetDisabled(true)
 		// Parameters
 		jp.xInputField.SetDisabled(true)
 		jp.yInputField.SetDisabled(true)
