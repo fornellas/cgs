@@ -79,139 +79,105 @@ func NewSettingsPrimitive(
 	}
 
 	// Settings: InputFields
-	// $0 Step pulse, microseconds
 	stepPulse := tview.NewInputField()
 	stepPulse.SetLabel("Step pulse (us)")
 	sp.stepPulse = stepPulse
-	// $1 Step idle delay, milliseconds
 	stepIdleDelay := tview.NewInputField()
 	stepIdleDelay.SetLabel("Step idle delay (ms)")
 	sp.stepIdleDelay = stepIdleDelay
-	// $2 Step port invert, mask
 	stepPortInvert := tview.NewInputField()
 	stepPortInvert.SetLabel("Step port invert (mask)")
 	sp.stepPortInvert = stepPortInvert
-	// $3 Direction port invert, mask
 	directionPortInvert := tview.NewInputField()
 	directionPortInvert.SetLabel("Direction port invert (mask)")
 	sp.directionPortInvert = directionPortInvert
-	// $4 Step enable invert, boolean
 	stepEnableInvert := tview.NewCheckbox()
 	sp.stepEnableInvert = stepEnableInvert
 	stepEnableInvert.SetLabel("Step enable invert")
-	// $5  Limit pins invert, boolean
 	limitPinsInvert := tview.NewCheckbox()
 	sp.limitPinsInvert = limitPinsInvert
 	limitPinsInvert.SetLabel("Limit pins invert")
-	// $6  Probe pin invert, boolean
 	probePinInvert := tview.NewCheckbox()
 	sp.probePinInvert = probePinInvert
 	probePinInvert.SetLabel("Probe pin invert")
-	// $10 Status report, mask
 	statusReport := tview.NewInputField()
 	statusReport.SetLabel("Status report (mask)")
 	sp.statusReport = statusReport
-	// $11 Junction deviation, mm
 	junctionDeviation := tview.NewInputField()
 	junctionDeviation.SetLabel("Junction deviation (mm)")
 	sp.junctionDeviation = junctionDeviation
-	// $12 Arc tolerance, mm
 	arcTolerance := tview.NewInputField()
 	arcTolerance.SetLabel("Arc tolerance (mm)")
 	sp.arcTolerance = arcTolerance
-	// $13 Report inches, boolean
 	reportInches := tview.NewCheckbox()
 	sp.reportInches = reportInches
 	reportInches.SetLabel("Report inches")
-	// $20 Soft limits, boolean
 	softLimits := tview.NewCheckbox()
 	sp.softLimits = softLimits
 	softLimits.SetLabel("Soft limits")
-	// $21 Hard limits, boolean
 	hardLimits := tview.NewCheckbox()
 	sp.hardLimits = hardLimits
 	hardLimits.SetLabel("Hard limits")
-	// $22 Homing cycle, boolean
 	homingCycle := tview.NewCheckbox()
 	sp.homingCycle = homingCycle
 	homingCycle.SetLabel("Homing cycle")
-	// $23 Homing dir invert, mask
 	homingDirInvert := tview.NewInputField()
 	homingDirInvert.SetLabel("Homing dir invert (mask)")
 	sp.homingDirInvert = homingDirInvert
-	// $24 Homing feed, mm/min
 	homingFeed := tview.NewInputField()
 	homingFeed.SetLabel("Homing feed (mm/min)")
 	sp.homingFeed = homingFeed
-	// $25 Homing seek, mm/min
 	homingSeek := tview.NewInputField()
 	homingSeek.SetLabel("Homing seek (mm/min)")
 	sp.homingSeek = homingSeek
-	// $26 Homing debounce, milliseconds
 	homingDebounce := tview.NewInputField()
 	homingDebounce.SetLabel("Homing debounce (ms)")
 	sp.homingDebounce = homingDebounce
-	// $27 Homing pull-off, mm
 	homingPullOff := tview.NewInputField()
 	homingPullOff.SetLabel("Homing pull-off (mm)")
 	sp.homingPullOff = homingPullOff
-	// $30 Max spindle speed, RPM
 	maxSpindleSpeed := tview.NewInputField()
 	maxSpindleSpeed.SetLabel("Max spindle speed (RPM)")
 	sp.maxSpindleSpeed = maxSpindleSpeed
-	// $31 Min spindle speed, RPM
 	minSpindleSpeed := tview.NewInputField()
 	minSpindleSpeed.SetLabel("Min spindle speed (RPM)")
 	sp.minSpindleSpeed = minSpindleSpeed
-	// $32 Laser mode, boolean
 	laserMode := tview.NewCheckbox()
 	sp.laserMode = laserMode
 	laserMode.SetLabel("Laser mode")
-	// $100 X steps/mm
 	xSteps := tview.NewInputField()
 	xSteps.SetLabel("X (steps/mm)")
 	sp.xSteps = xSteps
-	// $101 Y steps/mm
 	ySteps := tview.NewInputField()
 	ySteps.SetLabel("Y (steps/mm)")
 	sp.ySteps = ySteps
-	// $102 Z steps/mm
 	zSteps := tview.NewInputField()
 	zSteps.SetLabel("Z (steps/mm)")
 	sp.zSteps = zSteps
-	// $110 X Max rate, mm/min
 	xMaxRate := tview.NewInputField()
 	xMaxRate.SetLabel("X Max rate (mm/min)")
 	sp.xMaxRate = xMaxRate
-	// $111 Y Max rate, mm/min
 	yMaxRate := tview.NewInputField()
 	yMaxRate.SetLabel("Y Max rate (mm/min)")
 	sp.yMaxRate = yMaxRate
-	// $112 Z Max rate, mm/min
 	zMaxRate := tview.NewInputField()
 	zMaxRate.SetLabel("Z Max rate (mm/min)")
 	sp.zMaxRate = zMaxRate
-	// $120 X Acceleration, mm/sec^2
 	xAcceleration := tview.NewInputField()
 	xAcceleration.SetLabel("X Acceleration (mm/sec^2)")
 	sp.xAcceleration = xAcceleration
-	// $121 Y Acceleration, mm/sec^2
 	yAcceleration := tview.NewInputField()
 	yAcceleration.SetLabel("Y Acceleration (mm/sec^2)")
 	sp.yAcceleration = yAcceleration
-	// $122 Z Acceleration, mm/sec^2
 	zAcceleration := tview.NewInputField()
 	zAcceleration.SetLabel("Z Acceleration (mm/sec^2)")
 	sp.zAcceleration = zAcceleration
-	// $130 X Max travel, mm
 	xMaxTravel := tview.NewInputField()
 	xMaxTravel.SetLabel("X Max travel (mm)")
 	sp.xMaxTravel = xMaxTravel
-	// $131 Y Max travel, mm
 	yMaxTravel := tview.NewInputField()
 	yMaxTravel.SetLabel("Y Max travel (mm)")
 	sp.yMaxTravel = yMaxTravel
-	// $132 Z Max travel, mm
 	zMaxTravel := tview.NewInputField()
 	zMaxTravel.SetLabel("Z Max travel (mm)")
 	sp.zMaxTravel = zMaxTravel
