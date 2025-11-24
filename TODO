@@ -14,26 +14,15 @@ Features
                 UI setting
             Auto Complete
         Jogging
-            Limit Jogging to work area fetched from $$
-            Parameters
-                Jog Button
-                    SetDisabled() based on current state (valid / invalid)
             Joystick
                 Buttons
-                    x+/-, y+/-, z+/-
+                    x+/-, y+/-, z+/-, a+/-
                     Feed
                     Distance / Unit
                     Cancel
+            Limit Jogging to work area fetched from $$
         Stream
-            Tool changing
-                Intercept M6
-                Run macro, eg:
-                    Pause the machine (!).
-                    Move the spindle to a user-defined "Tool Change Position" (e.g., front of the machine).
-                    Wait for you to physically swap the bit.
-                    Run a Probe Cycle to measure the new tool length (critical step).
-                    Update the Z-zero height to match the new tool length.
-                https://www.youtube.com/watch?v=-2jFvlvu0co&t=1s
+            TBD
         Settings
             SetDisable based on state / reset
             Settings
@@ -88,6 +77,15 @@ Features
             Save / Restore
         Script
             TBD
+            Tool changing
+                Intercept M6
+                Run macro, eg:
+                    Pause the machine (!).
+                    Move the spindle to a user-defined "Tool Change Position" (e.g., front of the machine).
+                    Wait for you to physically swap the bit.
+                    Run a Probe Cycle to measure the new tool length (critical step).
+                    Update the Z-zero height to match the new tool length.
+                https://www.youtube.com/watch?v=-2jFvlvu0co&t=1s
         Buttons
             Per-axis homing (build option)
             Custom Programs
