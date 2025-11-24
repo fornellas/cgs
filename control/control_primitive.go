@@ -356,6 +356,9 @@ func (cp *ControlPrimitive) processBLock(block *gcode.Block) (map[string]bool, t
 		if strings.HasPrefix(block.String(), "$I=") {
 			statusCommands["$I"] = true
 		}
+		if strings.HasPrefix(block.String(), "$N") {
+			statusCommands["$N"] = true
+		}
 	} else if block.IsCommand() {
 		for _, word := range block.Words() {
 			if word.NormalizedString() == "M0" {

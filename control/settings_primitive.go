@@ -173,6 +173,17 @@ func (sp *SettingsPrimitive) processMessagePushCompileTimeOptions(messagePushCom
 	})
 }
 
+func (sp *SettingsPrimitive) processMessagePushSetting(messagePushSetting *grblMod.MessagePushSetting) {
+	sp.app.QueueUpdateDraw(func() {
+		switch messagePushSetting.Key {
+		case "N0":
+			sp.startupLine0InputField.SetText(messagePushSetting.Value)
+		case "N1":
+			sp.startupLine1InputField.SetText(messagePushSetting.Value)
+		}
+	})
+}
+
 func (sp *SettingsPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
 	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
 		sp.processMessagePushWelcome()
@@ -184,6 +195,10 @@ func (sp *SettingsPrimitive) ProcessMessage(ctx context.Context, message grblMod
 	}
 	if messagePushCompileTimeOptions, ok := message.(*grblMod.MessagePushCompileTimeOptions); ok {
 		sp.processMessagePushCompileTimeOptions(messagePushCompileTimeOptions)
+		return
+	}
+	if messagePushSetting, ok := message.(*grblMod.MessagePushSetting); ok {
+		sp.processMessagePushSetting(messagePushSetting)
 		return
 	}
 }
