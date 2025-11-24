@@ -107,7 +107,7 @@ func NewSettingsPrimitive(
 	settingsRootFlex.SetDirection(tview.FlexRow)
 	settingsRootFlex.AddItem(settingsFlex, 0, 1, false)
 	settingsRootFlex.AddItem(startupLinesFlex, 4, 0, false)
-	settingsRootFlex.AddItem(buildInfoFlex, 8, 1, false)
+	settingsRootFlex.AddItem(buildInfoFlex, 5, 1, false)
 	settingsRootFlex.AddItem(restoreDefaultsFlex, 3, 0, false)
 	sp.Flex = settingsRootFlex
 
@@ -138,7 +138,7 @@ func (sp *SettingsPrimitive) processMessagePushCompileTimeOptions(messagePushCom
 		fmt.Fprintf(&buf, "[%s]%s[-]", tcell.ColorWhite, tview.Escape(opt))
 	}
 	fmt.Fprint(&buf, "\n")
-	fmt.Fprintf(&buf, "[%s]Planner Blocks[-]%d\n", tcell.ColorYellow, messagePushCompileTimeOptions.PlannerBlocks)
+	fmt.Fprintf(&buf, "[%s]Planner Blocks[-]%d ", tcell.ColorYellow, messagePushCompileTimeOptions.PlannerBlocks)
 	fmt.Fprintf(&buf, "[%s]Serial RX buffer bytes[-]%d\n", tcell.ColorYellow, messagePushCompileTimeOptions.SerialRxBufferBytes)
 
 	sp.app.QueueUpdateDraw(func() {

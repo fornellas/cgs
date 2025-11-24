@@ -69,8 +69,6 @@ Features
                 $N (Print startup lines)
                 $Nn=<gcode> (Store startup line, where n is the line number)
             Build Info
-                Join Serial RX buffer bytes with previous line
-                    Adjust height to 5
                 View build info ($I)
                     [VER:v1.1f.20170131:Some string]
                     [OPT:VL,16,128]
