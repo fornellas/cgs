@@ -346,7 +346,7 @@ func (cp *ControlPrimitive) processBLock(block *gcode.Block) (map[string]bool, t
 				},
 			}
 		}
-		matched, err := regexp.MatchString(`^\$[0-9]*`, block.String())
+		matched, err := regexp.MatchString(`^\$[0-9]+=`, block.String())
 		if err != nil {
 			panic(err)
 		}
