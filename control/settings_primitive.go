@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -61,6 +62,10 @@ type SettingsPrimitive struct {
 	restoreSettingsButton        *tview.Button
 	restoreGcodeParametersButton *tview.Button
 	restoreAllButton             *tview.Button
+	// Messages
+	machineState grblMod.StatusReportMachineState
+
+	mu sync.Mutex
 }
 
 func NewSettingsPrimitive(
@@ -496,6 +501,78 @@ func (sp *SettingsPrimitive) processMessagePushSetting(messagePushSetting *grblM
 	})
 }
 
+func (sp *SettingsPrimitive) updateDisabled() {
+	sp.mu.Lock()
+	disabled := sp.machineState.State != "Idle"
+
+	// Settings
+	sp.stepPulse.SetDisabled(disabled)
+	sp.stepIdleDelay.SetDisabled(disabled)
+	sp.stepPortInvert.SetDisabled(disabled)
+	sp.directionPortInvert.SetDisabled(disabled)
+	sp.stepEnableInvert.SetDisabled(disabled)
+	sp.limitPinsInvert.SetDisabled(disabled)
+	sp.probePinInvert.SetDisabled(disabled)
+	sp.statusReport.SetDisabled(disabled)
+	sp.junctionDeviation.SetDisabled(disabled)
+	sp.arcTolerance.SetDisabled(disabled)
+	sp.reportInches.SetDisabled(disabled)
+	sp.softLimits.SetDisabled(disabled)
+	sp.hardLimits.SetDisabled(disabled)
+	sp.homingCycle.SetDisabled(disabled)
+	sp.homingDirInvert.SetDisabled(disabled)
+	sp.homingFeed.SetDisabled(disabled)
+	sp.homingSeek.SetDisabled(disabled)
+	sp.homingDebounce.SetDisabled(disabled)
+	sp.homingPullOff.SetDisabled(disabled)
+	sp.maxSpindleSpeed.SetDisabled(disabled)
+	sp.minSpindleSpeed.SetDisabled(disabled)
+	sp.laserMode.SetDisabled(disabled)
+	sp.xSteps.SetDisabled(disabled)
+	sp.ySteps.SetDisabled(disabled)
+	sp.zSteps.SetDisabled(disabled)
+	sp.xMaxRate.SetDisabled(disabled)
+	sp.yMaxRate.SetDisabled(disabled)
+	sp.zMaxRate.SetDisabled(disabled)
+	sp.xAcceleration.SetDisabled(disabled)
+	sp.yAcceleration.SetDisabled(disabled)
+	sp.zAcceleration.SetDisabled(disabled)
+	sp.xMaxTravel.SetDisabled(disabled)
+	sp.yMaxTravel.SetDisabled(disabled)
+	sp.zMaxTravel.SetDisabled(disabled)
+	// Startup Lines
+	sp.startupLine0InputField.SetDisabled(disabled)
+	sp.startupLine1InputField.SetDisabled(disabled)
+	// Build Info
+	sp.infoInputField.SetDisabled(disabled)
+	// Restore Defaults
+	sp.restoreSettingsButton.SetDisabled(disabled)
+	sp.restoreGcodeParametersButton.SetDisabled(disabled)
+	sp.restoreAllButton.SetDisabled(disabled)
+
+	sp.mu.Unlock()
+}
+
+func (sp *SettingsPrimitive) setMachineState(machineState grblMod.StatusReportMachineState) {
+	if sp.machineState == machineState {
+		return
+	}
+
+	sp.mu.Lock()
+	sp.machineState = machineState
+	sp.mu.Unlock()
+
+	sp.app.QueueUpdateDraw(func() {
+		sp.updateDisabled()
+	})
+}
+
+func (sp *SettingsPrimitive) processMessagePushStatusReport(
+	messagePushStatusReport *grblMod.MessagePushStatusReport,
+) {
+	sp.setMachineState(messagePushStatusReport.MachineState)
+}
+
 func (sp *SettingsPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
 	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
 		sp.processMessagePushWelcome()
@@ -511,6 +588,10 @@ func (sp *SettingsPrimitive) ProcessMessage(ctx context.Context, message grblMod
 	}
 	if messagePushSetting, ok := message.(*grblMod.MessagePushSetting); ok {
 		sp.processMessagePushSetting(messagePushSetting)
+		return
+	}
+	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
+		sp.processMessagePushStatusReport(messagePushStatusReport)
 		return
 	}
 }
