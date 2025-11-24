@@ -3,6 +3,7 @@ package control
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -91,6 +92,9 @@ func (jp *JoggingPrimitive) setJoystickJogOk() {
 	if jp.distanceInputField.GetText() == "" {
 		jp.joystickJogOk = false
 	}
+	if n, _ := jp.joystickUnitDropDown.GetCurrentOption(); n < 0 {
+		jp.joystickJogOk = false
+	}
 	jp.mu.Unlock()
 
 	jp.updateDisabled()
@@ -115,7 +119,7 @@ func (jp *JoggingPrimitive) newJoystickFlex() *tview.Flex {
 		case "Millimeters":
 			unitWord = "G21"
 		default:
-			panic(fmt.Sprintf("bug: bad unit option: %#v", unit))
+			return
 		}
 		fmt.Fprintf(&buf, "$J=F%.4f%s%.4f%sG91", feed, axis, distance, unitWord)
 		jp.controlPrimitive.QueueCommand(buf.String())
@@ -218,7 +222,7 @@ func (jp *JoggingPrimitive) getParamsJogBlock() (string, error) {
 		hasCoordinate = true
 	}
 	if !hasCoordinate {
-		return "", fmt.Errorf("missing X, Y or Z")
+		return "", errors.New("missing X, Y or Z")
 	}
 
 	var unitWord string
@@ -229,7 +233,7 @@ func (jp *JoggingPrimitive) getParamsJogBlock() (string, error) {
 	case "Millimeters":
 		unitWord = "G21"
 	default:
-		panic(fmt.Sprintf("bug: bad unit option: %#v", unit))
+		return "", errors.New("no unit set")
 	}
 	fmt.Fprintf(&buf, "%s", unitWord)
 
@@ -241,7 +245,7 @@ func (jp *JoggingPrimitive) getParamsJogBlock() (string, error) {
 	case "Incremental":
 		distanceModeWord = "G91"
 	default:
-		panic(fmt.Sprintf("bug: bad distanceMode option: %#v", distanceMode))
+		return "", errors.New("no distance mode set")
 	}
 	fmt.Fprintf(&buf, "%s", distanceModeWord)
 
