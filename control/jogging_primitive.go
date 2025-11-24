@@ -29,6 +29,7 @@ type JoggingPrimitive struct {
 	distanceInputField         *tview.InputField
 	joystickUnitDropDown       *tview.DropDown
 	joystickCancelButton       *tview.Button
+	joystickJogOk              bool
 	// Parameters
 	xInputField                *tview.InputField
 	yInputField                *tview.InputField
@@ -79,6 +80,20 @@ func NewJoggingPrimitive(
 	jp.Flex = joggingFlex
 
 	return jp
+}
+
+func (jp *JoggingPrimitive) setJoystickJogOk() {
+	jp.mu.Lock()
+	jp.joystickJogOk = true
+	if jp.joystickFeedRateInputField.GetText() == "" {
+		jp.joystickJogOk = false
+	}
+	if jp.distanceInputField.GetText() == "" {
+		jp.joystickJogOk = false
+	}
+	jp.mu.Unlock()
+
+	jp.updateDisabled()
 }
 
 func (jp *JoggingPrimitive) newJoystickFlex() *tview.Flex {
@@ -135,16 +150,12 @@ func (jp *JoggingPrimitive) newJoystickFlex() *tview.Flex {
 	parametersForm.AddInputField("Feed rate", "", 0, acceptUFloat, nil)
 	jp.joystickFeedRateInputField = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
-	jp.joystickFeedRateInputField.SetChangedFunc(func(string) {
-		// TODO
-	})
+	jp.joystickFeedRateInputField.SetChangedFunc(func(string) { jp.setJoystickJogOk() })
 
 	parametersForm.AddInputField("Distance", "", 0, acceptUFloat, nil)
 	jp.distanceInputField = parametersForm.
 		GetFormItem(parametersForm.GetFormItemCount() - 1).(*tview.InputField)
-	jp.distanceInputField.SetChangedFunc(func(string) {
-		// TODO
-	})
+	jp.distanceInputField.SetChangedFunc(func(string) { jp.setJoystickJogOk() })
 
 	parametersForm.AddDropDown("Unit", jp.unitOptions, -1, nil)
 	jp.joystickUnitDropDown = parametersForm.
@@ -238,11 +249,7 @@ func (jp *JoggingPrimitive) updateDisabled() {
 	switch jp.machineState.State {
 	case "Idle":
 		// Joystick
-		var jogDisabled bool
-		// TODO
-		// if jp.joystickJogBlock == "" {
-		jogDisabled = true
-		// }
+		jogDisabled := !jp.joystickJogOk
 		jp.xMinusButton.SetDisabled(jogDisabled)
 		jp.xPlusButton.SetDisabled(jogDisabled)
 		jp.yMinusButton.SetDisabled(jogDisabled)
