@@ -114,6 +114,7 @@ func (c *Control) messageProcessorWorker(
 		}
 	}
 }
+
 func (c *Control) startWorker(
 	ctx context.Context, exitFn func(ctx context.Context, stop bool),
 	name string, fn func(context.Context) error,
