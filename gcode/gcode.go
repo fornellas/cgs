@@ -209,6 +209,17 @@ func (b *Block) String() string {
 	return buff.String()
 }
 
+func (b *Block) NormalizedString() string {
+	var buff bytes.Buffer
+	if b.system != nil {
+		buff.WriteString(string(*b.system))
+	}
+	for _, w := range b.words {
+		buff.WriteString(w.NormalizedString())
+	}
+	return buff.String()
+}
+
 // Commands returns all G/M words in the block.
 func (b *Block) Commands() []*Word {
 	var cmds []*Word
