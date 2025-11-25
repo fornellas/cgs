@@ -149,17 +149,13 @@ func splitSemicolonComment(data []byte, atEOF bool) (advance int, token []byte, 
 func splitSystem(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	i := 1
 	for i < len(data) {
-		if data[i] == '\n' {
-			if i > 1 && data[i-1] == '\r' {
-				i--
-				return i, data[:i], nil
-			}
+		if isSpace(data[i]) || isCommentStart(data[i]) || isNewLineStart(data[i]) {
 			return i, data[:i], nil
 		}
 		i++
 	}
 	if atEOF {
-		return len(data), data, nil
+		return i, data[:i], nil
 	}
 	return 0, nil, nil
 }
