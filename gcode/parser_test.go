@@ -725,7 +725,7 @@ func TestParserTestCases(t *testing.T) {
 		{
 			lines: []string{"G1 X1.2.3"},
 			nextReturns: []nextReturn{
-				{errorContains: "bad number"},
+				{errorContains: "invalid number"},
 			},
 		},
 	}
