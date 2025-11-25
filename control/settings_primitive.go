@@ -104,9 +104,12 @@ func NewSettingsPrimitive(
 		controlPrimitive: controlPrimitive,
 	}
 
-	newSettingInputField := func(key, label string) *tview.InputField {
+	newSettingInputField := func(key, label string, width int) *tview.InputField {
 		field := tview.NewInputField()
 		field.SetLabel(label)
+		if width > 0 {
+			field.SetFieldWidth(width)
+		}
 		field.SetDoneFunc(func(tcell.Key) {
 			if sp.skipQueueCommand {
 				return
@@ -167,41 +170,49 @@ func NewSettingsPrimitive(
 		return flex
 	}
 
+	const widthUs = len("1000000 ")
+	const widthMs = len("1000 ")
+	const widthMm = len("2600.000 ")
+	const widthMmMin = len("1000.000 ")
+	const widthRpm = len("10000 ")
+	const widthStepsMm = len("1000.000 ")
+	const widthMmSec2 = len("1000.000 ")
+
 	// Settings: InputFields
-	sp.stepPulse = newSettingInputField("0", "Step pulse(us)")
-	sp.stepIdleDelay = newSettingInputField("1", "Step idle delay(ms)")
+	sp.stepPulse = newSettingInputField("0", "Step pulse(us)", widthUs)
+	sp.stepIdleDelay = newSettingInputField("1", "Step idle delay(ms)", widthMs)
 	sp.stepPortInvertX, sp.stepPortInvertY, sp.stepPortInvertZ = newSettingMask("2")
 	sp.directionPortInvertX, sp.directionPortInvertY, sp.directionPortInvertZ = newSettingMask("3")
 	sp.stepEnableInvert = newSettingCheckbox("4", "Step enable invert")
 	sp.limitPinsInvert = newSettingCheckbox("5", "Limit pins invert")
 	sp.probePinInvert = newSettingCheckbox("6", "Probe pin invert")
-	sp.statusReport = newSettingInputField("10", "Status report(mask)")
-	sp.junctionDeviation = newSettingInputField("11", "Junction deviation(mm)")
-	sp.arcTolerance = newSettingInputField("12", "Arc tolerance(mm)")
+	sp.statusReport = newSettingInputField("10", "Status report(mask)", 2)
+	sp.junctionDeviation = newSettingInputField("11", "Junction deviation(mm)", widthMm)
+	sp.arcTolerance = newSettingInputField("12", "Arc tolerance(mm)", widthMm)
 	sp.reportInches = newSettingCheckbox("13", "Report inches")
 	sp.softLimits = newSettingCheckbox("20", "Soft limits")
 	sp.hardLimits = newSettingCheckbox("21", "Hard limits")
 	sp.homingCycle = newSettingCheckbox("22", "Homing cycle")
 	sp.homingDirInvertX, sp.homingDirInvertY, sp.homingDirInvertZ = newSettingMask("23")
-	sp.homingFeed = newSettingInputField("24", "Homing feed(mm/min)")
-	sp.homingSeek = newSettingInputField("25", "Homing seek(mm/min)")
-	sp.homingDebounce = newSettingInputField("26", "Homing debounce(ms)")
-	sp.homingPullOff = newSettingInputField("27", "Homing pull-off(mm)")
-	sp.maxSpindleSpeed = newSettingInputField("30", "Max spindle speed(RPM)")
-	sp.minSpindleSpeed = newSettingInputField("31", "Min spindle speed(RPM)")
+	sp.homingFeed = newSettingInputField("24", "Homing feed(mm/min)", widthMmMin)
+	sp.homingSeek = newSettingInputField("25", "Homing seek(mm/min)", widthMmMin)
+	sp.homingDebounce = newSettingInputField("26", "Homing debounce(ms)", widthMs)
+	sp.homingPullOff = newSettingInputField("27", "Homing pull-off(mm)", widthMm)
+	sp.maxSpindleSpeed = newSettingInputField("30", "Max spindle speed(RPM)", widthRpm)
+	sp.minSpindleSpeed = newSettingInputField("31", "Min spindle speed(RPM)", widthRpm)
 	sp.laserMode = newSettingCheckbox("32", "Laser mode")
-	sp.xSteps = newSettingInputField("100", "X(steps/mm)")
-	sp.ySteps = newSettingInputField("101", "Y(steps/mm)")
-	sp.zSteps = newSettingInputField("102", "Z(steps/mm)")
-	sp.xMaxRate = newSettingInputField("110", "X Max rate(mm/min)")
-	sp.yMaxRate = newSettingInputField("111", "Y Max rate(mm/min)")
-	sp.zMaxRate = newSettingInputField("112", "Z Max rate(mm/min)")
-	sp.xAcceleration = newSettingInputField("120", "X Acceleration(mm/sec^2)")
-	sp.yAcceleration = newSettingInputField("121", "Y Acceleration(mm/sec^2)")
-	sp.zAcceleration = newSettingInputField("122", "Z Acceleration(mm/sec^2)")
-	sp.xMaxTravel = newSettingInputField("130", "X Max travel(mm)")
-	sp.yMaxTravel = newSettingInputField("131", "Y Max travel(mm)")
-	sp.zMaxTravel = newSettingInputField("132", "Z Max travel(mm)")
+	sp.xSteps = newSettingInputField("100", "X(steps/mm)", widthStepsMm)
+	sp.ySteps = newSettingInputField("101", "Y(steps/mm)", widthStepsMm)
+	sp.zSteps = newSettingInputField("102", "Z(steps/mm)", widthStepsMm)
+	sp.xMaxRate = newSettingInputField("110", "X Max rate(mm/min)", widthMmMin)
+	sp.yMaxRate = newSettingInputField("111", "Y Max rate(mm/min)", widthMmMin)
+	sp.zMaxRate = newSettingInputField("112", "Z Max rate(mm/min)", widthMmMin)
+	sp.xAcceleration = newSettingInputField("120", "X Acceleration(mm/sec^2)", widthMmSec2)
+	sp.yAcceleration = newSettingInputField("121", "Y Acceleration(mm/sec^2)", widthMmSec2)
+	sp.zAcceleration = newSettingInputField("122", "Z Acceleration(mm/sec^2)", widthMmSec2)
+	sp.xMaxTravel = newSettingInputField("130", "X Max travel(mm)", widthMm)
+	sp.yMaxTravel = newSettingInputField("131", "Y Max travel(mm)", widthMm)
+	sp.zMaxTravel = newSettingInputField("132", "Z Max travel(mm)", widthMm)
 
 	// Settings
 	mainSettings := NewScrollContainer()
@@ -243,8 +254,8 @@ func NewSettingsPrimitive(
 	mainSettings.AddPrimitive(sp.zMaxTravel, 1)
 
 	// Startup Lines: Input Fields
-	sp.startupLine0InputField = newSettingInputField("N0", "0")
-	sp.startupLine1InputField = newSettingInputField("N1", "1")
+	sp.startupLine0InputField = newSettingInputField("N0", "0", 0)
+	sp.startupLine1InputField = newSettingInputField("N1", "1", 0)
 
 	// Startup Lines
 	startupLinesFlex := tview.NewFlex()
@@ -258,7 +269,7 @@ func NewSettingsPrimitive(
 	versionTextView := tview.NewTextView()
 	versionTextView.SetLabel("Version")
 	sp.versionTextView = versionTextView
-	sp.infoInputField = newSettingInputField("I", "Info")
+	sp.infoInputField = newSettingInputField("I", "Info", 0)
 	compileTimeOptionsTextView := tview.NewTextView()
 	compileTimeOptionsTextView.SetDynamicColors(true)
 	sp.compileTimeOptionsTextView = compileTimeOptionsTextView
