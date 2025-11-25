@@ -3,6 +3,8 @@ package worker
 import (
 	"context"
 	"errors"
+
+	"github.com/fornellas/slogxt/log"
 )
 
 type worker struct {
@@ -32,7 +34,11 @@ func NewWorkerManager(ctx context.Context) *WorkerManager {
 func (c *WorkerManager) StartWorker(name string, fn func(context.Context) error) {
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- fn(c.ctx)
+		ctx, logger := log.MustWithGroup(c.ctx, name)
+		logger.Debug("Starting")
+		err := fn(ctx)
+		logger.Debug("Finished", "err", err)
+		errCh <- err
 		c.cancelFunc()
 	}()
 	c.workers = append([]worker{{name: name, errCh: errCh}}, c.workers...)
@@ -40,9 +46,12 @@ func (c *WorkerManager) StartWorker(name string, fn func(context.Context) error)
 
 // Wait blocks until all workers have completed and returns any errors that occurred.
 func (c *WorkerManager) Wait() (err error) {
+	logger := log.MustLogger(c.ctx)
+	logger.Debug("Waiting for workers")
 	for _, worker := range c.workers {
 		err = errors.Join(err, <-worker.errCh)
 	}
+	logger.Debug("All workers finished", "err", err)
 	c.workers = nil
 	return
 }
