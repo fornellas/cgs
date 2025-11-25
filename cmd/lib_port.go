@@ -28,7 +28,7 @@ func AddPortFlags(cmd *cobra.Command) {
 
 func GetOpenPortFn() (func(context.Context, *serial.Mode) (serial.Port, error), error) {
 	if portName != "" && address != "" {
-		return nil, fmt.Errorf("flags --port-name and --address can be set simultaneously")
+		return nil, fmt.Errorf("flags --port-name and --address can not be set simultaneously")
 	}
 
 	if portName != "" {
@@ -43,7 +43,7 @@ func GetOpenPortFn() (func(context.Context, *serial.Mode) (serial.Port, error), 
 		}, nil
 	}
 
-	return nil, fmt.Errorf("either --port-name or --address can be set")
+	return nil, fmt.Errorf("either --port-name or --address must be set")
 }
 
 func init() {
