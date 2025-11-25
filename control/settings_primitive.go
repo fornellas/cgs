@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/gdamore/tcell/v2"
@@ -12,45 +13,69 @@ import (
 	grblMod "github.com/fornellas/cgs/grbl"
 )
 
+func maskToCheckboxes(mask int) (x, y, z bool) {
+	return mask&1 != 0, mask&2 != 0, mask&4 != 0
+}
+
+func checkboxesToMask(x, y, z bool) int {
+	mask := 0
+	if x {
+		mask |= 1
+	}
+	if y {
+		mask |= 2
+	}
+	if z {
+		mask |= 4
+	}
+	return mask
+}
+
 type SettingsPrimitive struct {
 	*tview.Flex
 	app              *tview.Application
 	controlPrimitive *ControlPrimitive
 	// Settings
-	stepPulse           *tview.InputField
-	stepIdleDelay       *tview.InputField
-	stepPortInvert      *tview.InputField
-	directionPortInvert *tview.InputField
-	stepEnableInvert    *tview.Checkbox
-	limitPinsInvert     *tview.Checkbox
-	probePinInvert      *tview.Checkbox
-	statusReport        *tview.InputField
-	junctionDeviation   *tview.InputField
-	arcTolerance        *tview.InputField
-	reportInches        *tview.Checkbox
-	softLimits          *tview.Checkbox
-	hardLimits          *tview.Checkbox
-	homingCycle         *tview.Checkbox
-	homingDirInvert     *tview.InputField
-	homingFeed          *tview.InputField
-	homingSeek          *tview.InputField
-	homingDebounce      *tview.InputField
-	homingPullOff       *tview.InputField
-	maxSpindleSpeed     *tview.InputField
-	minSpindleSpeed     *tview.InputField
-	laserMode           *tview.Checkbox
-	xSteps              *tview.InputField
-	ySteps              *tview.InputField
-	zSteps              *tview.InputField
-	xMaxRate            *tview.InputField
-	yMaxRate            *tview.InputField
-	zMaxRate            *tview.InputField
-	xAcceleration       *tview.InputField
-	yAcceleration       *tview.InputField
-	zAcceleration       *tview.InputField
-	xMaxTravel          *tview.InputField
-	yMaxTravel          *tview.InputField
-	zMaxTravel          *tview.InputField
+	stepPulse            *tview.InputField
+	stepIdleDelay        *tview.InputField
+	stepPortInvertX      *tview.Checkbox
+	stepPortInvertY      *tview.Checkbox
+	stepPortInvertZ      *tview.Checkbox
+	directionPortInvertX *tview.Checkbox
+	directionPortInvertY *tview.Checkbox
+	directionPortInvertZ *tview.Checkbox
+	stepEnableInvert     *tview.Checkbox
+	limitPinsInvert      *tview.Checkbox
+	probePinInvert       *tview.Checkbox
+	statusReport         *tview.InputField
+	junctionDeviation    *tview.InputField
+	arcTolerance         *tview.InputField
+	reportInches         *tview.Checkbox
+	softLimits           *tview.Checkbox
+	hardLimits           *tview.Checkbox
+	homingCycle          *tview.Checkbox
+	homingDirInvertX     *tview.Checkbox
+	homingDirInvertY     *tview.Checkbox
+	homingDirInvertZ     *tview.Checkbox
+	homingFeed           *tview.InputField
+	homingSeek           *tview.InputField
+	homingDebounce       *tview.InputField
+	homingPullOff        *tview.InputField
+	maxSpindleSpeed      *tview.InputField
+	minSpindleSpeed      *tview.InputField
+	laserMode            *tview.Checkbox
+	xSteps               *tview.InputField
+	ySteps               *tview.InputField
+	zSteps               *tview.InputField
+	xMaxRate             *tview.InputField
+	yMaxRate             *tview.InputField
+	zMaxRate             *tview.InputField
+	xAcceleration        *tview.InputField
+	yAcceleration        *tview.InputField
+	zAcceleration        *tview.InputField
+	xMaxTravel           *tview.InputField
+	yMaxTravel           *tview.InputField
+	zMaxTravel           *tview.InputField
 	// Startup Lines
 	startupLine0InputField *tview.InputField
 	startupLine1InputField *tview.InputField
@@ -65,7 +90,8 @@ type SettingsPrimitive struct {
 	// Messages
 	machineState grblMod.StatusReportMachineState
 
-	mu sync.Mutex
+	mu               sync.Mutex
+	skipQueueCommand bool
 }
 
 func NewSettingsPrimitive(
@@ -78,19 +104,25 @@ func NewSettingsPrimitive(
 		controlPrimitive: controlPrimitive,
 	}
 
-	newQueueSettingInputField := func(key, label string) *tview.InputField {
+	newSettingInputField := func(key, label string) *tview.InputField {
 		field := tview.NewInputField()
 		field.SetLabel(label)
 		field.SetDoneFunc(func(tcell.Key) {
+			if sp.skipQueueCommand {
+				return
+			}
 			sp.controlPrimitive.QueueCommand(fmt.Sprintf("$%s=%s", key, field.GetText()))
 		})
 		return field
 	}
 
-	newQueueSettingCheckbox := func(key, label string) *tview.Checkbox {
+	newSettingCheckbox := func(key, label string) *tview.Checkbox {
 		cb := tview.NewCheckbox()
 		cb.SetLabel(label)
 		cb.SetChangedFunc(func(checked bool) {
+			if sp.skipQueueCommand {
+				return
+			}
 			value := "0"
 			if checked {
 				value = "1"
@@ -100,41 +132,76 @@ func NewSettingsPrimitive(
 		return cb
 	}
 
+	newSettingMask := func(key string) (*tview.Checkbox, *tview.Checkbox, *tview.Checkbox) {
+		x := tview.NewCheckbox()
+		x.SetLabel("X")
+		y := tview.NewCheckbox()
+		y.SetLabel("Y")
+		z := tview.NewCheckbox()
+		z.SetLabel("Z")
+
+		updateMask := func() {
+			if sp.skipQueueCommand {
+				return
+			}
+			mask := checkboxesToMask(x.IsChecked(), y.IsChecked(), z.IsChecked())
+			sp.controlPrimitive.QueueCommand(fmt.Sprintf("$%s=%d", key, mask))
+		}
+
+		x.SetChangedFunc(func(bool) { updateMask() })
+		y.SetChangedFunc(func(bool) { updateMask() })
+		z.SetChangedFunc(func(bool) { updateMask() })
+
+		return x, y, z
+	}
+
+	newSettingMaskContainer := func(label string, x, y, z *tview.Checkbox) tview.Primitive {
+		flex := tview.NewFlex()
+		flex.SetDirection(tview.FlexColumn)
+		labelView := tview.NewTextView()
+		labelView.SetText(label)
+		flex.AddItem(labelView, len(label)+1, 0, false)
+		flex.AddItem(x, 3, 0, false)
+		flex.AddItem(y, 3, 0, false)
+		flex.AddItem(z, 3, 0, false)
+		return flex
+	}
+
 	// Settings: InputFields
-	sp.stepPulse = newQueueSettingInputField("0", "Step pulse(us)")
-	sp.stepIdleDelay = newQueueSettingInputField("1", "Step idle delay(ms)")
-	sp.stepPortInvert = newQueueSettingInputField("2", "Step port invert(mask)")
-	sp.directionPortInvert = newQueueSettingInputField("3", "Direction port invert(mask)")
-	sp.stepEnableInvert = newQueueSettingCheckbox("4", "Step enable invert")
-	sp.limitPinsInvert = newQueueSettingCheckbox("5", "Limit pins invert")
-	sp.probePinInvert = newQueueSettingCheckbox("6", "Probe pin invert")
-	sp.statusReport = newQueueSettingInputField("10", "Status report(mask)")
-	sp.junctionDeviation = newQueueSettingInputField("11", "Junction deviation(mm)")
-	sp.arcTolerance = newQueueSettingInputField("12", "Arc tolerance(mm)")
-	sp.reportInches = newQueueSettingCheckbox("13", "Report inches")
-	sp.softLimits = newQueueSettingCheckbox("20", "Soft limits")
-	sp.hardLimits = newQueueSettingCheckbox("21", "Hard limits")
-	sp.homingCycle = newQueueSettingCheckbox("22", "Homing cycle")
-	sp.homingDirInvert = newQueueSettingInputField("23", "Homing dir invert(mask)")
-	sp.homingFeed = newQueueSettingInputField("24", "Homing feed(mm/min)")
-	sp.homingSeek = newQueueSettingInputField("25", "Homing seek(mm/min)")
-	sp.homingDebounce = newQueueSettingInputField("26", "Homing debounce(ms)")
-	sp.homingPullOff = newQueueSettingInputField("27", "Homing pull-off(mm)")
-	sp.maxSpindleSpeed = newQueueSettingInputField("30", "Max spindle speed(RPM)")
-	sp.minSpindleSpeed = newQueueSettingInputField("31", "Min spindle speed(RPM)")
-	sp.laserMode = newQueueSettingCheckbox("32", "Laser mode")
-	sp.xSteps = newQueueSettingInputField("100", "X(steps/mm)")
-	sp.ySteps = newQueueSettingInputField("101", "Y(steps/mm)")
-	sp.zSteps = newQueueSettingInputField("102", "Z(steps/mm)")
-	sp.xMaxRate = newQueueSettingInputField("110", "X Max rate(mm/min)")
-	sp.yMaxRate = newQueueSettingInputField("111", "Y Max rate(mm/min)")
-	sp.zMaxRate = newQueueSettingInputField("112", "Z Max rate(mm/min)")
-	sp.xAcceleration = newQueueSettingInputField("120", "X Acceleration(mm/sec^2)")
-	sp.yAcceleration = newQueueSettingInputField("121", "Y Acceleration(mm/sec^2)")
-	sp.zAcceleration = newQueueSettingInputField("122", "Z Acceleration(mm/sec^2)")
-	sp.xMaxTravel = newQueueSettingInputField("130", "X Max travel(mm)")
-	sp.yMaxTravel = newQueueSettingInputField("131", "Y Max travel(mm)")
-	sp.zMaxTravel = newQueueSettingInputField("132", "Z Max travel(mm)")
+	sp.stepPulse = newSettingInputField("0", "Step pulse(us)")
+	sp.stepIdleDelay = newSettingInputField("1", "Step idle delay(ms)")
+	sp.stepPortInvertX, sp.stepPortInvertY, sp.stepPortInvertZ = newSettingMask("2")
+	sp.directionPortInvertX, sp.directionPortInvertY, sp.directionPortInvertZ = newSettingMask("3")
+	sp.stepEnableInvert = newSettingCheckbox("4", "Step enable invert")
+	sp.limitPinsInvert = newSettingCheckbox("5", "Limit pins invert")
+	sp.probePinInvert = newSettingCheckbox("6", "Probe pin invert")
+	sp.statusReport = newSettingInputField("10", "Status report(mask)")
+	sp.junctionDeviation = newSettingInputField("11", "Junction deviation(mm)")
+	sp.arcTolerance = newSettingInputField("12", "Arc tolerance(mm)")
+	sp.reportInches = newSettingCheckbox("13", "Report inches")
+	sp.softLimits = newSettingCheckbox("20", "Soft limits")
+	sp.hardLimits = newSettingCheckbox("21", "Hard limits")
+	sp.homingCycle = newSettingCheckbox("22", "Homing cycle")
+	sp.homingDirInvertX, sp.homingDirInvertY, sp.homingDirInvertZ = newSettingMask("23")
+	sp.homingFeed = newSettingInputField("24", "Homing feed(mm/min)")
+	sp.homingSeek = newSettingInputField("25", "Homing seek(mm/min)")
+	sp.homingDebounce = newSettingInputField("26", "Homing debounce(ms)")
+	sp.homingPullOff = newSettingInputField("27", "Homing pull-off(mm)")
+	sp.maxSpindleSpeed = newSettingInputField("30", "Max spindle speed(RPM)")
+	sp.minSpindleSpeed = newSettingInputField("31", "Min spindle speed(RPM)")
+	sp.laserMode = newSettingCheckbox("32", "Laser mode")
+	sp.xSteps = newSettingInputField("100", "X(steps/mm)")
+	sp.ySteps = newSettingInputField("101", "Y(steps/mm)")
+	sp.zSteps = newSettingInputField("102", "Z(steps/mm)")
+	sp.xMaxRate = newSettingInputField("110", "X Max rate(mm/min)")
+	sp.yMaxRate = newSettingInputField("111", "Y Max rate(mm/min)")
+	sp.zMaxRate = newSettingInputField("112", "Z Max rate(mm/min)")
+	sp.xAcceleration = newSettingInputField("120", "X Acceleration(mm/sec^2)")
+	sp.yAcceleration = newSettingInputField("121", "Y Acceleration(mm/sec^2)")
+	sp.zAcceleration = newSettingInputField("122", "Z Acceleration(mm/sec^2)")
+	sp.xMaxTravel = newSettingInputField("130", "X Max travel(mm)")
+	sp.yMaxTravel = newSettingInputField("131", "Y Max travel(mm)")
+	sp.zMaxTravel = newSettingInputField("132", "Z Max travel(mm)")
 
 	// Settings
 	mainSettings := NewScrollContainer()
@@ -142,8 +209,8 @@ func NewSettingsPrimitive(
 	mainSettings.SetTitle("Settings")
 	mainSettings.AddPrimitive(sp.stepPulse, 1)
 	mainSettings.AddPrimitive(sp.stepIdleDelay, 1)
-	mainSettings.AddPrimitive(sp.stepPortInvert, 1)
-	mainSettings.AddPrimitive(sp.directionPortInvert, 1)
+	mainSettings.AddPrimitive(newSettingMaskContainer("Step port invert", sp.stepPortInvertX, sp.stepPortInvertY, sp.stepPortInvertZ), 1)
+	mainSettings.AddPrimitive(newSettingMaskContainer("Direction port invert", sp.directionPortInvertX, sp.directionPortInvertY, sp.directionPortInvertZ), 1)
 	mainSettings.AddPrimitive(sp.stepEnableInvert, 1)
 	mainSettings.AddPrimitive(sp.limitPinsInvert, 1)
 	mainSettings.AddPrimitive(sp.probePinInvert, 1)
@@ -154,7 +221,7 @@ func NewSettingsPrimitive(
 	mainSettings.AddPrimitive(sp.softLimits, 1)
 	mainSettings.AddPrimitive(sp.hardLimits, 1)
 	mainSettings.AddPrimitive(sp.homingCycle, 1)
-	mainSettings.AddPrimitive(sp.homingDirInvert, 1)
+	mainSettings.AddPrimitive(newSettingMaskContainer("Homing dir invert", sp.homingDirInvertX, sp.homingDirInvertY, sp.homingDirInvertZ), 1)
 	mainSettings.AddPrimitive(sp.homingFeed, 1)
 	mainSettings.AddPrimitive(sp.homingSeek, 1)
 	mainSettings.AddPrimitive(sp.homingDebounce, 1)
@@ -176,8 +243,8 @@ func NewSettingsPrimitive(
 	mainSettings.AddPrimitive(sp.zMaxTravel, 1)
 
 	// Startup Lines: Input Fields
-	sp.startupLine0InputField = newQueueSettingInputField("N0", "0")
-	sp.startupLine1InputField = newQueueSettingInputField("N1", "1")
+	sp.startupLine0InputField = newSettingInputField("N0", "0")
+	sp.startupLine1InputField = newSettingInputField("N1", "1")
 
 	// Startup Lines
 	startupLinesFlex := tview.NewFlex()
@@ -191,7 +258,7 @@ func NewSettingsPrimitive(
 	versionTextView := tview.NewTextView()
 	versionTextView.SetLabel("Version")
 	sp.versionTextView = versionTextView
-	sp.infoInputField = newQueueSettingInputField("I", "Info")
+	sp.infoInputField = newSettingInputField("I", "Info")
 	compileTimeOptionsTextView := tview.NewTextView()
 	compileTimeOptionsTextView.SetDynamicColors(true)
 	sp.compileTimeOptionsTextView = compileTimeOptionsTextView
@@ -245,16 +312,24 @@ func NewSettingsPrimitive(
 	settingsRootFlex.AddItem(otherSettingsFlex, 0, 1, false)
 	sp.Flex = settingsRootFlex
 
+	sp.updateDisabled()
+
 	return sp
 }
 
 func (sp *SettingsPrimitive) processMessagePushWelcome() {
 	sp.app.QueueUpdateDraw(func() {
+		sp.skipQueueCommand = true
+		defer func() { sp.skipQueueCommand = false }()
 		// Settings
 		sp.stepPulse.SetText("")
 		sp.stepIdleDelay.SetText("")
-		sp.stepPortInvert.SetText("")
-		sp.directionPortInvert.SetText("")
+		sp.stepPortInvertX.SetChecked(false)
+		sp.stepPortInvertY.SetChecked(false)
+		sp.stepPortInvertZ.SetChecked(false)
+		sp.directionPortInvertX.SetChecked(false)
+		sp.directionPortInvertY.SetChecked(false)
+		sp.directionPortInvertZ.SetChecked(false)
 		sp.stepEnableInvert.SetChecked(false)
 		sp.limitPinsInvert.SetChecked(false)
 		sp.probePinInvert.SetChecked(false)
@@ -265,7 +340,9 @@ func (sp *SettingsPrimitive) processMessagePushWelcome() {
 		sp.softLimits.SetChecked(false)
 		sp.hardLimits.SetChecked(false)
 		sp.homingCycle.SetChecked(false)
-		sp.homingDirInvert.SetText("")
+		sp.homingDirInvertX.SetChecked(false)
+		sp.homingDirInvertY.SetChecked(false)
+		sp.homingDirInvertZ.SetChecked(false)
 		sp.homingFeed.SetText("")
 		sp.homingSeek.SetText("")
 		sp.homingDebounce.SetText("")
@@ -297,11 +374,15 @@ func (sp *SettingsPrimitive) processMessagePushVersion(messagePushVersion *grblM
 	sp.app.QueueUpdateDraw(func() {
 		versionText := tview.Escape(messagePushVersion.Version)
 		if versionText != sp.versionTextView.GetText(false) {
+			sp.skipQueueCommand = true
 			sp.versionTextView.SetText(versionText)
+			sp.skipQueueCommand = false
 		}
 		infoText := tview.Escape(messagePushVersion.Info)
 		if infoText != sp.infoInputField.GetText() {
+			sp.skipQueueCommand = true
 			sp.infoInputField.SetText(infoText)
+			sp.skipQueueCommand = false
 		}
 	})
 }
@@ -320,13 +401,17 @@ func (sp *SettingsPrimitive) processMessagePushCompileTimeOptions(messagePushCom
 		if buf.String() == sp.compileTimeOptionsTextView.GetText(false) {
 			return
 		}
+		sp.skipQueueCommand = true
 		sp.compileTimeOptionsTextView.SetText(buf.String())
+		sp.skipQueueCommand = false
 	})
 }
 
 //gocyclo:ignore
 func (sp *SettingsPrimitive) processMessagePushSetting(messagePushSetting *grblMod.MessagePushSetting) {
 	sp.app.QueueUpdateDraw(func() {
+		sp.skipQueueCommand = true
+		defer func() { sp.skipQueueCommand = false }()
 		switch messagePushSetting.Key {
 		// Settings
 		case "0":
@@ -334,9 +419,23 @@ func (sp *SettingsPrimitive) processMessagePushSetting(messagePushSetting *grblM
 		case "1":
 			sp.stepIdleDelay.SetText(messagePushSetting.Value)
 		case "2":
-			sp.stepPortInvert.SetText(messagePushSetting.Value)
+			mask, err := strconv.Atoi(messagePushSetting.Value)
+			if err != nil {
+				panic(fmt.Sprintf("failed to parse: %s: %s", messagePushSetting, err))
+			}
+			x, y, z := maskToCheckboxes(mask)
+			sp.stepPortInvertX.SetChecked(x)
+			sp.stepPortInvertY.SetChecked(y)
+			sp.stepPortInvertZ.SetChecked(z)
 		case "3":
-			sp.directionPortInvert.SetText(messagePushSetting.Value)
+			mask, err := strconv.Atoi(messagePushSetting.Value)
+			if err != nil {
+				panic(fmt.Sprintf("failed to parse: %s: %s", messagePushSetting, err))
+			}
+			x, y, z := maskToCheckboxes(mask)
+			sp.directionPortInvertX.SetChecked(x)
+			sp.directionPortInvertY.SetChecked(y)
+			sp.directionPortInvertZ.SetChecked(z)
 		case "4":
 			sp.stepEnableInvert.SetChecked(messagePushSetting.Value != "0")
 		case "5":
@@ -358,7 +457,14 @@ func (sp *SettingsPrimitive) processMessagePushSetting(messagePushSetting *grblM
 		case "22":
 			sp.homingCycle.SetChecked(messagePushSetting.Value != "0")
 		case "23":
-			sp.homingDirInvert.SetText(messagePushSetting.Value)
+			mask, err := strconv.Atoi(messagePushSetting.Value)
+			if err != nil {
+				panic(fmt.Sprintf("failed to parse: %s: %s", messagePushSetting, err))
+			}
+			x, y, z := maskToCheckboxes(mask)
+			sp.homingDirInvertX.SetChecked(x)
+			sp.homingDirInvertY.SetChecked(y)
+			sp.homingDirInvertZ.SetChecked(z)
 		case "24":
 			sp.homingFeed.SetText(messagePushSetting.Value)
 		case "25":
@@ -413,8 +519,12 @@ func (sp *SettingsPrimitive) updateDisabled() {
 	// Settings
 	sp.stepPulse.SetDisabled(disabled)
 	sp.stepIdleDelay.SetDisabled(disabled)
-	sp.stepPortInvert.SetDisabled(disabled)
-	sp.directionPortInvert.SetDisabled(disabled)
+	sp.stepPortInvertX.SetDisabled(disabled)
+	sp.stepPortInvertY.SetDisabled(disabled)
+	sp.stepPortInvertZ.SetDisabled(disabled)
+	sp.directionPortInvertX.SetDisabled(disabled)
+	sp.directionPortInvertY.SetDisabled(disabled)
+	sp.directionPortInvertZ.SetDisabled(disabled)
 	sp.stepEnableInvert.SetDisabled(disabled)
 	sp.limitPinsInvert.SetDisabled(disabled)
 	sp.probePinInvert.SetDisabled(disabled)
@@ -425,7 +535,9 @@ func (sp *SettingsPrimitive) updateDisabled() {
 	sp.softLimits.SetDisabled(disabled)
 	sp.hardLimits.SetDisabled(disabled)
 	sp.homingCycle.SetDisabled(disabled)
-	sp.homingDirInvert.SetDisabled(disabled)
+	sp.homingDirInvertX.SetDisabled(disabled)
+	sp.homingDirInvertY.SetDisabled(disabled)
+	sp.homingDirInvertZ.SetDisabled(disabled)
 	sp.homingFeed.SetDisabled(disabled)
 	sp.homingSeek.SetDisabled(disabled)
 	sp.homingDebounce.SetDisabled(disabled)
