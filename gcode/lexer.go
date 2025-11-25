@@ -51,7 +51,7 @@ type Tokens []*Token
 func (ts Tokens) String() string {
 	var buf bytes.Buffer
 	for _, token := range ts {
-		fmt.Fprintf(&buf, "%s ", token)
+		fmt.Fprintf(&buf, "%s", token)
 	}
 	return buf.String()
 }
