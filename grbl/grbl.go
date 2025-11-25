@@ -4,12 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"go.bug.st/serial"
+
+	"github.com/fornellas/cgs/gcode"
+	"github.com/fornellas/cgs/worker"
 )
 
 type Grbl struct {
@@ -39,13 +43,13 @@ func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
 	line := []byte{}
 	for {
 		if err := ctx.Err(); err != nil {
-			return nil, fmt.Errorf("grbl: receive message: context error: %w", err)
+			return nil, fmt.Errorf("receive message: context error: %w", err)
 		}
 		b := make([]byte, 1)
 
 		n, err := g.port.Read(b)
 		if err != nil && !errors.Is(err, os.ErrDeadlineExceeded) {
-			return nil, fmt.Errorf("grbl: receive message: read error: %w", err)
+			return nil, fmt.Errorf("receive message: read error: %w", err)
 		}
 		if n == 0 {
 			continue
@@ -62,7 +66,7 @@ func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
 
 	message, err := NewMessage(string(line))
 	if err != nil {
-		return nil, fmt.Errorf("grbl: receive message: bad message: %w", err)
+		return nil, fmt.Errorf("receive message: bad message: %w", err)
 	}
 
 	if _, ok := message.(*MessagePushWelcome); ok {
@@ -170,16 +174,16 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 
 	port, err := g.openPortFn(ctx, mode)
 	if err != nil {
-		return nil, fmt.Errorf("grbl: serial port open error: %w", err)
+		return nil, fmt.Errorf("serial port open error: %w", err)
 	}
 
 	// we need to set this to allow polling reads to support context cancellation / timeout
 	if err := port.SetReadTimeout(100 * time.Millisecond); err != nil {
 		closeErr := port.Close()
 		if closeErr != nil {
-			closeErr = fmt.Errorf("grbl: serial port close error: %w", closeErr)
+			closeErr = fmt.Errorf("serial port close error: %w", closeErr)
 		}
-		return nil, errors.Join(fmt.Errorf("grbl: error setting read timeout: %w", err), closeErr)
+		return nil, errors.Join(fmt.Errorf("error setting read timeout: %w", err), closeErr)
 	}
 
 	g.dataMu.Lock()
@@ -244,16 +248,38 @@ func (g *Grbl) SendRealTimeCommand(cmd RealTimeCommand) error {
 	g.dataMu.Lock()
 	defer g.dataMu.Unlock()
 	if g.port == nil {
-		return fmt.Errorf("grbl: disconnected")
+		return fmt.Errorf("disconnected")
 	}
 	data := []byte{byte(cmd)}
 	n, err := g.port.Write(data)
 	if err != nil {
-		return fmt.Errorf("grbl: write to serial port error: %w", err)
+		return fmt.Errorf("write to serial port error: %w", err)
 	}
 	if n != len(data) {
-		return fmt.Errorf("grbl: write to serial port error: wrote %d bytes, expected %d", n, len(data))
+		return fmt.Errorf("write to serial port error: wrote %d bytes, expected %d", n, len(data))
 	}
+	return nil
+}
+
+// If a previous command context is cancelled / deadline was exceeded before the response
+// message is processed, it'll still be in the buffer. This ensures the buffer is empty before
+// we send the next command, ensuring the response message we get, is related to this command,
+// not the previous.
+func (g *Grbl) emptyResponseMessageCh(ctx context.Context) error {
+	for {
+		if len(g.responseMessageCh) == 0 {
+			break
+		}
+		select {
+		case _, ok := <-g.responseMessageCh:
+			if !ok {
+				return fmt.Errorf("command failed: response message channel is closed")
+			}
+		case <-ctx.Done():
+			return fmt.Errorf("command failed: %w", ctx.Err())
+		}
+	}
+
 	return nil
 }
 
@@ -270,49 +296,118 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (*MessageRespons
 	g.dataMu.Lock()
 	if g.port == nil {
 		g.dataMu.Unlock()
-		return nil, fmt.Errorf("grbl: disconnected")
+		return nil, fmt.Errorf("disconnected")
 	}
 	line := append([]byte(command), '\n')
 	n, err := g.port.Write(line)
 	g.dataMu.Unlock()
 	if err != nil {
-		return nil, fmt.Errorf("grbl: write to serial port error: %w", err)
+		return nil, fmt.Errorf("write to serial port error: %w", err)
 	}
 	if n != len(line) {
-		return nil, fmt.Errorf("grbl: write to serial port error: wrote %d bytes, expected %d", n, len(command))
+		return nil, fmt.Errorf("write to serial port error: wrote %d bytes, expected %d", n, len(command))
 	}
 
 	var ok bool
 
-	// If a previous command context is cancelled / deadline was exceeded before the response
-	// message is processed, it'll still be in the buffer. This ensures the buffer is empty before
-	// we send the next command, ensuring the response message we get, is related to this command,
-	// not the previous.
-	for {
-		if len(g.responseMessageCh) == 0 {
-			break
-		}
-		select {
-		case _, ok = <-g.responseMessageCh:
-			if !ok {
-				return nil, fmt.Errorf("grbl: command failed: response message channel is closed")
-			}
-		case <-ctx.Done():
-			return nil, fmt.Errorf("grbl: command failed: %w", ctx.Err())
-		}
+	if err := g.emptyResponseMessageCh(ctx); err != nil {
+		return nil, err
 	}
 
 	var message Message
 	select {
 	case message, ok = <-g.responseMessageCh:
 		if !ok {
-			return nil, fmt.Errorf("grbl: command failed: response message channel is closed")
+			return nil, fmt.Errorf("command failed: response message channel is closed")
 		}
 	case <-ctx.Done():
-		return nil, fmt.Errorf("grbl: command failed: %w", ctx.Err())
+		return nil, fmt.Errorf("command failed: %w", ctx.Err())
 	}
 
 	return message.(*MessageResponse), nil
+}
+
+func (g *Grbl) streamCommandsWorker(
+	ctx context.Context, r io.Reader, sentBytesCh, receivedBytesCh chan int,
+) error {
+	// TODO call $I to check [OPT: response to fetch serial RX buffer bytes
+	var maxSerialRxBufferBytes = 128
+	var availableSerialRxBufferBytes = maxSerialRxBufferBytes
+
+	parser := gcode.NewParser(r)
+	parserReader := gcode.NewParserReader(parser)
+
+	for {
+		if availableSerialRxBufferBytes == 0 {
+			// FIXME handle: context cancellation, chanenl closed
+			availableSerialRxBufferBytes += <-receivedBytesCh
+		}
+
+		data := make([]byte, availableSerialRxBufferBytes)
+		n, err := parserReader.Read(data)
+		if err != nil && err != io.EOF {
+			return err
+		}
+
+		if n > 0 {
+			n, err := g.port.Write(data[:n])
+			if err != nil {
+				return fmt.Errorf("write to serial port error: %w", err)
+			}
+			if n != len(data) {
+				return fmt.Errorf("write to serial port error: wrote %d bytes, expected %d", n, len(data))
+			}
+		}
+
+		sentBytesCh <- n
+		if err == io.EOF {
+			<-ctx.Done()
+			return nil
+		}
+	}
+}
+
+func (g *Grbl) streamResponseMessagesWorker(ctx context.Context, sentBytesCh, receivedBytesCh chan int) error {
+	for {
+		select {
+		case message, ok := <-g.responseMessageCh:
+			if !ok {
+				return fmt.Errorf("response message failed: channel is closed")
+			}
+			messageResponse := message.(*MessageResponse)
+			if messageResponse.Error() != nil {
+				return fmt.Errorf("response message failed: %w", messageResponse.Error())
+			}
+			receivedBytesCh <- (<-sentBytesCh)
+		case <-ctx.Done():
+			return fmt.Errorf("response message failed: %w", ctx.Err())
+		}
+	}
+}
+
+func (g *Grbl) Stream(ctx context.Context, r io.Reader) error {
+	g.commandMu.Lock()
+	defer g.commandMu.Unlock()
+
+	if err := g.emptyResponseMessageCh(ctx); err != nil {
+		return err
+	}
+
+	sentBytesCh := make(chan int, 128)
+	receivedBytesCh := make(chan int, 128)
+
+	workerManager := worker.NewWorkerManager(ctx)
+	workerManager.StartWorker("stream commands", func(ctx context.Context) error {
+		defer close(sentBytesCh)
+		return g.streamCommandsWorker(ctx, r, sentBytesCh, receivedBytesCh)
+	})
+
+	workerManager.StartWorker("response messages", func(ctx context.Context) error {
+		defer close(receivedBytesCh)
+		return g.streamResponseMessagesWorker(ctx, sentBytesCh, receivedBytesCh)
+	})
+
+	return workerManager.Wait()
 }
 
 // Disconnect will stop all goroutines and close the serial port.
