@@ -186,7 +186,7 @@ func splitNumber(data []byte, atEOF bool) (advance int, token []byte, err error)
 		if isSpace(data[i]) || isCommentStart(data[i]) || isLetterStart(data[i]) || isNewLineStart(data[i]) {
 			return i, data[:i], nil
 		}
-		return 0, nil, nil
+		return 0, nil, fmt.Errorf("invalid number: %c", data[i])
 	}
 	if atEOF {
 		return i, data[:i], nil

@@ -233,9 +233,8 @@ func (p *Parser) handleTokenTypeNewLine() (bool, error) {
 				p.block.AppendCommandWords(p.words...)
 			}
 		}
-		return true, nil
 	}
-	return false, nil
+	return true, nil
 }
 
 func (p *Parser) handleToken(token *Token) (bool, error) {
