@@ -226,7 +226,12 @@ func (p *Parser) handleTokenTypeNewLine() (bool, error) {
 		if p.block == nil {
 			p.block = NewBlockCommand(p.words...)
 		} else {
-			p.block.AppendCommandWords(p.words...)
+			if len(p.words) > 0 {
+				if !p.block.IsCommand() {
+					panic(fmt.Sprintf("bug: pending words for non-command block: %#v, %#v", p.words, p.block))
+				}
+				p.block.AppendCommandWords(p.words...)
+			}
 		}
 		return true, nil
 	}
@@ -241,7 +246,7 @@ func (p *Parser) handleToken(token *Token) (bool, error) {
 		return false, nil
 	case TokenTypeSystem:
 		p.block = NewBlockSystem(string(token.Value))
-		return true, nil
+		return false, nil
 	case TokenTypeWordLetter:
 		return p.handleTokenTypeLetter(token)
 	case TokenTypeWordNumber:

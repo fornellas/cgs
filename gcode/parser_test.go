@@ -2,8 +2,10 @@ package gcode
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -106,7 +108,7 @@ func filterGcodeLines(t *testing.T, path string) []string {
 	return filteredLines
 }
 
-func TestParser(t *testing.T) {
+func TestParserWithTestData(t *testing.T) {
 	matches, err := filepath.Glob("testdata/*.nc")
 	require.NoError(t, err)
 	require.NotEmpty(t, matches)
@@ -132,6 +134,66 @@ func TestParser(t *testing.T) {
 
 			filteredLines := filterGcodeLines(t, path)
 			require.Equal(t, filteredLines, parsedLines)
+		})
+	}
+}
+
+func TestParserTestCases(t *testing.T) {
+	type nextReturn struct {
+		eof   bool
+		block *Block
+		err   error
+	}
+	testCases := []struct {
+		lines       []string
+		nextReturns []nextReturn
+	}{
+		{
+			lines: []string{" G0 ; foo"},
+			nextReturns: []nextReturn{
+				{eof: true, block: NewBlockCommand(NewWord('G', 0)), err: nil},
+			},
+		},
+		{
+			lines: []string{" $$ ; foo"},
+			nextReturns: []nextReturn{
+				{eof: true, block: NewBlockSystem("$$"), err: nil},
+			},
+		},
+		{
+			lines: []string{
+				" G1 ; foo",
+				"; bar",
+			},
+			nextReturns: []nextReturn{
+				{eof: false, block: NewBlockCommand(NewWord('G', 1)), err: nil},
+				{eof: true, err: nil},
+			},
+		},
+	}
+
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("Test Case #%d", i), func(t *testing.T) {
+			parser := NewParser(strings.NewReader(strings.Join(tc.lines, "\n")))
+			for j, nextReturn := range tc.nextReturns {
+				eof, block, tokens, err := parser.Next()
+				for _, token := range tokens {
+					t.Logf("> %s : %#v", token.Type, string(token.Value))
+				}
+				require.Equal(t, nextReturn.eof, eof)
+				if nextReturn.block != nil {
+					require.NotNil(t, block)
+					require.Equal(t, nextReturn.block.NormalizedString(), block.NormalizedString())
+				} else {
+					require.Nil(t, block)
+				}
+				nl := ""
+				if j < len(tc.lines)-1 {
+					nl = "\n"
+				}
+				require.Equal(t, tc.lines[j]+nl, tokens.String())
+				require.Equal(t, nextReturn.err, err)
+			}
 		})
 	}
 }
