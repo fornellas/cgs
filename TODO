@@ -18,7 +18,6 @@ Features
         Settings
             SetDisable based on state / reset
             Settings
-                TODO apply each setting
                 TODO set width for each setting input field
             Startup Lines
                 $N (Print startup lines)
