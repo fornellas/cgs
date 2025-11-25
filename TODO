@@ -11,7 +11,6 @@ Features
                 UI setting
             Auto Complete
         Jogging
-            Set default feed rate max($110, $111, $112)
             Limit Jogging to work area fetched from $$
         Stream
             TBD
@@ -37,7 +36,6 @@ Features
         Scrolling
             Only scroll to end if view position is already at the end
                 if not, change color to indicate there's new text
-        TCP serial port server from https://github.com/fornellas/serialtcp
         Keyboard navigation (tab / btab / arrows etc)
         Codebase
             Add internal/
