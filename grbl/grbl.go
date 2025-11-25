@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"sync"
@@ -14,7 +13,8 @@ import (
 )
 
 type Grbl struct {
-	mu                         sync.Mutex
+	dataMu                     sync.Mutex
+	commandMu                  sync.Mutex
 	openPortFn                 func(context.Context, *serial.Mode) (serial.Port, error)
 	port                       serial.Port
 	workCoordinateOffset       *StatusReportWorkCoordinateOffset
@@ -66,16 +66,16 @@ func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
 	}
 
 	if _, ok := message.(*MessagePushWelcome); ok {
-		g.mu.Lock()
+		g.dataMu.Lock()
 		g.workCoordinateOffset = nil
 		g.overrideValues = nil
 		g.gcodeParameters = &GcodeParameters{}
 		g.accessoryState = nil
-		g.mu.Unlock()
+		g.dataMu.Unlock()
 	}
 
 	if messagePushStatusReport, ok := message.(*MessagePushStatusReport); ok {
-		g.mu.Lock()
+		g.dataMu.Lock()
 		if messagePushStatusReport.WorkCoordinateOffset != nil {
 			g.workCoordinateOffset = messagePushStatusReport.WorkCoordinateOffset
 		}
@@ -85,13 +85,13 @@ func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
 		if messagePushStatusReport.AccessoryState != nil {
 			g.accessoryState = messagePushStatusReport.AccessoryState
 		}
-		g.mu.Unlock()
+		g.dataMu.Unlock()
 	}
 
 	if messagePushGcodeParam, ok := message.(*MessagePushGcodeParam); ok {
-		g.mu.Lock()
+		g.dataMu.Lock()
 		g.gcodeParameters.Update(messagePushGcodeParam)
-		g.mu.Unlock()
+		g.dataMu.Unlock()
 	}
 
 	return message, nil
@@ -104,10 +104,10 @@ func (g *Grbl) messageReceiverWorker(ctx context.Context) {
 			if errors.Is(err, context.Canceled) {
 				err = nil
 			}
-			g.mu.Lock()
+			g.dataMu.Lock()
 			close(g.pushMessageCh)
 			g.pushMessageCh = nil
-			g.mu.Unlock()
+			g.dataMu.Unlock()
 			g.messageReceiverWorkerErrCh <- err
 			return
 		}
@@ -125,10 +125,10 @@ func (g *Grbl) messageReceiverWorker(ctx context.Context) {
 		select {
 		case messageCh <- message:
 		case <-ctx.Done():
-			g.mu.Lock()
+			g.dataMu.Lock()
 			close(g.pushMessageCh)
 			g.pushMessageCh = nil
-			g.mu.Unlock()
+			g.dataMu.Unlock()
 			g.messageReceiverWorkerErrCh <- nil
 			return
 		}
@@ -182,7 +182,7 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 		return nil, errors.Join(fmt.Errorf("grbl: error setting read timeout: %w", err), closeErr)
 	}
 
-	g.mu.Lock()
+	g.dataMu.Lock()
 
 	g.port = port
 
@@ -198,7 +198,7 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 	g.messageReceiverWorkerErrCh = make(chan error, 1)
 	go g.messageReceiverWorker(receiveCtx)
 
-	g.mu.Unlock()
+	g.dataMu.Unlock()
 
 	if err := g.waitForWelcomeMessage(ctx); err != nil {
 		return nil, errors.Join(err, g.Disconnect(ctx))
@@ -210,39 +210,39 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 // GetLastGetWorkCoordinateOffset returns the newest value received via a push message status report.
 // Returns nil if no previous message was received.
 func (g *Grbl) GetLastGetWorkCoordinateOffset() *StatusReportWorkCoordinateOffset {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.dataMu.Lock()
+	defer g.dataMu.Unlock()
 	return g.workCoordinateOffset
 }
 
 // GetLastGetOverrideValues returns the newest value received via a push message status report.
 // Returns nil if no previous message was received.
 func (g *Grbl) GetLastGetOverrideValues() *StatusReportOverrideValues {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.dataMu.Lock()
+	defer g.dataMu.Unlock()
 	return g.overrideValues
 }
 
 // GetLastGetGcodeParameters returns the newest value received via a push message gcode parameters.
 // Returns nil if no previous message was received.
 func (g *Grbl) GetLastGetGcodeParameters() *GcodeParameters {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.dataMu.Lock()
+	defer g.dataMu.Unlock()
 	return g.gcodeParameters
 }
 
 // GetLastAccessoryState returns the newest value received via a push message status report.
 // Returns nil if no previous message was received.
 func (g *Grbl) GetLastAccessoryState() *StatusReportAccessoryState {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.dataMu.Lock()
+	defer g.dataMu.Unlock()
 	return g.accessoryState
 }
 
 // SendRealTimeCommand issues a real time command to Grbl.
 func (g *Grbl) SendRealTimeCommand(cmd RealTimeCommand) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.dataMu.Lock()
+	defer g.dataMu.Unlock()
 	if g.port == nil {
 		return fmt.Errorf("grbl: disconnected")
 	}
@@ -257,21 +257,6 @@ func (g *Grbl) SendRealTimeCommand(cmd RealTimeCommand) error {
 	return nil
 }
 
-func (g *Grbl) sendCommandRaw(command string) error {
-	if g.port == nil {
-		return fmt.Errorf("grbl: disconnected")
-	}
-	line := append([]byte(command), '\n')
-	n, err := g.port.Write(line)
-	if err != nil {
-		return fmt.Errorf("grbl: write to serial port error: %w", err)
-	}
-	if n != len(line) {
-		return fmt.Errorf("grbl: write to serial port error: wrote %d bytes, expected %d", n, len(command))
-	}
-	return nil
-}
-
 // Send a command / system command to Grbl synchronously.
 // It waits for the response message and returns it.
 func (g *Grbl) SendCommand(ctx context.Context, command string) (*MessageResponse, error) {
@@ -279,12 +264,23 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (*MessageRespons
 		return nil, fmt.Errorf("command must be single line string: %#v", command)
 	}
 
-	g.mu.Lock()
-	if err := g.sendCommandRaw(command); err != nil {
-		g.mu.Unlock()
-		return nil, err
+	g.commandMu.Lock()
+	defer g.commandMu.Unlock()
+
+	g.dataMu.Lock()
+	if g.port == nil {
+		g.dataMu.Unlock()
+		return nil, fmt.Errorf("grbl: disconnected")
 	}
-	g.mu.Unlock()
+	line := append([]byte(command), '\n')
+	n, err := g.port.Write(line)
+	g.dataMu.Unlock()
+	if err != nil {
+		return nil, fmt.Errorf("grbl: write to serial port error: %w", err)
+	}
+	if n != len(line) {
+		return nil, fmt.Errorf("grbl: write to serial port error: wrote %d bytes, expected %d", n, len(command))
+	}
 
 	var ok bool
 
@@ -315,28 +311,24 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (*MessageRespons
 	case <-ctx.Done():
 		return nil, fmt.Errorf("grbl: command failed: %w", ctx.Err())
 	}
-	messageResponse := message.(*MessageResponse)
-	return messageResponse, nil
-}
 
-func (g *Grbl) Stream(ctx context.Context, r io.Reader) error {
-	panic("TODO")
+	return message.(*MessageResponse), nil
 }
 
 // Disconnect will stop all goroutines and close the serial port.
 func (g *Grbl) Disconnect(ctx context.Context) (err error) {
-	g.mu.Lock()
+	g.dataMu.Lock()
 	if g.port == nil {
-		g.mu.Unlock()
+		g.dataMu.Unlock()
 		return
 	}
 	g.receiveCtxCancel()
-	g.mu.Unlock()
+	g.dataMu.Unlock()
 
 	err = <-g.messageReceiverWorkerErrCh
 
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.dataMu.Lock()
+	defer g.dataMu.Unlock()
 	close(g.responseMessageCh)
 	close(g.messageReceiverWorkerErrCh)
 	err = errors.Join(err, g.port.Close())
