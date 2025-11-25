@@ -45,14 +45,20 @@ func (r *RotateXY) Next() (*string, error) {
 		return nil, fmt.Errorf("line %d: %s: distance mode incremental unsupported", r.parser.Lexer.Line, block)
 	}
 
-	if block.IsSystem() {
-		line := tokens.String()
-		return &line, nil
+	var line string
+	if block != nil {
+		if block.IsSystem() {
+			line := tokens.String()
+			return &line, nil
+		}
+
+		if err = block.RotateXY(r.cx, r.cy, r.radians); err != nil {
+			return nil, fmt.Errorf("line %d: %s", r.parser.Lexer.Line, err)
+		}
+		line = block.String() + "\n"
+	} else {
+		line = tokens.String()
 	}
 
-	if err = block.RotateXY(r.cx, r.cy, r.radians); err != nil {
-		return nil, fmt.Errorf("line %d: %s", r.parser.Lexer.Line, err)
-	}
-	line := block.String()
 	return &line, nil
 }
