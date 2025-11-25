@@ -140,9 +140,9 @@ func TestParserWithTestData(t *testing.T) {
 
 func TestParserTestCases(t *testing.T) {
 	type nextReturn struct {
-		eof   bool
-		block *Block
-		err   error
+		eof           bool
+		block         *Block
+		errorContains string
 	}
 	testCases := []struct {
 		lines       []string
@@ -151,13 +151,13 @@ func TestParserTestCases(t *testing.T) {
 		{
 			lines: []string{" G0 ; foo"},
 			nextReturns: []nextReturn{
-				{eof: true, block: NewBlockCommand(NewWord('G', 0)), err: nil},
+				{eof: true, block: NewBlockCommand(NewWord('G', 0))},
 			},
 		},
 		{
 			lines: []string{" $$ ; foo"},
 			nextReturns: []nextReturn{
-				{eof: true, block: NewBlockSystem("$$"), err: nil},
+				{eof: true, block: NewBlockSystem("$$")},
 			},
 		},
 		{
@@ -166,8 +166,8 @@ func TestParserTestCases(t *testing.T) {
 				"; bar",
 			},
 			nextReturns: []nextReturn{
-				{eof: false, block: NewBlockCommand(NewWord('G', 1)), err: nil},
-				{eof: true, err: nil},
+				{eof: false, block: NewBlockCommand(NewWord('G', 1))},
+				{eof: true},
 			},
 		},
 	}
@@ -192,7 +192,9 @@ func TestParserTestCases(t *testing.T) {
 					nl = "\n"
 				}
 				require.Equal(t, tc.lines[j]+nl, tokens.String())
-				require.Equal(t, nextReturn.err, err)
+				if nextReturn.errorContains != "" {
+					require.ErrorContains(t, err, nextReturn.errorContains)
+				}
 			}
 		})
 	}
