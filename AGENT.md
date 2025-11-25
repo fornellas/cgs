@@ -13,5 +13,6 @@ This project is a Grbl CNC gcode sender & controller.
 ## Code changes
 
 - Don't bother to write tests.
-- Test any changes by running `make ci`.
-- If it fails, fix & rerun until complete.
+- After changing anything:
+  - Always check project diagnostics.
+  - Always test any changes by running `make ci`.
