@@ -36,46 +36,47 @@ type SettingsPrimitive struct {
 	app              *tview.Application
 	controlPrimitive *ControlPrimitive
 	// Settings
-	stepPulse            *tview.InputField
-	stepIdleDelay        *tview.InputField
-	stepPortInvertX      *tview.Checkbox
-	stepPortInvertY      *tview.Checkbox
-	stepPortInvertZ      *tview.Checkbox
-	directionPortInvertX *tview.Checkbox
-	directionPortInvertY *tview.Checkbox
-	directionPortInvertZ *tview.Checkbox
-	stepEnableInvert     *tview.Checkbox
-	limitPinsInvert      *tview.Checkbox
-	probePinInvert       *tview.Checkbox
-	statusReport         *tview.InputField
-	junctionDeviation    *tview.InputField
-	arcTolerance         *tview.InputField
-	reportInches         *tview.Checkbox
-	softLimits           *tview.Checkbox
-	hardLimits           *tview.Checkbox
-	homingCycle          *tview.Checkbox
-	homingDirInvertX     *tview.Checkbox
-	homingDirInvertY     *tview.Checkbox
-	homingDirInvertZ     *tview.Checkbox
-	homingFeed           *tview.InputField
-	homingSeek           *tview.InputField
-	homingDebounce       *tview.InputField
-	homingPullOff        *tview.InputField
-	maxSpindleSpeed      *tview.InputField
-	minSpindleSpeed      *tview.InputField
-	laserMode            *tview.Checkbox
-	xSteps               *tview.InputField
-	ySteps               *tview.InputField
-	zSteps               *tview.InputField
-	xMaxRate             *tview.InputField
-	yMaxRate             *tview.InputField
-	zMaxRate             *tview.InputField
-	xAcceleration        *tview.InputField
-	yAcceleration        *tview.InputField
-	zAcceleration        *tview.InputField
-	xMaxTravel           *tview.InputField
-	yMaxTravel           *tview.InputField
-	zMaxTravel           *tview.InputField
+	stepPulse                   *tview.InputField
+	stepIdleDelay               *tview.InputField
+	stepPortInvertX             *tview.Checkbox
+	stepPortInvertY             *tview.Checkbox
+	stepPortInvertZ             *tview.Checkbox
+	directionPortInvertX        *tview.Checkbox
+	directionPortInvertY        *tview.Checkbox
+	directionPortInvertZ        *tview.Checkbox
+	stepEnableInvert            *tview.Checkbox
+	limitPinsInvert             *tview.Checkbox
+	probePinInvert              *tview.Checkbox
+	statusReportMachinePosition *tview.Checkbox
+	statusReportBufferData      *tview.Checkbox
+	junctionDeviation           *tview.InputField
+	arcTolerance                *tview.InputField
+	reportInches                *tview.Checkbox
+	softLimits                  *tview.Checkbox
+	hardLimits                  *tview.Checkbox
+	homingCycle                 *tview.Checkbox
+	homingDirInvertX            *tview.Checkbox
+	homingDirInvertY            *tview.Checkbox
+	homingDirInvertZ            *tview.Checkbox
+	homingFeed                  *tview.InputField
+	homingSeek                  *tview.InputField
+	homingDebounce              *tview.InputField
+	homingPullOff               *tview.InputField
+	maxSpindleSpeed             *tview.InputField
+	minSpindleSpeed             *tview.InputField
+	laserMode                   *tview.Checkbox
+	xSteps                      *tview.InputField
+	ySteps                      *tview.InputField
+	zSteps                      *tview.InputField
+	xMaxRate                    *tview.InputField
+	yMaxRate                    *tview.InputField
+	zMaxRate                    *tview.InputField
+	xAcceleration               *tview.InputField
+	yAcceleration               *tview.InputField
+	zAcceleration               *tview.InputField
+	xMaxTravel                  *tview.InputField
+	yMaxTravel                  *tview.InputField
+	zMaxTravel                  *tview.InputField
 	// Startup Lines
 	startupLine0InputField *tview.InputField
 	startupLine1InputField *tview.InputField
@@ -186,7 +187,27 @@ func NewSettingsPrimitive(
 	sp.stepEnableInvert = newSettingCheckbox("4", "Step enable invert")
 	sp.limitPinsInvert = newSettingCheckbox("5", "Limit pins invert")
 	sp.probePinInvert = newSettingCheckbox("6", "Probe pin invert")
-	sp.statusReport = newSettingInputField("10", "Status report(mask)", 2)
+	statusReportMachinePosition := tview.NewCheckbox()
+	statusReportMachinePosition.SetLabel("Status Report: Machine Position")
+	statusReportBufferData := tview.NewCheckbox()
+	statusReportBufferData.SetLabel("Status Report: Buffer Data")
+	updateStatusReportMask := func() {
+		if sp.skipQueueCommand {
+			return
+		}
+		mask := 0
+		if statusReportMachinePosition.IsChecked() {
+			mask |= 1
+		}
+		if statusReportBufferData.IsChecked() {
+			mask |= 2
+		}
+		sp.controlPrimitive.QueueCommand(fmt.Sprintf("$10=%d", mask))
+	}
+	statusReportMachinePosition.SetChangedFunc(func(bool) { updateStatusReportMask() })
+	statusReportBufferData.SetChangedFunc(func(bool) { updateStatusReportMask() })
+	sp.statusReportMachinePosition = statusReportMachinePosition
+	sp.statusReportBufferData = statusReportBufferData
 	sp.junctionDeviation = newSettingInputField("11", "Junction deviation(mm)", widthMm)
 	sp.arcTolerance = newSettingInputField("12", "Arc tolerance(mm)", widthMm)
 	sp.reportInches = newSettingCheckbox("13", "Report inches")
@@ -225,7 +246,8 @@ func NewSettingsPrimitive(
 	mainSettings.AddPrimitive(sp.stepEnableInvert, 1)
 	mainSettings.AddPrimitive(sp.limitPinsInvert, 1)
 	mainSettings.AddPrimitive(sp.probePinInvert, 1)
-	mainSettings.AddPrimitive(sp.statusReport, 1)
+	mainSettings.AddPrimitive(sp.statusReportMachinePosition, 1)
+	mainSettings.AddPrimitive(sp.statusReportBufferData, 1)
 	mainSettings.AddPrimitive(sp.junctionDeviation, 1)
 	mainSettings.AddPrimitive(sp.arcTolerance, 1)
 	mainSettings.AddPrimitive(sp.reportInches, 1)
@@ -344,7 +366,8 @@ func (sp *SettingsPrimitive) processMessagePushWelcome() {
 		sp.stepEnableInvert.SetChecked(false)
 		sp.limitPinsInvert.SetChecked(false)
 		sp.probePinInvert.SetChecked(false)
-		sp.statusReport.SetText("")
+		sp.statusReportMachinePosition.SetChecked(false)
+		sp.statusReportBufferData.SetChecked(false)
 		sp.junctionDeviation.SetText("")
 		sp.arcTolerance.SetText("")
 		sp.reportInches.SetChecked(false)
@@ -454,7 +477,12 @@ func (sp *SettingsPrimitive) processMessagePushSetting(messagePushSetting *grblM
 		case "6":
 			sp.probePinInvert.SetChecked(messagePushSetting.Value != "0")
 		case "10":
-			sp.statusReport.SetText(messagePushSetting.Value)
+			mask, err := strconv.Atoi(messagePushSetting.Value)
+			if err != nil {
+				panic(fmt.Sprintf("failed to parse: %s: %s", messagePushSetting, err))
+			}
+			sp.statusReportMachinePosition.SetChecked(mask&1 != 0)
+			sp.statusReportBufferData.SetChecked(mask&2 != 0)
 		case "11":
 			sp.junctionDeviation.SetText(messagePushSetting.Value)
 		case "12":
@@ -539,7 +567,8 @@ func (sp *SettingsPrimitive) updateDisabled() {
 	sp.stepEnableInvert.SetDisabled(disabled)
 	sp.limitPinsInvert.SetDisabled(disabled)
 	sp.probePinInvert.SetDisabled(disabled)
-	sp.statusReport.SetDisabled(disabled)
+	sp.statusReportMachinePosition.SetDisabled(disabled)
+	sp.statusReportBufferData.SetDisabled(disabled)
 	sp.junctionDeviation.SetDisabled(disabled)
 	sp.arcTolerance.SetDisabled(disabled)
 	sp.reportInches.SetDisabled(disabled)
