@@ -87,7 +87,7 @@ func NewJoggingPrimitive(
 	return jp
 }
 
-func (jp *JoggingPrimitive) setJoystickJogOk() {
+func (jp *JoggingPrimitive) updateJoystickJogOk() {
 	jp.mu.Lock()
 	jp.joystickJogOk = true
 	if jp.joystickFeedRateInputField.GetText() == "" {
@@ -168,14 +168,14 @@ func (jp *JoggingPrimitive) newJoystickFlex() *tview.Flex {
 	jp.joystickFeedRateInputField.SetLabel("Feed rate: ")
 	jp.joystickFeedRateInputField.SetFieldWidth(feedWidth)
 	jp.joystickFeedRateInputField.SetAcceptanceFunc(acceptUFloat)
-	jp.joystickFeedRateInputField.SetChangedFunc(func(string) { jp.setJoystickJogOk() })
+	jp.joystickFeedRateInputField.SetChangedFunc(func(string) { jp.updateJoystickJogOk() })
 
 	jp.distanceInputField = tview.NewInputField()
 	jp.distanceInputField.SetLabel("Distance: ")
 	jp.distanceInputField.SetText("10")
 	jp.distanceInputField.SetFieldWidth(coordinateWidth)
 	jp.distanceInputField.SetAcceptanceFunc(acceptUFloat)
-	jp.distanceInputField.SetChangedFunc(func(string) { jp.setJoystickJogOk() })
+	jp.distanceInputField.SetChangedFunc(func(string) { jp.updateJoystickJogOk() })
 
 	jp.joystickUnitDropDown = tview.NewDropDown()
 	jp.joystickUnitDropDown.SetLabel("Unit: ")
@@ -469,6 +469,7 @@ func (jp *JoggingPrimitive) processMessagePushWelcome() {
 		jp.paramsFeedRateInputField.SetText("")
 		jp.paramsUnitDropDown.SetCurrentOption(-1)
 		jp.distanceModeDropDown.SetCurrentOption(-1)
+		jp.updateJoystickJogOk()
 	})
 }
 
