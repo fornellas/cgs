@@ -78,6 +78,8 @@ func NewJoggingPrimitive(
 	joggingFlex.AddItem(parametersFlex, 0, 1, false)
 	jp.Flex = joggingFlex
 
+	jp.updateDisabled()
+
 	return jp
 }
 
@@ -318,7 +320,7 @@ func (jp *JoggingPrimitive) updateDisabled() {
 		jp.machineCoordinatesCheckbox.SetDisabled(true)
 		jp.jogParametersButton.SetDisabled(true)
 		jp.paramsCancelButton.SetDisabled(false)
-	case "Run", "Hold", "Alarm", "Door", "Check", "Home", "Sleep":
+	case "Run", "Hold", "Alarm", "Door", "Check", "Home", "Sleep", "":
 		// Joystick
 		jp.xMinusButton.SetDisabled(true)
 		jp.xPlusButton.SetDisabled(true)
