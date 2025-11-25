@@ -728,6 +728,20 @@ func TestParserTestCases(t *testing.T) {
 				{errorContains: "invalid number"},
 			},
 		},
+		// Mixed system & command
+		{
+			lines: []string{"G0 $$"},
+			nextReturns: []nextReturn{
+				{errorContains: "system command cannot follow command words"},
+			},
+		},
+		// Junk
+		{
+			lines: []string{"G0 #"},
+			nextReturns: []nextReturn{
+				{errorContains: "unexpected char"},
+			},
+		},
 	}
 
 	for i, tc := range testCases {

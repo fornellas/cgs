@@ -244,6 +244,9 @@ func (p *Parser) handleToken(token *Token) (bool, error) {
 	case TokenTypeSpace, TokenTypeComment:
 		return false, nil
 	case TokenTypeSystem:
+		if len(p.words) > 0 || p.letter != nil {
+			return false, fmt.Errorf("line %d: system command cannot follow command words", p.Lexer.Line)
+		}
 		p.block = NewBlockSystem(string(token.Value))
 		return false, nil
 	case TokenTypeWordLetter:
