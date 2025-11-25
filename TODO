@@ -15,38 +15,24 @@ Features
             Limit Jogging to work area fetched from $$
         Stream
             TBD
+            Check status report Buffer for overun
         Settings
-            SetDisable based on state / reset
-            Settings
-                TODO set width for each setting input field
-            Startup Lines
-                $N (Print startup lines)
-                $Nn=<gcode> (Store startup line, where n is the line number)
-            Build Info
-                View build info ($I)
-                    [VER:v1.1f.20170131:Some string]
-                    [OPT:VL,16,128]
-                Set id string ($I=xxx)
-            Restore Defaults
-                $RST=$ (Restore Defaults: Settings ($$)
-                $RST=# (Restore Defaults: G-Code Parameters ($#))
-                $RST=* (Restore Defaults: All ($$, $#, $N, $I))
             Save / Restore
         Script
             TBD
-            Tool changing
-                Intercept M6
-                Run macro, eg:
-                    Pause the machine (!).
-                    Move the spindle to a user-defined "Tool Change Position" (e.g., front of the machine).
-                    Wait for you to physically swap the bit.
-                    Run a Probe Cycle to measure the new tool length (critical step).
-                    Update the Z-zero height to match the new tool length.
-                https://www.youtube.com/watch?v=-2jFvlvu0co&t=1s
         Buttons
             Per-axis homing (build option)
             Custom Programs
                 ie: probe, go to Predefined Position etc
+    Tool changing
+        Intercept M6
+        Run macro, eg:
+            Pause the machine (!).
+            Move the spindle to a user-defined "Tool Change Position" (e.g., front of the machine).
+            Wait for you to physically swap the bit.
+            Run a Probe Cycle to measure the new tool length (critical step).
+            Update the Z-zero height to match the new tool length.
+        https://www.youtube.com/watch?v=-2jFvlvu0co&t=1s
     Misc
         Scrolling
             Only scroll to end if view position is already at the end
