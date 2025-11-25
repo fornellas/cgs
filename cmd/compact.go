@@ -41,19 +41,19 @@ var CompactCmd = &cobra.Command{
 
 		parser := gcode.NewParser(f)
 		for {
-			block, err := parser.Next()
+			eof, _, tokens, err := parser.Next()
 			if err != nil {
 				return err
 			}
-			if block == nil {
+			if eof {
 				return nil
 			}
-			str := block.String()
-			n, err := fmt.Fprintln(w, str)
+			line := tokens.String()
+			n, err := fmt.Fprintln(w, line)
 			if err != nil {
 				return err
 			}
-			if n != len(str)+1 {
+			if n != len(line)+1 {
 				return fmt.Errorf("short write")
 			}
 		}

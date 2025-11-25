@@ -170,11 +170,11 @@ var DefaultModalGroup ModalGroup = ModalGroup{
 type Parser struct {
 	// ModalGroup holds the state of each modal group as parsing progresses by caling Parser.Next().
 	// DefaultModalGroup is used for the initial state.
-	ModalGroup       ModalGroup
-	Lexer            *Lexer
-	block            *Block
-	words            []*Word
-	currentRawLetter rune
+	ModalGroup ModalGroup
+	Lexer      *Lexer
+	block      *Block
+	words      []*Word
+	letter     *rune
 }
 
 func NewParser(r io.Reader) *Parser {
@@ -185,7 +185,7 @@ func NewParser(r io.Reader) *Parser {
 }
 
 func (p *Parser) handleTokenTypeEOF() (bool, error) {
-	if p.currentRawLetter != 0 {
+	if p.letter != nil {
 		return false, fmt.Errorf("line %d: unexpected word letter at end of file", p.Lexer.Line)
 	}
 	if len(p.words) == 0 {
@@ -196,29 +196,30 @@ func (p *Parser) handleTokenTypeEOF() (bool, error) {
 }
 
 func (p *Parser) handleTokenTypeLetter(token *Token) (bool, error) {
-	if p.currentRawLetter != 0 {
-		return false, fmt.Errorf("line %d: unexpected word letter %q after previous letter %q", p.Lexer.Line, string(token.Value), string(p.currentRawLetter))
+	if p.letter != nil {
+		return false, fmt.Errorf("line %d: unexpected word letter %q after previous letter %q", p.Lexer.Line, token, string(*p.letter))
 	}
-	p.currentRawLetter = rune(token.Value[0])
+	letter := rune(token.Value[0])
+	p.letter = &letter
 	return false, nil
 }
 
 func (p *Parser) handleTokenTypeNumber(token *Token) (bool, error) {
-	currentRawNumber := string(token.Value)
-	if p.currentRawLetter == 0 {
+	number := string(token.Value)
+	if p.letter == nil {
 		return false, fmt.Errorf("line %d: unexpected word number %q without preceding letter", p.Lexer.Line, string(token.Value))
 	}
-	word, err := NewWordParse(p.currentRawLetter, currentRawNumber)
+	word, err := NewWordParse(*p.letter, number)
 	if err != nil {
 		return false, fmt.Errorf("line %d: bad number: %#v: %w", p.Lexer.Line, string(token.Value), err)
 	}
 	p.words = append(p.words, word)
-	p.currentRawLetter = 0
+	p.letter = nil
 	return false, nil
 }
 
 func (p *Parser) handleTokenTypeNewLine() (bool, error) {
-	if p.currentRawLetter != 0 {
+	if p.letter != nil {
 		return false, fmt.Errorf("line %d: unexpected word letter at end of line", p.Lexer.Line-1)
 	}
 	if len(p.words) > 0 || p.block != nil {
@@ -247,8 +248,9 @@ func (p *Parser) handleToken(token *Token) (bool, error) {
 		return p.handleTokenTypeNumber(token)
 	case TokenTypeNewLine:
 		return p.handleTokenTypeNewLine()
+	default:
+		panic(fmt.Sprintf("unknown token type: %#v", token))
 	}
-	return false, nil
 }
 
 //gocyclo:ignore
@@ -258,25 +260,29 @@ func (p *Parser) updateModalGroups(block *Block) {
 	}
 }
 
-// Next returns each parsed Block. When no more blocks are available, nil is returned.
-func (p *Parser) Next() (*Block, error) {
+// Next returns the next parsed line. The first returned bool indicates EOF: when true, parsing is
+// complete. If the line contained a block, it is returned. Tokens contains all tokens for the
+// parsed line.
+func (p *Parser) Next() (bool, *Block, Tokens, error) {
 	p.block = nil
 	p.words = nil
-	p.currentRawLetter = 0
+	p.letter = nil
+	var tokens Tokens
 	for {
 		token, err := p.Lexer.Next()
 		if err != nil {
-			return nil, err
+			return false, nil, nil, err
 		}
+		tokens = append(tokens, token)
 		eol, err := p.handleToken(token)
 		if err != nil {
-			return nil, err
+			return false, nil, nil, err
 		}
 		if eol {
 			if p.block != nil {
 				p.updateModalGroups(p.block)
 			}
-			return p.block, nil
+			return token.Type == TokenTypeEOF, p.block, tokens, nil
 		}
 	}
 }
@@ -287,12 +293,15 @@ func (p *Parser) Next() (*Block, error) {
 func (p *Parser) Blocks() ([]*Block, error) {
 	blocks := []*Block{}
 	for {
-		block, err := p.Next()
+		eof, block, _, err := p.Next()
 		if err != nil {
 			return nil, err
 		}
-		if block == nil {
+		if eof {
 			return blocks, nil
+		}
+		if block == nil {
+			continue
 		}
 		blocks = append(blocks, block)
 	}

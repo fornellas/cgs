@@ -316,7 +316,7 @@ func (cp *ControlPrimitive) extractRealTimeCommands(command string) ([]grblMod.R
 	return realTimeCommands, cmdBuffer.String(), nil
 }
 
-func (cp *ControlPrimitive) processBLock(block *gcode.Block) (map[string]bool, time.Duration) {
+func (cp *ControlPrimitive) getBlockStatusCmdsAndTimeout(block *gcode.Block) (map[string]bool, time.Duration) {
 	statusCommands := map[string]bool{}
 	var timeout time.Duration
 	if block.IsSystem() {
@@ -403,7 +403,7 @@ func (cp *ControlPrimitive) processCommand(ctx context.Context, command string) 
 	if len(blocks) > 0 {
 		block := blocks[0]
 		var timeout time.Duration
-		statusCommands, timeout = cp.processBLock(block)
+		statusCommands, timeout = cp.getBlockStatusCmdsAndTimeout(block)
 		if timeout > 0 {
 			commandParameter.timeout = timeout
 		}

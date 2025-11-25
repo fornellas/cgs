@@ -120,12 +120,14 @@ func TestParser(t *testing.T) {
 
 			parser := NewParser(f)
 			for {
-				block, err := parser.Next()
+				eof, block, _, err := parser.Next()
 				require.NoError(t, err)
-				if block == nil {
+				if eof {
 					break
 				}
-				parsedLines = append(parsedLines, block.String())
+				if block != nil {
+					parsedLines = append(parsedLines, block.String())
+				}
 			}
 
 			filteredLines := filterGcodeLines(t, path)

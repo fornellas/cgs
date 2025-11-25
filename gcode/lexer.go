@@ -2,6 +2,7 @@ package gcode
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -42,7 +43,17 @@ type Token struct {
 }
 
 func (t *Token) String() string {
-	return fmt.Sprintf("%s: %#v", t.Type, string(t.Value))
+	return string(t.Value)
+}
+
+type Tokens []*Token
+
+func (ts Tokens) String() string {
+	var buf bytes.Buffer
+	for _, token := range ts {
+		fmt.Fprintf(&buf, "%s ", token)
+	}
+	return buf.String()
 }
 
 // Lexer tokenizes G-Code in Grbl flavour.

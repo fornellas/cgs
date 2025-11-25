@@ -49,21 +49,20 @@ var RotateCmd = &cobra.Command{
 		radians := rotateDegrees * math.Pi / 180.0
 		rotateXY := gcode.NewRotateXY(parser, rotateX, rotateY, radians)
 		for {
-			block, err := rotateXY.Next()
+			line, err := rotateXY.Next()
 			if err != nil {
 				return err
 			}
-			if block == nil {
+			if line == nil {
 				logger.Info("Complete")
 				return nil
 			}
-			str := block.String()
 			var n int
-			n, err = fmt.Fprintln(w, str)
+			n, err = fmt.Fprintln(w, *line)
 			if err != nil {
 				return err
 			}
-			if n != len(str)+1 {
+			if n != len(*line)+1 {
 				return fmt.Errorf("%s: short write", outputValue)
 			}
 		}

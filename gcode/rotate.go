@@ -24,12 +24,16 @@ func NewRotateXY(parser *Parser, cx, cy, radians float64) *RotateXY {
 	}
 }
 
-func (r *RotateXY) Next() (*Block, error) {
-	block, err := r.parser.Next()
+// Next returns the next line of G-code with XY coordinates rotated by the specified angle and center point.
+// It validates that units and distance modes haven't changed since RotateXY was created, as these changes
+// are unsupported during rotation. System blocks are passed through unchanged. Returns nil when the end
+// of input is reached.
+func (r *RotateXY) Next() (*string, error) {
+	eof, block, tokens, err := r.parser.Next()
 	if err != nil {
 		return nil, err
 	}
-	if block == nil {
+	if eof {
 		return nil, nil
 	}
 
@@ -42,11 +46,13 @@ func (r *RotateXY) Next() (*Block, error) {
 	}
 
 	if block.IsSystem() {
-		return block, nil
+		line := tokens.String()
+		return &line, nil
 	}
 
 	if err = block.RotateXY(r.cx, r.cy, r.radians); err != nil {
 		return nil, fmt.Errorf("line %d: %s", r.parser.Lexer.Line, err)
 	}
-	return block, nil
+	line := block.String()
+	return &line, nil
 }
