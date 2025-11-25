@@ -558,7 +558,7 @@ func (cp *ControlPrimitive) processMessagePushGcodeState(
 func (cp *ControlPrimitive) processMessagePushGcodeParam() tcell.Color {
 	color := tcell.ColorGreen
 
-	params := cp.grbl.GetGcodeParameters()
+	params := cp.grbl.GetLastGetGcodeParameters()
 	if params == nil {
 		return color
 	}

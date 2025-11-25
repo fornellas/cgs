@@ -200,33 +200,33 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 	return g.pushMessageCh, nil
 }
 
-// GetWorkCoordinateOffset returns the newest value received via a push message status report.
+// GetLastGetWorkCoordinateOffset returns the newest value received via a push message status report.
 // Returns nil if no previous message was received.
-func (g *Grbl) GetWorkCoordinateOffset() *StatusReportWorkCoordinateOffset {
+func (g *Grbl) GetLastGetWorkCoordinateOffset() *StatusReportWorkCoordinateOffset {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.workCoordinateOffset
 }
 
-// GetOverrideValues returns the newest value received via a push message status report.
+// GetLastGetOverrideValues returns the newest value received via a push message status report.
 // Returns nil if no previous message was received.
-func (g *Grbl) GetOverrideValues() *StatusReportOverrideValues {
+func (g *Grbl) GetLastGetOverrideValues() *StatusReportOverrideValues {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.overrideValues
 }
 
-// GetGcodeParameters returns the newest value received via a push message gcode parameters.
+// GetLastGetGcodeParameters returns the newest value received via a push message gcode parameters.
 // Returns nil if no previous message was received.
-func (g *Grbl) GetGcodeParameters() *GcodeParameters {
+func (g *Grbl) GetLastGetGcodeParameters() *GcodeParameters {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.gcodeParameters
 }
 
-// AccessoryState returns the newest value received via a push message status report.
+// GetLastAccessoryState returns the newest value received via a push message status report.
 // Returns nil if no previous message was received.
-func (g *Grbl) AccessoryState() *StatusReportAccessoryState {
+func (g *Grbl) GetLastAccessoryState() *StatusReportAccessoryState {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.accessoryState
