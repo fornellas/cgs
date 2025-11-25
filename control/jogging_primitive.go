@@ -50,6 +50,10 @@ type JoggingPrimitive struct {
 	paramsCancelButton         *tview.Button
 	// Messages
 	machineState grblMod.StatusReportMachineState
+	// Feed rate
+	xMaxFeedRate *float64
+	yMaxFeedRate *float64
+	zMaxFeedRate *float64
 
 	mu sync.Mutex
 }
@@ -168,6 +172,7 @@ func (jp *JoggingPrimitive) newJoystickFlex() *tview.Flex {
 
 	jp.distanceInputField = tview.NewInputField()
 	jp.distanceInputField.SetLabel("Distance: ")
+	jp.distanceInputField.SetText("10")
 	jp.distanceInputField.SetFieldWidth(coordinateWidth)
 	jp.distanceInputField.SetAcceptanceFunc(acceptUFloat)
 	jp.distanceInputField.SetChangedFunc(func(string) { jp.setJoystickJogOk() })
@@ -453,12 +458,64 @@ func (jp *JoggingPrimitive) newParametersFlex() *tview.Flex {
 }
 
 func (jp *JoggingPrimitive) processMessagePushWelcome() {
+	jp.xMaxFeedRate = nil
+	jp.yMaxFeedRate = nil
+	jp.zMaxFeedRate = nil
 	jp.app.QueueUpdateDraw(func() {
 		// Joystick
+		jp.joystickFeedRateInputField.SetText("")
 		jp.joystickUnitDropDown.SetCurrentOption(-1)
 		// Parameters
+		jp.paramsFeedRateInputField.SetText("")
 		jp.paramsUnitDropDown.SetCurrentOption(-1)
 		jp.distanceModeDropDown.SetCurrentOption(-1)
+	})
+}
+
+func (jp *JoggingPrimitive) processMessagePushSetting(messagePushSetting *grblMod.MessagePushSetting) {
+	switch messagePushSetting.Key {
+	case "110":
+		rate, err := strconv.ParseFloat(messagePushSetting.Value, 64)
+		if err != nil {
+			panic(fmt.Errorf("failed to parse $110: %w", err))
+		}
+		jp.xMaxFeedRate = &rate
+	case "111":
+		rate, err := strconv.ParseFloat(messagePushSetting.Value, 64)
+		if err != nil {
+			panic(fmt.Errorf("failed to parse $111: %w", err))
+		}
+		jp.yMaxFeedRate = &rate
+	case "112":
+		rate, err := strconv.ParseFloat(messagePushSetting.Value, 64)
+		if err != nil {
+			panic(fmt.Errorf("failed to parse $112: %w", err))
+		}
+		jp.zMaxFeedRate = &rate
+	}
+
+	if jp.xMaxFeedRate == nil || jp.yMaxFeedRate == nil || jp.zMaxFeedRate == nil {
+		return
+	}
+	var maxRate float64
+	if *jp.xMaxFeedRate > maxRate {
+		maxRate = *jp.xMaxFeedRate
+	}
+	if *jp.yMaxFeedRate > maxRate {
+		maxRate = *jp.yMaxFeedRate
+	}
+	if *jp.zMaxFeedRate > maxRate {
+		maxRate = *jp.zMaxFeedRate
+	}
+
+	jp.app.QueueUpdateDraw(func() {
+		text := fmt.Sprintf("%.4f", maxRate)
+		if jp.joystickFeedRateInputField.GetText() == "" {
+			jp.joystickFeedRateInputField.SetText(text)
+		}
+		if jp.paramsFeedRateInputField.GetText() == "" {
+			jp.paramsFeedRateInputField.SetText(text)
+		}
 	})
 }
 
@@ -515,6 +572,10 @@ func (jp *JoggingPrimitive) processMessagePushStatusReport(
 func (jp *JoggingPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
 	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
 		jp.processMessagePushWelcome()
+		return
+	}
+	if messagePushSetting, ok := message.(*grblMod.MessagePushSetting); ok {
+		jp.processMessagePushSetting(messagePushSetting)
 		return
 	}
 	if messagePushGcodeState, ok := message.(*grblMod.MessagePushGcodeState); ok {
