@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -65,13 +66,16 @@ func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
 	}
 
 	if _, ok := message.(*MessagePushWelcome); ok {
+		g.mu.Lock()
 		g.workCoordinateOffset = nil
 		g.overrideValues = nil
 		g.gcodeParameters = &GcodeParameters{}
 		g.accessoryState = nil
+		g.mu.Unlock()
 	}
 
 	if messagePushStatusReport, ok := message.(*MessagePushStatusReport); ok {
+		g.mu.Lock()
 		if messagePushStatusReport.WorkCoordinateOffset != nil {
 			g.workCoordinateOffset = messagePushStatusReport.WorkCoordinateOffset
 		}
@@ -81,10 +85,13 @@ func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
 		if messagePushStatusReport.AccessoryState != nil {
 			g.accessoryState = messagePushStatusReport.AccessoryState
 		}
+		g.mu.Unlock()
 	}
 
 	if messagePushGcodeParam, ok := message.(*MessagePushGcodeParam); ok {
+		g.mu.Lock()
 		g.gcodeParameters.Update(messagePushGcodeParam)
+		g.mu.Unlock()
 	}
 
 	return message, nil
@@ -191,11 +198,11 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 	g.messageReceiverWorkerErrCh = make(chan error, 1)
 	go g.messageReceiverWorker(receiveCtx)
 
+	g.mu.Unlock()
+
 	if err := g.waitForWelcomeMessage(ctx); err != nil {
-		g.mu.Unlock()
 		return nil, errors.Join(err, g.Disconnect(ctx))
 	}
-	g.mu.Unlock()
 
 	return g.pushMessageCh, nil
 }
@@ -250,13 +257,7 @@ func (g *Grbl) SendRealTimeCommand(cmd RealTimeCommand) error {
 	return nil
 }
 
-// TODO Jogging
-
-// TODO Synchronization
-
 func (g *Grbl) sendCommandRaw(command string) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
 	if g.port == nil {
 		return fmt.Errorf("grbl: disconnected")
 	}
@@ -278,9 +279,12 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (*MessageRespons
 		return nil, fmt.Errorf("command must be single line string: %#v", command)
 	}
 
+	g.mu.Lock()
 	if err := g.sendCommandRaw(command); err != nil {
+		g.mu.Unlock()
 		return nil, err
 	}
+	g.mu.Unlock()
 
 	var ok bool
 
