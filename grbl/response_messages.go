@@ -83,7 +83,6 @@ func (m *ResponseMessage) Error() error {
 		//lint:ignore ST1005 vanilla Grbl error string
 		return errors.New("More than one g-code command from same modal group found in block")
 	case 22:
-		//lint:ignore ST1005 vanilla Grbl error string
 		return errors.New("Feed rate has not yet been set or is undefined")
 	case 23:
 		//lint:ignore ST1005 vanilla Grbl error string
