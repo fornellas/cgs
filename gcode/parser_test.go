@@ -808,3 +808,59 @@ func TestParserTestCases(t *testing.T) {
 		})
 	}
 }
+
+func TestParserBlocks(t *testing.T) {
+	testCases := []struct {
+		name     string
+		gcode    string
+		expected []string // normalized strings of expected blocks
+	}{
+		{
+			name:     "system command without newline",
+			gcode:    "$H",
+			expected: []string{"$H"},
+		},
+		{
+			name:     "system command with spaces no newline",
+			gcode:    " $H ",
+			expected: []string{"$H"},
+		},
+		{
+			name:     "system command with comment no newline",
+			gcode:    " $H ; homing",
+			expected: []string{"$H"},
+		},
+		{
+			name:     "multiple commands with last without newline",
+			gcode:    "G0 X10\n$H",
+			expected: []string{"G0X10.0000", "$H"},
+		},
+		{
+			name:     "system command with newline",
+			gcode:    "$H\n",
+			expected: []string{"$H"},
+		},
+		{
+			name:     "G-code command without newline",
+			gcode:    "G0 X10",
+			expected: []string{"G0X10.0000"},
+		},
+		{
+			name:     "multiple G-code commands",
+			gcode:    "G0 X10\nG1 Y20\nM3",
+			expected: []string{"G0X10.0000", "G1Y20.0000", "M3"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			parser := NewParser(strings.NewReader(tc.gcode))
+			blocks, err := parser.Blocks()
+			require.NoError(t, err)
+			require.Equal(t, len(tc.expected), len(blocks), "block count mismatch")
+			for i, expectedNorm := range tc.expected {
+				require.Equal(t, expectedNorm, blocks[i].NormalizedString())
+			}
+		})
+	}
+}
