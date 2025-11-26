@@ -41,8 +41,8 @@ var StreamCmd = &cobra.Command{
 		}
 		defer func() { err = errors.Join(err, grbl.Disconnect(ctx)) }()
 		// FIXME need to home
-		grbl.SendCommand(ctx, "$X")
-		grbl.SendCommand(ctx, "$C")
+		grbl.SendGrblCommandKillAlarmLock(ctx)
+		grbl.SendGrblCommandCheckGcodeMode(ctx)
 
 		go func() {
 			for message := range pushMessageCh {

@@ -115,7 +115,7 @@ func NewSettingsPrimitive(
 			if sp.skipQueueCommand {
 				return
 			}
-			sp.controlPrimitive.QueueCommand(fmt.Sprintf("$%s=%s", key, field.GetText()))
+			sp.controlPrimitive.QueueCommand(grblMod.GetGrblCommandWriteGrblSettings(key, field.GetText()))
 		})
 		return field
 	}
@@ -131,7 +131,7 @@ func NewSettingsPrimitive(
 			if checked {
 				value = "1"
 			}
-			sp.controlPrimitive.QueueCommand(fmt.Sprintf("$%s=%s", key, value))
+			sp.controlPrimitive.QueueCommand(grblMod.GetGrblCommandWriteGrblSettings(key, value))
 		})
 		return cb
 	}
@@ -149,7 +149,7 @@ func NewSettingsPrimitive(
 				return
 			}
 			mask := checkboxesToMask(x.IsChecked(), y.IsChecked(), z.IsChecked())
-			sp.controlPrimitive.QueueCommand(fmt.Sprintf("$%s=%d", key, mask))
+			sp.controlPrimitive.QueueCommand(grblMod.GetGrblCommandWriteGrblSettings(key, fmt.Sprintf("%d", mask)))
 		}
 
 		x.SetChangedFunc(func(bool) { updateMask() })
@@ -202,7 +202,7 @@ func NewSettingsPrimitive(
 		if statusReportBufferData.IsChecked() {
 			mask |= 2
 		}
-		sp.controlPrimitive.QueueCommand(fmt.Sprintf("$10=%d", mask))
+		sp.controlPrimitive.QueueCommand(grblMod.GetGrblCommandWriteGrblSettings("10", fmt.Sprintf("%d", mask)))
 	}
 	statusReportMachinePosition.SetChangedFunc(func(bool) { updateStatusReportMask() })
 	statusReportBufferData.SetChangedFunc(func(bool) { updateStatusReportMask() })
@@ -307,17 +307,17 @@ func NewSettingsPrimitive(
 	// Restore Defaults: Buttons
 	restoreSettingsButton := tview.NewButton("Settings")
 	restoreSettingsButton.SetSelectedFunc(func() {
-		sp.controlPrimitive.QueueCommand("$RST=$")
+		sp.controlPrimitive.QueueCommand(grblMod.GrblCommandRestoreGrblSettingsToDefaults)
 	})
 	sp.restoreSettingsButton = restoreSettingsButton
 	restoreGcodeParametersButton := tview.NewButton("G-Code Parameters")
 	restoreGcodeParametersButton.SetSelectedFunc(func() {
-		sp.controlPrimitive.QueueCommand("$RST=#")
+		sp.controlPrimitive.QueueCommand(grblMod.GrblCommandRestoreGcodeParametersToDefaults)
 	})
 	sp.restoreGcodeParametersButton = restoreGcodeParametersButton
 	restoreAllButton := tview.NewButton("All")
 	restoreAllButton.SetSelectedFunc(func() {
-		sp.controlPrimitive.QueueCommand("$RST=*")
+		sp.controlPrimitive.QueueCommand(grblMod.GrblCommandRestoreAllToDefaults)
 	})
 	sp.restoreAllButton = restoreAllButton
 

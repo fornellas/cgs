@@ -5,6 +5,7 @@ Commands
     $# (View gcode parameters)
     $G (View gcode parser state)
     $I (View build info)
+    $I= (Write build info)
     $N (View startup blocks)
     $Nx=line (Save startup block)
     $C (Check gcode mode)

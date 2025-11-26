@@ -125,8 +125,8 @@ func (jp *JoggingPrimitive) newJoystickFlex() *tview.Flex {
 		default:
 			return
 		}
-		fmt.Fprintf(&buf, "$J=F%.4f%s%.4f%sG91", feed, axis, distance, unitWord)
-		jp.controlPrimitive.QueueCommand(buf.String())
+		fmt.Fprintf(&buf, "F%.4f%s%.4f%sG91", feed, axis, distance, unitWord)
+		jp.controlPrimitive.QueueCommand(grblMod.GetGrblCommandRunJoggingMotion(buf.String()))
 	}
 
 	xMinusButton := tview.NewButton("-X")
@@ -205,7 +205,6 @@ func (jp *JoggingPrimitive) newJoystickFlex() *tview.Flex {
 
 func (jp *JoggingPrimitive) getParamsJogBlock() (string, error) {
 	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "$J=")
 
 	printWord := func(value, letter string) bool {
 		if len(value) == 0 {
@@ -266,7 +265,7 @@ func (jp *JoggingPrimitive) getParamsJogBlock() (string, error) {
 		fmt.Fprint(&buf, "G53")
 	}
 
-	return buf.String(), nil
+	return grblMod.GetGrblCommandRunJoggingMotion(buf.String()), nil
 }
 
 func (jp *JoggingPrimitive) updateDisabled() {

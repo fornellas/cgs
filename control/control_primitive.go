@@ -21,11 +21,11 @@ import (
 var defaultCommandTimeout = 1 * time.Second
 
 var allStatusCommands = map[string]bool{
-	"$#": true,
-	"$$": true,
-	"$N": true,
-	"$I": true,
-	"$G": true,
+	grblMod.GrblCommandViewGcodeParameters:  true,
+	grblMod.GrblCommandViewGrblSettings:     true,
+	grblMod.GrblCommandViewStartupBlocks:    true,
+	grblMod.GrblCommandViewBuildInfo:        true,
+	grblMod.GrblCommandViewGcodeParserState: true,
 }
 
 type commandParameterType struct {
@@ -326,17 +326,17 @@ func (cp *ControlPrimitive) getBlockStatusCmdsAndTimeout(block *gcode.Block) (ma
 			fmt.Fprintf(cp.pushMessagesTextView, "\n[%s](push messages from %s omitted, results at Control panel)[-]", tcell.ColorYellow, block.String())
 		}
 		switch block.String() {
-		case "$RST=#":
-			statusCommands["$#"] = true
-		case "$RST=*":
-			statusCommands["$#"] = true
-			statusCommands["$$"] = true
-			statusCommands["$N"] = true
-			statusCommands["$I"] = true
-		case "$RST=$":
-			statusCommands["$N"] = true
+		case grblMod.GrblCommandRestoreGcodeParametersToDefaults:
+			statusCommands[grblMod.GrblCommandViewGcodeParameters] = true
+		case grblMod.GrblCommandRestoreAllToDefaults:
+			statusCommands[grblMod.GrblCommandViewGcodeParameters] = true
+			statusCommands[grblMod.GrblCommandViewGrblSettings] = true
+			statusCommands[grblMod.GrblCommandViewStartupBlocks] = true
+			statusCommands[grblMod.GrblCommandViewBuildInfo] = true
+		case grblMod.GrblCommandRestoreGrblSettingsToDefaults:
+			statusCommands[grblMod.GrblCommandViewStartupBlocks] = true
 		}
-		if strings.HasPrefix(block.String(), "$H") {
+		if strings.HasPrefix(block.String(), grblMod.GrblCommandRunHomingCyclePrefix) {
 			timeout = 120 * time.Second
 			// Grbl stops responding to status report queries while homing. Generating this
 			// virtual status report enables subscribers to process the otherwise unreported
@@ -353,13 +353,13 @@ func (cp *ControlPrimitive) getBlockStatusCmdsAndTimeout(block *gcode.Block) (ma
 			panic(err)
 		}
 		if matched {
-			statusCommands["$$"] = true
+			statusCommands[grblMod.GrblCommandViewGrblSettings] = true
 		}
-		if strings.HasPrefix(block.String(), "$I=") {
-			statusCommands["$I"] = true
+		if strings.HasPrefix(block.String(), grblMod.GrblCommandWriteBuildInfoPrefix) {
+			statusCommands[grblMod.GrblCommandViewBuildInfo] = true
 		}
-		if strings.HasPrefix(block.String(), "$N") {
-			statusCommands["$N"] = true
+		if strings.HasPrefix(block.String(), grblMod.GrblCommandSaveStartupBlockPrefix) {
+			statusCommands[grblMod.GrblCommandViewStartupBlocks] = true
 		}
 	} else if block.IsCommand() {
 		for _, word := range block.Words() {
@@ -367,8 +367,8 @@ func (cp *ControlPrimitive) getBlockStatusCmdsAndTimeout(block *gcode.Block) (ma
 				timeout = 0
 			}
 		}
-		statusCommands["$G"] = true
-		statusCommands["$#"] = true
+		statusCommands[grblMod.GrblCommandViewGcodeParserState] = true
+		statusCommands[grblMod.GrblCommandViewGcodeParameters] = true
 	} else {
 		panic("bug: unknown block")
 	}
