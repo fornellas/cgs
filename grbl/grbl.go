@@ -362,9 +362,7 @@ func (g *Grbl) StreamProgram(ctx context.Context, r io.Reader) error {
 		line := []byte(block.NormalizedString() + "\n")
 		sent := 0
 
-		// Send the line in chunks, respecting available buffer space
 		for sent < len(line) {
-			// Wait for buffer space if needed
 			for availableSerialRxBufferBytes == 0 {
 				var ok bool
 				select {
@@ -376,14 +374,12 @@ func (g *Grbl) StreamProgram(ctx context.Context, r io.Reader) error {
 					return fmt.Errorf("stream program: %w", ctx.Err())
 				}
 
-				// One line was processed, free up its space
 				if len(sentLineBytes) > 0 {
 					availableSerialRxBufferBytes += sentLineBytes[0]
 					sentLineBytes = sentLineBytes[1:]
 				}
 			}
 
-			// Write at most availableSerialRxBufferBytes
 			end := sent + availableSerialRxBufferBytes
 			end = min(end, len(line))
 			chunk := line[sent:end]
@@ -406,7 +402,6 @@ func (g *Grbl) StreamProgram(ctx context.Context, r io.Reader) error {
 			availableSerialRxBufferBytes -= n
 		}
 
-		// Track sent line
 		sentLineBytes = append(sentLineBytes, len(line))
 
 		logger.Debug("sent gcode line", "line", fmt.Sprintf("%#v", string(line[:len(line)-1])), "available_buffer", availableSerialRxBufferBytes)
@@ -431,7 +426,6 @@ func (g *Grbl) StreamProgram(ctx context.Context, r io.Reader) error {
 		sentLineBytes = sentLineBytes[1:]
 	}
 
-	logger.Debug("stream program completed")
 	return nil
 }
 
