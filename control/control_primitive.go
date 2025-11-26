@@ -278,9 +278,16 @@ func (cp *ControlPrimitive) sendCommand(
 		defer cancel()
 	}
 
-	messageResponse, err := cp.grbl.SendCommand(cmdCtx, commandParameter.command)
+	err := cp.grbl.SendCommand(cmdCtx, commandParameter.command)
 	if err != nil {
-		fmt.Fprintf(cp.commandsTextView, "\n[%s]Send command failed: %#v: %s[-]", tcell.ColorRed, tview.Escape(commandParameter.command), tview.Escape(err.Error()))
+		var errResponseMessage *grblMod.ErrResponseMessage
+		if errors.As(err, &errResponseMessage) {
+			responseMessage := errResponseMessage.ResponseMessage()
+			fmt.Fprintf(cp.commandsTextView, "\n[%s]%s[-]", tcell.ColorRed, tview.Escape(responseMessage.String()))
+			fmt.Fprintf(cp.commandsTextView, "\n[%s]%s[-]", tcell.ColorRed, tview.Escape(errResponseMessage.Error()))
+		} else {
+			fmt.Fprintf(cp.commandsTextView, "\n[%s]Send command failed: %#v: %s[-]", tcell.ColorRed, tview.Escape(commandParameter.command), tview.Escape(err.Error()))
+		}
 		return
 	}
 
@@ -288,12 +295,7 @@ func (cp *ControlPrimitive) sendCommand(
 		return
 	}
 
-	if messageResponse.Error() == nil {
-		fmt.Fprintf(cp.commandsTextView, "\n[%s]%s[-]", tcell.ColorGreen, tview.Escape(messageResponse.String()))
-	} else {
-		fmt.Fprintf(cp.commandsTextView, "\n[%s]%s[-]", tcell.ColorRed, tview.Escape(messageResponse.String()))
-		fmt.Fprintf(cp.commandsTextView, "\n[%s]%s[-]", tcell.ColorRed, tview.Escape(messageResponse.Error().Error()))
-	}
+	fmt.Fprintf(cp.commandsTextView, "\n[%s]ok[-]", tcell.ColorGreen)
 }
 
 func (cp *ControlPrimitive) extractRealTimeCommands(command string) ([]grblMod.RealTimeCommand, string, error) {

@@ -300,10 +300,10 @@ func (g *Grbl) emptyResponseMessageCh(ctx context.Context) error {
 }
 
 // Send a command / system command to Grbl synchronously.
-// It waits for the response message and returns it.
-func (g *Grbl) SendCommand(ctx context.Context, command string) (*ResponseMessage, error) {
+// It waits for the response message.
+func (g *Grbl) SendCommand(ctx context.Context, command string) error {
 	if strings.Contains(command, "\n") {
-		return nil, fmt.Errorf("command must be single line string: %#v", command)
+		return fmt.Errorf("command must be single line string: %#v", command)
 	}
 
 	g.portWriteMu.Lock()
@@ -312,35 +312,35 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (*ResponseMessag
 	g.grblMu.Lock()
 	if g.port == nil {
 		g.grblMu.Unlock()
-		return nil, fmt.Errorf("disconnected")
+		return fmt.Errorf("disconnected")
 	}
 	line := append([]byte(command), '\n')
 	n, err := g.port.Write(line)
 	g.grblMu.Unlock()
 	if err != nil {
-		return nil, fmt.Errorf("write to serial port error: %w", err)
+		return fmt.Errorf("write to serial port error: %w", err)
 	}
 	if n != len(line) {
-		return nil, fmt.Errorf("write to serial port error: wrote %d bytes, expected %d", n, len(command))
+		return fmt.Errorf("write to serial port error: wrote %d bytes, expected %d", n, len(command))
 	}
 
 	var ok bool
 
 	if err := g.emptyResponseMessageCh(ctx); err != nil {
-		return nil, err
+		return err
 	}
 
 	var responseMessage *ResponseMessage
 	select {
 	case responseMessage, ok = <-g.responseMessageCh:
 		if !ok {
-			return nil, fmt.Errorf("command failed: response message channel is closed")
+			return fmt.Errorf("command failed: response message channel is closed")
 		}
 	case <-ctx.Done():
-		return nil, fmt.Errorf("command failed: %w", ctx.Err())
+		return fmt.Errorf("command failed: %w", ctx.Err())
 	}
 
-	return responseMessage, nil
+	return responseMessage.Error()
 }
 
 func (g *Grbl) StreamProgram(ctx context.Context, programReader io.Reader) error {
