@@ -6,6 +6,8 @@ import (
 	"math"
 	"strconv"
 	"unicode"
+
+	iFmt "github.com/fornellas/cgs/internal/fmt"
 )
 
 var wordToName = map[string]string{
@@ -149,7 +151,7 @@ func (w *Word) NormalizedString() string {
 			return fmt.Sprintf("%c%.1f", w.letter, w.number)
 		}
 	}
-	return fmt.Sprintf("%c%.4f", w.letter, w.number)
+	return fmt.Sprintf("%c%s", w.letter, iFmt.SprintFloat(w.number, 4))
 }
 
 // Name returns a human friendly name for the word.

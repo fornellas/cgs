@@ -833,7 +833,7 @@ func TestParserBlocks(t *testing.T) {
 		{
 			name:     "multiple commands with last without newline",
 			gcode:    "G0 X10\n$H",
-			expected: []string{"G0X10.0000", "$H"},
+			expected: []string{"G0X10", "$H"},
 		},
 		{
 			name:     "system command with newline",
@@ -843,12 +843,12 @@ func TestParserBlocks(t *testing.T) {
 		{
 			name:     "G-code command without newline",
 			gcode:    "G0 X10",
-			expected: []string{"G0X10.0000"},
+			expected: []string{"G0X10"},
 		},
 		{
 			name:     "multiple G-code commands",
 			gcode:    "G0 X10\nG1 Y20\nM3",
-			expected: []string{"G0X10.0000", "G1Y20.0000", "M3"},
+			expected: []string{"G0X10", "G1Y20", "M3"},
 		},
 	}
 

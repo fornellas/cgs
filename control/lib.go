@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/gdamore/tcell/v2"
 
 	grblMod "github.com/fornellas/cgs/grbl"
+	iFmt "github.com/fornellas/cgs/internal/fmt"
 )
 
 func acceptFloat(textToCheck string, lastChar rune) bool {
@@ -25,15 +25,7 @@ func acceptUFloat(textToCheck string, lastChar rune) bool {
 }
 
 func sprintFloat(value float64, decimal uint) string {
-	var floatStr string
-	if decimal > 0 {
-		floatFormat := fmt.Sprintf("%%.%df", decimal)
-		floatStr = fmt.Sprintf(floatFormat, value)
-		floatStr = strings.TrimRight(strings.TrimRight(floatStr, "0"), ".")
-	} else {
-		floatStr = fmt.Sprintf("%.0f", value)
-	}
-	return fmt.Sprintf("[%s]%s[-]", tcell.ColorOrange, floatStr)
+	return fmt.Sprintf("[%s]%s[-]", tcell.ColorOrange, iFmt.SprintFloat(value, decimal))
 }
 
 func sprintCoordinate(value float64) string {
