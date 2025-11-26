@@ -60,7 +60,6 @@ var StreamCmd = &cobra.Command{
 
 		logger.Info("Streaming")
 		streamErr := grbl.StreamProgram(ctx, file)
-		logger.Info("Stream finished", "streamErr", streamErr)
 		return streamErr
 	}),
 }
