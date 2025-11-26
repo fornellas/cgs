@@ -18,7 +18,7 @@ type StatusPrimitive struct {
 	app            *tview.Application
 	stateTextView  *tview.TextView
 	statusTextView *tview.TextView
-	machineState   grblMod.StatusReportMachineState
+	machineState   grblMod.MachineState
 }
 
 func NewStatusPrimitive(
@@ -72,14 +72,14 @@ func (sp *StatusPrimitive) newStatusTextView() {
 
 func (sp *StatusPrimitive) processMessagePushWelcome() {
 	sp.app.QueueUpdateDraw(func() {
-		sp.machineState = grblMod.StatusReportMachineState{}
+		sp.machineState = grblMod.MachineState{}
 		sp.stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 		sp.stateTextView.Clear()
 		sp.statusTextView.Clear()
 	})
 }
 
-func (sp *StatusPrimitive) updateStateTextView(machineState grblMod.StatusReportMachineState) {
+func (sp *StatusPrimitive) updateStateTextView(machineState grblMod.MachineState) {
 	if sp.machineState == machineState {
 		return
 	}
@@ -99,40 +99,40 @@ func (sp *StatusPrimitive) updateStateTextView(machineState grblMod.StatusReport
 }
 
 //gocyclo:ignore
-func (sp *StatusPrimitive) writePositionStatus(w io.Writer, statusReport *grblMod.MessagePushStatusReport) {
+func (sp *StatusPrimitive) writePositionStatus(w io.Writer, statusReportPushMessage *grblMod.StatusReportPushMessage) {
 	var mx, my, mz, ma, wx, wy, wz, wa *float64
-	if statusReport.MachinePosition != nil {
-		mx = &statusReport.MachinePosition.X
-		my = &statusReport.MachinePosition.Y
-		mz = &statusReport.MachinePosition.Z
-		ma = statusReport.MachinePosition.A
-		if sp.grbl.GetLastGetWorkCoordinateOffset() != nil {
-			wxv := statusReport.MachinePosition.X - sp.grbl.GetLastGetWorkCoordinateOffset().X
+	if statusReportPushMessage.MachinePosition != nil {
+		mx = &statusReportPushMessage.MachinePosition.X
+		my = &statusReportPushMessage.MachinePosition.Y
+		mz = &statusReportPushMessage.MachinePosition.Z
+		ma = statusReportPushMessage.MachinePosition.A
+		if sp.grbl.GetLastWorkCoordinateOffset() != nil {
+			wxv := statusReportPushMessage.MachinePosition.X - sp.grbl.GetLastWorkCoordinateOffset().X
 			wx = &wxv
-			wyv := statusReport.MachinePosition.Y - sp.grbl.GetLastGetWorkCoordinateOffset().Y
+			wyv := statusReportPushMessage.MachinePosition.Y - sp.grbl.GetLastWorkCoordinateOffset().Y
 			wy = &wyv
-			wzv := statusReport.MachinePosition.Z - sp.grbl.GetLastGetWorkCoordinateOffset().Z
+			wzv := statusReportPushMessage.MachinePosition.Z - sp.grbl.GetLastWorkCoordinateOffset().Z
 			wz = &wzv
-			if statusReport.MachinePosition.A != nil && sp.grbl.GetLastGetWorkCoordinateOffset().A != nil {
-				wav := *statusReport.MachinePosition.A - *sp.grbl.GetLastGetWorkCoordinateOffset().A
+			if statusReportPushMessage.MachinePosition.A != nil && sp.grbl.GetLastWorkCoordinateOffset().A != nil {
+				wav := *statusReportPushMessage.MachinePosition.A - *sp.grbl.GetLastWorkCoordinateOffset().A
 				wa = &wav
 			}
 		}
 	}
-	if statusReport.WorkPosition != nil {
-		wx = &statusReport.WorkPosition.X
-		wy = &statusReport.WorkPosition.Y
-		wz = &statusReport.WorkPosition.Z
-		wa = statusReport.WorkPosition.A
-		if sp.grbl.GetLastGetWorkCoordinateOffset() != nil {
-			mxv := statusReport.WorkPosition.X - sp.grbl.GetLastGetWorkCoordinateOffset().X
+	if statusReportPushMessage.WorkPosition != nil {
+		wx = &statusReportPushMessage.WorkPosition.X
+		wy = &statusReportPushMessage.WorkPosition.Y
+		wz = &statusReportPushMessage.WorkPosition.Z
+		wa = statusReportPushMessage.WorkPosition.A
+		if sp.grbl.GetLastWorkCoordinateOffset() != nil {
+			mxv := statusReportPushMessage.WorkPosition.X - sp.grbl.GetLastWorkCoordinateOffset().X
 			mx = &mxv
-			myv := statusReport.WorkPosition.Y - sp.grbl.GetLastGetWorkCoordinateOffset().Y
+			myv := statusReportPushMessage.WorkPosition.Y - sp.grbl.GetLastWorkCoordinateOffset().Y
 			my = &myv
-			mzv := statusReport.WorkPosition.Z - sp.grbl.GetLastGetWorkCoordinateOffset().Z
+			mzv := statusReportPushMessage.WorkPosition.Z - sp.grbl.GetLastWorkCoordinateOffset().Z
 			mz = &mzv
-			if statusReport.WorkPosition.A != nil && sp.grbl.GetLastGetWorkCoordinateOffset().A != nil {
-				mav := *statusReport.WorkPosition.A - *sp.grbl.GetLastGetWorkCoordinateOffset().A
+			if statusReportPushMessage.WorkPosition.A != nil && sp.grbl.GetLastWorkCoordinateOffset().A != nil {
+				mav := *statusReportPushMessage.WorkPosition.A - *sp.grbl.GetLastWorkCoordinateOffset().A
 				ma = &mav
 			}
 		}
@@ -175,39 +175,39 @@ func (sp *StatusPrimitive) writePositionStatus(w io.Writer, statusReport *grblMo
 }
 
 //gocyclo:ignore
-func (sp *StatusPrimitive) updateStatusTextView(statusReport *grblMod.MessagePushStatusReport) {
+func (sp *StatusPrimitive) updateStatusTextView(statusReportPushMessage *grblMod.StatusReportPushMessage) {
 	var buf bytes.Buffer
 
-	sp.writePositionStatus(&buf, statusReport)
+	sp.writePositionStatus(&buf, statusReportPushMessage)
 
-	if statusReport.BufferState != nil {
+	if statusReportPushMessage.BufferState != nil {
 		fmt.Fprint(&buf, "\nBuffer\n")
-		fmt.Fprintf(&buf, "Blocks:%s\n", sprintBlocks(statusReport.BufferState.AvailableBlocks))
-		fmt.Fprintf(&buf, "Bytes:%s\n", sprintBytes(statusReport.BufferState.AvailableBytes))
+		fmt.Fprintf(&buf, "Blocks:%s\n", sprintBlocks(statusReportPushMessage.BufferState.AvailableBlocks))
+		fmt.Fprintf(&buf, "Bytes:%s\n", sprintBytes(statusReportPushMessage.BufferState.AvailableBytes))
 	}
 
-	if statusReport.LineNumber != nil {
-		fmt.Fprintf(&buf, "\n\nLine:%s\n", sprintLine(int(*statusReport.LineNumber)))
+	if statusReportPushMessage.LineNumber != nil {
+		fmt.Fprintf(&buf, "\n\nLine:%s\n", sprintLine(int(*statusReportPushMessage.LineNumber)))
 	}
 
-	if statusReport.Feed != nil {
-		fmt.Fprintf(&buf, "\nFeed:%s\n", sprintFeed(float64(*statusReport.Feed)))
+	if statusReportPushMessage.Feed != nil {
+		fmt.Fprintf(&buf, "\nFeed:%s\n", sprintFeed(float64(*statusReportPushMessage.Feed)))
 	}
 
-	if statusReport.FeedSpindle != nil {
-		if statusReport.FeedSpindle.Feed != 0 {
-			fmt.Fprintf(&buf, "\nFeed:%s\n", sprintFeed(statusReport.FeedSpindle.Feed))
+	if statusReportPushMessage.FeedSpindle != nil {
+		if statusReportPushMessage.FeedSpindle.Feed != 0 {
+			fmt.Fprintf(&buf, "\nFeed:%s\n", sprintFeed(statusReportPushMessage.FeedSpindle.Feed))
 		}
-		if statusReport.FeedSpindle.Speed != 0 {
-			fmt.Fprintf(&buf, "\nSpeed:%s\n", sprintSpeed(statusReport.FeedSpindle.Speed))
+		if statusReportPushMessage.FeedSpindle.Speed != 0 {
+			fmt.Fprintf(&buf, "\nSpeed:%s\n", sprintSpeed(statusReportPushMessage.FeedSpindle.Speed))
 		}
 	}
 
-	if statusReport.PinState != nil {
-		fmt.Fprintf(&buf, "\nPin:[%s]%s[-]\n", tcell.ColorOrange, statusReport.PinState)
+	if statusReportPushMessage.PinState != nil {
+		fmt.Fprintf(&buf, "\nPin:[%s]%s[-]\n", tcell.ColorOrange, statusReportPushMessage.PinState)
 	}
 
-	overrideValues := sp.grbl.GetLastGetOverrideValues()
+	overrideValues := sp.grbl.GetLastOverrideValues()
 	if overrideValues != nil && overrideValues.HasOverride() {
 		fmt.Fprint(&buf, "\nOverrides\n")
 		if overrideValues.Feed != 100.0 {
@@ -246,18 +246,18 @@ func (sp *StatusPrimitive) updateStatusTextView(statusReport *grblMod.MessagePus
 	})
 }
 
-func (sp *StatusPrimitive) processMessagePushStatusReport(statusReport *grblMod.MessagePushStatusReport) {
-	sp.updateStateTextView(statusReport.MachineState)
-	sp.updateStatusTextView(statusReport)
+func (sp *StatusPrimitive) processStatusReportPushMessage(statusReportPushMessage *grblMod.StatusReportPushMessage) {
+	sp.updateStateTextView(statusReportPushMessage.MachineState)
+	sp.updateStatusTextView(statusReportPushMessage)
 }
 
-func (sp *StatusPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
-	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
+func (sp *StatusPrimitive) ProcessPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
+	if _, ok := pushMessage.(*grblMod.WelcomePushMessage); ok {
 		sp.processMessagePushWelcome()
 		return
 	}
-	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-		sp.processMessagePushStatusReport(messagePushStatusReport)
+	if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
+		sp.processStatusReportPushMessage(statusReportPushMessage)
 		return
 	}
 }

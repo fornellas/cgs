@@ -10,228 +10,35 @@ import (
 	"github.com/fornellas/cgs/gcode"
 )
 
-type Coordinates struct {
-	X float64
-	Y float64
-	Z float64
-	A *float64
-}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Welcome
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// NewCoordinates creates a Coordinates string values for X, Y, Z and A (optional).
-func NewCoordinatesFromStrValues(dataValues []string) (*Coordinates, error) {
-	coordinates := &Coordinates{}
-
-	if len(dataValues) < 3 || len(dataValues) > 4 {
-		return nil, fmt.Errorf("machine position field malformed: %#v", dataValues)
-	}
-
-	var err error
-
-	coordinates.X, err = strconv.ParseFloat(dataValues[0], 64)
-	if err != nil {
-		return nil, fmt.Errorf("machine position X invalid: %#v", dataValues[0])
-	}
-	coordinates.Y, err = strconv.ParseFloat(dataValues[1], 64)
-	if err != nil {
-		return nil, fmt.Errorf("machine position Y invalid: %#v", dataValues[1])
-	}
-	coordinates.Z, err = strconv.ParseFloat(dataValues[2], 64)
-	if err != nil {
-		return nil, fmt.Errorf("machine position Z invalid: %#v", dataValues[2])
-	}
-	if len(dataValues) > 3 {
-		a, err := strconv.ParseFloat(dataValues[3], 64)
-		if err != nil {
-			return nil, fmt.Errorf("machine position a invalid: %#v", dataValues[3])
-		}
-		coordinates.A = &a
-	}
-	return coordinates, nil
-}
-
-// NewCoordinates creates a Coordinates struct from a string CSV: X,Y,Z,A (A is optional)
-func NewCoordinatesFromCSV(s string) (*Coordinates, error) {
-	return NewCoordinatesFromStrValues(strings.Split(s, ","))
-}
-
-type MessageType int
-
-const (
-	// Message sent back from Grbl in response to a block being sent.
-	MessageTypeResponse MessageType = iota
-	// Message pushed back from Grbl either asynchronously or in response to a block.
-	MessageTypePush
-)
-
-// Message represents a message received from Grbl.
-type Message interface {
-	Type() MessageType
-	String() string
-}
-
-var messageResponseOk = "ok"
-var messageResponseErrorPrefix = "error:"
-
-type MessageResponse struct {
+type WelcomePushMessage struct {
 	Message string
 }
 
-func (m *MessageResponse) Type() MessageType {
-	return MessageTypeResponse
+func (m *WelcomePushMessage) String() string {
+	return m.Message
 }
 
-func (m *MessageResponse) String() string {
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Alarm
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var alarmPushMessagePrefix = "ALARM:"
+
+type AlarmPushMessage struct {
+	Message string
+}
+
+func (m *AlarmPushMessage) String() string {
 	return m.Message
 }
 
 //gocyclo:ignore
-func (m *MessageResponse) Error() error {
-	if !strings.HasPrefix(m.Message, messageResponseErrorPrefix) {
-		return nil
-	}
-
-	n, err := strconv.Atoi(m.Message[len(messageResponseErrorPrefix):])
-	if err != nil {
-		return fmt.Errorf("unable to parse error number (%s)", m.Message)
-	}
-
-	switch n {
-	case 1:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("G-code words consist of a letter and a value. Letter was not found")
-	case 2:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("Numeric value format is not valid or missing an expected value")
-	case 3:
-		return errors.New("Grbl '$' system command was not recognized or supported")
-	case 4:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("Negative value received for an expected positive value")
-	case 5:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("Homing cycle is not enabled via settings")
-	case 6:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("Minimum step pulse time must be greater than 3usec")
-	case 7:
-		return errors.New("EEPROM read failed. Reset and restored to default values")
-	case 8:
-		return errors.New("Grbl '$' command cannot be used unless Grbl is IDLE. Ensures smooth operation during a job")
-	case 9:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("G-code locked out during alarm or jog state")
-	case 10:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("Soft limits cannot be enabled without homing also enabled")
-	case 11:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("Max characters per line exceeded. Line was not processed and executed")
-	case 12:
-		return errors.New("(Compile Option) Grbl '$' setting value exceeds the maximum step rate supported")
-	case 13:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("Safety door detected as opened and door state initiated")
-	case 14:
-		return errors.New("(Grbl-Mega Only) Build info or startup line exceeded EEPROM line length limit")
-	case 15:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("Jog target exceeds machine travel. Command ignored")
-	case 16:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("Jog command with no '=' or contains prohibited g-code")
-	case 17:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("Laser mode requires PWM output")
-	case 20:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("Unsupported or invalid g-code command found in block")
-	case 21:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("More than one g-code command from same modal group found in block")
-	case 22:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("Feed rate has not yet been set or is undefined")
-	case 23:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("G-code command in block requires an integer value")
-	case 24:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("Two G-code commands that both require the use of the XYZ axis words were detected in the block")
-	case 25:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("A G-code word was repeated in the block")
-	case 26:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("A G-code command implicitly or explicitly requires XYZ axis words in the block, but none were detected")
-	case 27:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("N line number value is not within the valid range of 1 - 9,999,999")
-	case 28:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("A G-code command was sent, but is missing some required P or L value words in the line")
-	case 29:
-		return errors.New("Grbl supports six work coordinate systems G54-G59. G59.1, G59.2, and G59.3 are not supported")
-	case 30:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("The G53 G-code command requires either a G0 seek or G1 feed motion mode to be active. A different motion was active")
-	case 31:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("There are unused axis words in the block and G80 motion mode cancel is active")
-	case 32:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("A G2 or G3 arc was commanded but there are no XYZ axis words in the selected plane to trace the arc")
-	case 33:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("The motion command has an invalid target. G2, G3, and G38.2 generates this error, if the arc is impossible to generate or if the probe target is the current position")
-	case 34:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("A G2 or G3 arc, traced with the radius definition, had a mathematical error when computing the arc geometry. Try either breaking up the arc into semi-circles or quadrants, or redefine them with the arc offset definition")
-	case 35:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("A G2 or G3 arc, traced with the offset definition, is missing the IJK offset word in the selected plane to trace the arc")
-	case 36:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("There are unused, leftover G-code words that aren't used by any command in the block")
-	case 37:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("The G43.1 dynamic tool length offset command cannot apply an offset to an axis other than its configured axis. The Grbl default axis is the Z-axis")
-	case 38:
-		//lint:ignore ST1005 vanilla Grbl error string
-		return errors.New("Tool number greater than max supported value")
-	default:
-		return fmt.Errorf("unknown (%s)", m.Message)
-	}
-}
-
-type MessagePushWelcome struct {
-	Message string
-}
-
-func (m *MessagePushWelcome) Type() MessageType {
-	return MessageTypePush
-}
-
-func (m *MessagePushWelcome) String() string {
-	return m.Message
-}
-
-var messagePushAlarmPrefix = "ALARM:"
-
-type MessagePushAlarm struct {
-	Message string
-}
-
-func (m *MessagePushAlarm) Type() MessageType {
-	return MessageTypePush
-}
-
-func (m *MessagePushAlarm) String() string {
-	return m.Message
-}
-
-//gocyclo:ignore
-func (m *MessagePushAlarm) Error() error {
-	n, err := strconv.Atoi(m.Message[len(messagePushAlarmPrefix):])
+func (m *AlarmPushMessage) Error() error {
+	n, err := strconv.Atoi(m.Message[len(alarmPushMessagePrefix):])
 	if err != nil {
 		return fmt.Errorf("unable to parse alarm number (%s)", m.Message)
 	}
@@ -271,60 +78,17 @@ func (m *MessagePushAlarm) Error() error {
 	}
 }
 
-func NewMessagePush(message string) (Message, error) {
-	if strings.HasPrefix(message, "Grbl ") {
-		return &MessagePushWelcome{Message: message}, nil
-	}
-	if strings.HasPrefix(message, messagePushAlarmPrefix) {
-		return &MessagePushAlarm{Message: message}, nil
-	}
-	if strings.HasPrefix(message, "$") {
-		return NewMessagePushSetting(message)
-	}
-	if strings.HasPrefix(message, "[MSG:") {
-		return &MessagePushFeedback{Message: message}, nil
-	}
-	if strings.HasPrefix(message, "[GC:") {
-		return NewMessagePushGcodeState(message)
-	}
-	if strings.HasPrefix(message, "[HLP:") {
-		return &MessagePushHelp{Message: message}, nil
-	}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Setting
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	for prefix := range gcodeParamPrefixes {
-		if strings.HasPrefix(message, prefix) {
-			return NewMessagePushGcodeParam(message)
-		}
-	}
-	if strings.HasPrefix(message, "[VER:") {
-		return NewMessagePushVersion(message)
-	}
-	if strings.HasPrefix(message, "[OPT:") {
-		return NewMessagePushCompileTimeOptions(message)
-	}
-	if strings.HasPrefix(message, ">") {
-		return &MessagePushStartupLineExecution{Message: message}, nil
-	}
-	if strings.HasPrefix(message, "<") {
-		return NewMessagePushStatusReport(message)
-	}
-	if strings.HasPrefix(message, "[echo:") {
-		return &MessagePushEcho{Message: message}, nil
-	}
-	if len(message) == 0 {
-		return &MessagePushEmpty{}, nil
-	}
-
-	return &MessagePushUnknown{Message: message}, nil
-}
-
-type MessagePushSetting struct {
+type SettingPushMessage struct {
 	Message string
 	Key     string
 	Value   string
 }
 
-func NewMessagePushSetting(message string) (*MessagePushSetting, error) {
+func NewSettingPushMessage(message string) (*SettingPushMessage, error) {
 	if !strings.HasPrefix(message, "$") {
 		return nil, fmt.Errorf("setting message does not start with $: %s", message)
 	}
@@ -332,38 +96,38 @@ func NewMessagePushSetting(message string) (*MessagePushSetting, error) {
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("setting message does not contain exactly one =: %s", message)
 	}
-	return &MessagePushSetting{
+	return &SettingPushMessage{
 		Message: message,
 		Key:     parts[0],
 		Value:   parts[1],
 	}, nil
 }
 
-func (m *MessagePushSetting) Type() MessageType {
-	return MessageTypePush
-}
-
-func (m *MessagePushSetting) String() string {
+func (m *SettingPushMessage) String() string {
 	return m.Message
 }
 
-type MessagePushFeedback struct {
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Feedback
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type FeedbackPushMessage struct {
 	Message string
 }
 
-func (m *MessagePushFeedback) Type() MessageType {
-	return MessageTypePush
-}
-
-func (m *MessagePushFeedback) String() string {
+func (m *FeedbackPushMessage) String() string {
 	return m.Message
 }
 
-func (m *MessagePushFeedback) Text() string {
+func (m *FeedbackPushMessage) Text() string {
 	return strings.TrimSuffix(strings.TrimPrefix(m.Message, "[MSG:"), "]")
 }
 
-type MessagePushGcodeState struct {
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// GcodeState
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type GcodeStatePushMessage struct {
 	Message      string
 	ModalGroup   *gcode.ModalGroup
 	Tool         *float64
@@ -371,8 +135,8 @@ type MessagePushGcodeState struct {
 	FeedRate     *float64
 }
 
-func NewMessagePushGcodeState(message string) (*MessagePushGcodeState, error) {
-	m := &MessagePushGcodeState{
+func NewGcodeStatePushMessage(message string) (*GcodeStatePushMessage, error) {
+	m := &GcodeStatePushMessage{
 		Message:    message,
 		ModalGroup: gcode.DefaultModalGroup.Copy(),
 	}
@@ -400,25 +164,25 @@ func NewMessagePushGcodeState(message string) (*MessagePushGcodeState, error) {
 	return m, nil
 }
 
-func (m *MessagePushGcodeState) Type() MessageType {
-	return MessageTypePush
-}
-
-func (m *MessagePushGcodeState) String() string {
+func (m *GcodeStatePushMessage) String() string {
 	return m.Message
 }
 
-type MessagePushHelp struct {
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Help
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type HelpPushMessage struct {
 	Message string
 }
 
-func (m *MessagePushHelp) Type() MessageType {
-	return MessageTypePush
-}
-
-func (m *MessagePushHelp) String() string {
+func (m *HelpPushMessage) String() string {
 	return m.Message
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// GcodeParam
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Probe struct {
 	Coordinates Coordinates
@@ -495,40 +259,40 @@ type GcodeParameters struct {
 	Probe *Probe
 }
 
-// Updates GcodeParameters from given MessagePushGcodeParam.
-func (g *GcodeParameters) Update(messagePushGcodeParam *MessagePushGcodeParam) {
-	if messagePushGcodeParam.GcodeParameters.CoordinateSystem1 != nil {
-		g.CoordinateSystem1 = messagePushGcodeParam.GcodeParameters.CoordinateSystem1
+// Updates GcodeParameters from given GcodeParamPushMessage.
+func (g *GcodeParameters) Update(gcodeParamPushMessage *GcodeParamPushMessage) {
+	if gcodeParamPushMessage.GcodeParameters.CoordinateSystem1 != nil {
+		g.CoordinateSystem1 = gcodeParamPushMessage.GcodeParameters.CoordinateSystem1
 	}
-	if messagePushGcodeParam.GcodeParameters.CoordinateSystem2 != nil {
-		g.CoordinateSystem2 = messagePushGcodeParam.GcodeParameters.CoordinateSystem2
+	if gcodeParamPushMessage.GcodeParameters.CoordinateSystem2 != nil {
+		g.CoordinateSystem2 = gcodeParamPushMessage.GcodeParameters.CoordinateSystem2
 	}
-	if messagePushGcodeParam.GcodeParameters.CoordinateSystem3 != nil {
-		g.CoordinateSystem3 = messagePushGcodeParam.GcodeParameters.CoordinateSystem3
+	if gcodeParamPushMessage.GcodeParameters.CoordinateSystem3 != nil {
+		g.CoordinateSystem3 = gcodeParamPushMessage.GcodeParameters.CoordinateSystem3
 	}
-	if messagePushGcodeParam.GcodeParameters.CoordinateSystem4 != nil {
-		g.CoordinateSystem4 = messagePushGcodeParam.GcodeParameters.CoordinateSystem4
+	if gcodeParamPushMessage.GcodeParameters.CoordinateSystem4 != nil {
+		g.CoordinateSystem4 = gcodeParamPushMessage.GcodeParameters.CoordinateSystem4
 	}
-	if messagePushGcodeParam.GcodeParameters.CoordinateSystem5 != nil {
-		g.CoordinateSystem5 = messagePushGcodeParam.GcodeParameters.CoordinateSystem5
+	if gcodeParamPushMessage.GcodeParameters.CoordinateSystem5 != nil {
+		g.CoordinateSystem5 = gcodeParamPushMessage.GcodeParameters.CoordinateSystem5
 	}
-	if messagePushGcodeParam.GcodeParameters.CoordinateSystem6 != nil {
-		g.CoordinateSystem6 = messagePushGcodeParam.GcodeParameters.CoordinateSystem6
+	if gcodeParamPushMessage.GcodeParameters.CoordinateSystem6 != nil {
+		g.CoordinateSystem6 = gcodeParamPushMessage.GcodeParameters.CoordinateSystem6
 	}
-	if messagePushGcodeParam.GcodeParameters.PrimaryPreDefinedPosition != nil {
-		g.PrimaryPreDefinedPosition = messagePushGcodeParam.GcodeParameters.PrimaryPreDefinedPosition
+	if gcodeParamPushMessage.GcodeParameters.PrimaryPreDefinedPosition != nil {
+		g.PrimaryPreDefinedPosition = gcodeParamPushMessage.GcodeParameters.PrimaryPreDefinedPosition
 	}
-	if messagePushGcodeParam.GcodeParameters.SecondaryPreDefinedPosition != nil {
-		g.SecondaryPreDefinedPosition = messagePushGcodeParam.GcodeParameters.SecondaryPreDefinedPosition
+	if gcodeParamPushMessage.GcodeParameters.SecondaryPreDefinedPosition != nil {
+		g.SecondaryPreDefinedPosition = gcodeParamPushMessage.GcodeParameters.SecondaryPreDefinedPosition
 	}
-	if messagePushGcodeParam.GcodeParameters.CoordinateOffset != nil {
-		g.CoordinateOffset = messagePushGcodeParam.GcodeParameters.CoordinateOffset
+	if gcodeParamPushMessage.GcodeParameters.CoordinateOffset != nil {
+		g.CoordinateOffset = gcodeParamPushMessage.GcodeParameters.CoordinateOffset
 	}
-	if messagePushGcodeParam.GcodeParameters.ToolLengthOffset != nil {
-		g.ToolLengthOffset = messagePushGcodeParam.GcodeParameters.ToolLengthOffset
+	if gcodeParamPushMessage.GcodeParameters.ToolLengthOffset != nil {
+		g.ToolLengthOffset = gcodeParamPushMessage.GcodeParameters.ToolLengthOffset
 	}
-	if messagePushGcodeParam.GcodeParameters.Probe != nil {
-		g.Probe = messagePushGcodeParam.GcodeParameters.Probe
+	if gcodeParamPushMessage.GcodeParameters.Probe != nil {
+		g.Probe = gcodeParamPushMessage.GcodeParameters.Probe
 	}
 }
 
@@ -564,14 +328,14 @@ func (g *GcodeParameters) HasPreDefinedPosition() bool {
 	return false
 }
 
-type MessagePushGcodeParam struct {
+type GcodeParamPushMessage struct {
 	Message         string
 	GcodeParameters GcodeParameters
 }
 
 //gocyclo:ignore
-func NewMessagePushGcodeParam(message string) (*MessagePushGcodeParam, error) {
-	m := &MessagePushGcodeParam{
+func NewGcodeParamPushMessage(message string) (*GcodeParamPushMessage, error) {
+	m := &GcodeParamPushMessage{
 		Message: message,
 	}
 
@@ -662,21 +426,21 @@ func NewMessagePushGcodeParam(message string) (*MessagePushGcodeParam, error) {
 	return m, nil
 }
 
-func (m *MessagePushGcodeParam) Type() MessageType {
-	return MessageTypePush
-}
-
-func (m *MessagePushGcodeParam) String() string {
+func (m *GcodeParamPushMessage) String() string {
 	return m.Message
 }
 
-type MessagePushVersion struct {
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Version
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type VersionPushMessage struct {
 	Message string
 	Version string
 	Info    string
 }
 
-func NewMessagePushVersion(message string) (*MessagePushVersion, error) {
+func NewVersionPushMessage(message string) (*VersionPushMessage, error) {
 	const prefix = "[VER:"
 	const suffix = "]"
 	const sep = ":"
@@ -691,22 +455,22 @@ func NewMessagePushVersion(message string) (*MessagePushVersion, error) {
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("message format unknown: %#v", message)
 	}
-	return &MessagePushVersion{
+	return &VersionPushMessage{
 		Message: message,
 		Version: parts[0],
 		Info:    parts[1],
 	}, nil
 }
 
-func (m *MessagePushVersion) Type() MessageType {
-	return MessageTypePush
-}
-
-func (m *MessagePushVersion) String() string {
+func (m *VersionPushMessage) String() string {
 	return m.Message
 }
 
-type MessagePushCompileTimeOptions struct {
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// CompileTimeOptions
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type CompileTimeOptionsPushMessage struct {
 	Message             string
 	CompileTimeOptions  []string
 	PlannerBlocks       uint64
@@ -738,7 +502,7 @@ var buildOptionDescription = map[rune]string{
 	'2': "Dual axis motors",
 }
 
-func NewMessagePushCompileTimeOptions(message string) (*MessagePushCompileTimeOptions, error) {
+func NewCompileTimeOptionsPushMessage(message string) (*CompileTimeOptionsPushMessage, error) {
 	const prefix = "[OPT:"
 	const suffix = "]"
 	const sep = ","
@@ -771,7 +535,7 @@ func NewMessagePushCompileTimeOptions(message string) (*MessagePushCompileTimeOp
 	if serialRxBufferBytes, err = strconv.ParseUint(parts[2], 10, 64); err != nil {
 		return nil, fmt.Errorf("unable to parse serial RX buffer bytes: %#v: %w", message, err)
 	}
-	return &MessagePushCompileTimeOptions{
+	return &CompileTimeOptionsPushMessage{
 		Message:             message,
 		CompileTimeOptions:  compileTimeOptions,
 		PlannerBlocks:       plannerBlocks,
@@ -779,27 +543,27 @@ func NewMessagePushCompileTimeOptions(message string) (*MessagePushCompileTimeOp
 	}, nil
 }
 
-func (m *MessagePushCompileTimeOptions) Type() MessageType {
-	return MessageTypePush
-}
-
-func (m *MessagePushCompileTimeOptions) String() string {
+func (m *CompileTimeOptionsPushMessage) String() string {
 	return m.Message
 }
 
-type MessagePushStartupLineExecution struct {
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// StartupLineExecution
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type StartupLineExecutionPushMessage struct {
 	Message string
 }
 
-func (m *MessagePushStartupLineExecution) Type() MessageType {
-	return MessageTypePush
-}
-
-func (m *MessagePushStartupLineExecution) String() string {
+func (m *StartupLineExecutionPushMessage) String() string {
 	return m.Message
 }
 
-type StatusReportMachineState struct {
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// StatusReport
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type MachineState struct {
 	// Valid states types:  `Idle, Run, Hold, Jog, Alarm, Door, Check, Home, Sleep`
 	State string
 	// Current sub-states are:
@@ -812,7 +576,7 @@ type StatusReportMachineState struct {
 	SubState *int
 }
 
-func NewStatusReportMachineState(dataField string) (*StatusReportMachineState, error) {
+func NewMachineState(dataField string) (*MachineState, error) {
 	parts := strings.Split(dataField, ":")
 	if len(parts) < 1 {
 		return nil, fmt.Errorf("machine state field empty: %#v", dataField)
@@ -829,13 +593,13 @@ func NewStatusReportMachineState(dataField string) (*StatusReportMachineState, e
 		}
 		subStatePtr = &subState
 	}
-	return &StatusReportMachineState{
+	return &MachineState{
 		State:    state,
 		SubState: subStatePtr,
 	}, nil
 }
 
-func (m *StatusReportMachineState) SubStateString() string {
+func (m *MachineState) SubStateString() string {
 	if m.SubState == nil {
 		return ""
 	}
@@ -862,46 +626,46 @@ func (m *StatusReportMachineState) SubStateString() string {
 	return fmt.Sprintf("unknown (%d)", *m.SubState)
 }
 
-type StatusReportMachinePosition Coordinates
+type MachinePosition Coordinates
 
-func NewStatusReportMachinePosition(dataValues []string) (*StatusReportMachinePosition, error) {
+func NewMachinePosition(dataValues []string) (*MachinePosition, error) {
 	coordinates, err := NewCoordinatesFromStrValues(dataValues)
 	if err != nil {
 		return nil, err
 	}
-	return (*StatusReportMachinePosition)(coordinates), nil
+	return (*MachinePosition)(coordinates), nil
 }
 
-type StatusReportWorkPosition Coordinates
+type WorkPosition Coordinates
 
-func NewStatusReportWorkPosition(dataValues []string) (*StatusReportWorkPosition, error) {
+func NewWorkPosition(dataValues []string) (*WorkPosition, error) {
 	coordinates, err := NewCoordinatesFromStrValues(dataValues)
 	if err != nil {
 		return nil, err
 	}
-	return (*StatusReportWorkPosition)(coordinates), nil
+	return (*WorkPosition)(coordinates), nil
 }
 
 // Work coordinate offset is the current work coordinate offset of the g-code parser, which is the
 // sum of the current work coordinate system, G92 offsets, and G43.1 tool length offset.
-type StatusReportWorkCoordinateOffset Coordinates
+type WorkCoordinateOffset Coordinates
 
-func NewStatusReportWorkCoordinateOffset(dataValues []string) (*StatusReportWorkCoordinateOffset, error) {
+func NewWorkCoordinateOffset(dataValues []string) (*WorkCoordinateOffset, error) {
 	coordinates, err := NewCoordinatesFromStrValues(dataValues)
 	if err != nil {
 		return nil, err
 	}
-	return (*StatusReportWorkCoordinateOffset)(coordinates), nil
+	return (*WorkCoordinateOffset)(coordinates), nil
 }
 
-type StatusReportBufferState struct {
+type BufferState struct {
 	// Number of available blocks in the planner buffer
 	AvailableBlocks int
 	// Number of available bytes in the serial RX buffer
 	AvailableBytes int
 }
 
-func NewStatusReportBufferState(dataValues []string) (*StatusReportBufferState, error) {
+func NewBufferState(dataValues []string) (*BufferState, error) {
 	if len(dataValues) != 2 {
 		return nil, fmt.Errorf("buffer state field malformed: %#v", dataValues)
 	}
@@ -916,16 +680,16 @@ func NewStatusReportBufferState(dataValues []string) (*StatusReportBufferState, 
 		return nil, fmt.Errorf("buffer state available bytes invalid: %#v", dataValues[1])
 	}
 
-	return &StatusReportBufferState{
+	return &BufferState{
 		AvailableBlocks: availableBlocks,
 		AvailableBytes:  availableBytes,
 	}, nil
 }
 
 // Line currently being executed
-type StatusReportLineNumber int
+type LineNumber int
 
-func NewStatusReportLineNumber(dataValues []string) (*StatusReportLineNumber, error) {
+func NewLineNumber(dataValues []string) (*LineNumber, error) {
 	if len(dataValues) != 1 {
 		return nil, fmt.Errorf("line number field malformed: %#v", dataValues)
 	}
@@ -935,14 +699,14 @@ func NewStatusReportLineNumber(dataValues []string) (*StatusReportLineNumber, er
 		return nil, fmt.Errorf("line number invalid: %#v", dataValues[0])
 	}
 
-	result := StatusReportLineNumber(lineNumber)
+	result := LineNumber(lineNumber)
 	return &result, nil
 }
 
 // Current Feed
-type StatusReportFeed float64
+type Feed float64
 
-func NewStatusReportFeed(dataValues []string) (*StatusReportFeed, error) {
+func NewFeed(dataValues []string) (*Feed, error) {
 	if len(dataValues) != 1 {
 		return nil, fmt.Errorf("feed field malformed: %#v", dataValues)
 	}
@@ -952,17 +716,17 @@ func NewStatusReportFeed(dataValues []string) (*StatusReportFeed, error) {
 		return nil, fmt.Errorf("feed invalid: %#v", dataValues[0])
 	}
 
-	result := StatusReportFeed(feed)
+	result := Feed(feed)
 	return &result, nil
 }
 
 // Current Feed and Speed
-type StatusReportFeedSpindle struct {
+type FeedSpindle struct {
 	Feed  float64
 	Speed float64
 }
 
-func NewStatusReportFeedSpindle(dataValues []string) (*StatusReportFeedSpindle, error) {
+func NewStatusReportFeedSpindle(dataValues []string) (*FeedSpindle, error) {
 	if len(dataValues) != 2 {
 		return nil, fmt.Errorf("feed spindle field malformed: %#v", dataValues)
 	}
@@ -977,14 +741,14 @@ func NewStatusReportFeedSpindle(dataValues []string) (*StatusReportFeedSpindle, 
 		return nil, fmt.Errorf("feed spindle speed invalid: %#v", dataValues[1])
 	}
 
-	return &StatusReportFeedSpindle{
+	return &FeedSpindle{
 		Feed:  feed,
 		Speed: speed,
 	}, nil
 }
 
 // Input pins Grbl has detected as 'triggered'.
-type StatusReportPinState struct {
+type PinState struct {
 	XLimit     *bool
 	YLimit     *bool
 	ZLimit     *bool
@@ -996,12 +760,12 @@ type StatusReportPinState struct {
 	CycleStart *bool
 }
 
-func NewStatusReportPinState(dataValues []string) (*StatusReportPinState, error) {
+func NewPinState(dataValues []string) (*PinState, error) {
 	if len(dataValues) != 1 {
 		return nil, fmt.Errorf("pin state field malformed: %#v", dataValues)
 	}
 
-	pinState := &StatusReportPinState{}
+	pinState := &PinState{}
 	pins := dataValues[0]
 
 	for _, pin := range pins {
@@ -1034,7 +798,7 @@ func NewStatusReportPinState(dataValues []string) (*StatusReportPinState, error)
 }
 
 //gocyclo:ignore
-func (p *StatusReportPinState) String() string {
+func (p *PinState) String() string {
 	var buf bytes.Buffer
 	if p.XLimit != nil && *p.XLimit {
 		fmt.Fprint(&buf, "X")
@@ -1067,13 +831,13 @@ func (p *StatusReportPinState) String() string {
 }
 
 // Indicates current override values in percent of programmed values.
-type StatusReportOverrideValues struct {
+type OverrideValues struct {
 	Feed    float64
 	Rapids  float64
 	Spindle float64
 }
 
-func NewStatusReportOverrideValues(dataValues []string) (*StatusReportOverrideValues, error) {
+func NewOverrideValues(dataValues []string) (*OverrideValues, error) {
 	if len(dataValues) != 3 {
 		return nil, fmt.Errorf("override values field malformed: %#v", dataValues)
 	}
@@ -1093,21 +857,21 @@ func NewStatusReportOverrideValues(dataValues []string) (*StatusReportOverrideVa
 		return nil, fmt.Errorf("override values spindle invalid: %#v", dataValues[2])
 	}
 
-	return &StatusReportOverrideValues{
+	return &OverrideValues{
 		Feed:    feed,
 		Rapids:  rapids,
 		Spindle: spindle,
 	}, nil
 }
 
-func (o *StatusReportOverrideValues) HasOverride() bool {
+func (o *OverrideValues) HasOverride() bool {
 	if o.Feed != 100 || o.Rapids != 100 || o.Spindle != 100 {
 		return true
 	}
 	return false
 }
 
-type StatusReportAccessoryState struct {
+type AccessoryState struct {
 	// indicates spindle is enabled in the CW direction. This does not appear with `C`.
 	SpindleCW *bool
 	// indicates spindle is enabled in the CCW direction. This does not appear with `S`.
@@ -1118,12 +882,12 @@ type StatusReportAccessoryState struct {
 	MistCoolant *bool
 }
 
-func NewStatusReportAccessoryState(dataValues []string) (*StatusReportAccessoryState, error) {
+func NewAccessoryState(dataValues []string) (*AccessoryState, error) {
 	if len(dataValues) != 1 {
 		return nil, fmt.Errorf("accessory state field malformed: %#v", dataValues)
 	}
 
-	accessoryState := &StatusReportAccessoryState{}
+	accessoryState := &AccessoryState{}
 	accessories := dataValues[0]
 
 	for _, accessory := range accessories {
@@ -1145,23 +909,23 @@ func NewStatusReportAccessoryState(dataValues []string) (*StatusReportAccessoryS
 	return accessoryState, nil
 }
 
-type MessagePushStatusReport struct {
+type StatusReportPushMessage struct {
 	Message              string
-	MachineState         StatusReportMachineState
-	MachinePosition      *StatusReportMachinePosition
-	WorkPosition         *StatusReportWorkPosition
-	WorkCoordinateOffset *StatusReportWorkCoordinateOffset
-	BufferState          *StatusReportBufferState
-	LineNumber           *StatusReportLineNumber
-	Feed                 *StatusReportFeed
-	FeedSpindle          *StatusReportFeedSpindle
-	PinState             *StatusReportPinState
-	OverrideValues       *StatusReportOverrideValues
-	AccessoryState       *StatusReportAccessoryState
+	MachineState         MachineState
+	MachinePosition      *MachinePosition
+	WorkPosition         *WorkPosition
+	WorkCoordinateOffset *WorkCoordinateOffset
+	BufferState          *BufferState
+	LineNumber           *LineNumber
+	Feed                 *Feed
+	FeedSpindle          *FeedSpindle
+	PinState             *PinState
+	OverrideValues       *OverrideValues
+	AccessoryState       *AccessoryState
 }
 
 //gocyclo:ignore
-func NewMessagePushStatusReport(message string) (*MessagePushStatusReport, error) {
+func NewStatusReportPushMessage(message string) (*StatusReportPushMessage, error) {
 	if !strings.HasPrefix(message, "<") {
 		return nil, fmt.Errorf("status report message does not start with '<': %#v", message)
 	}
@@ -1171,12 +935,12 @@ func NewMessagePushStatusReport(message string) (*MessagePushStatusReport, error
 		return nil, fmt.Errorf("status report message missing required data fields: %#v", message)
 	}
 
-	machineState, err := NewStatusReportMachineState(dataFields[0])
+	machineState, err := NewMachineState(dataFields[0])
 	if err != nil {
 		return nil, fmt.Errorf("status report message parsing failed: %#v: %w", message, err)
 	}
 
-	messagePushStatusReport := &MessagePushStatusReport{
+	statusReportPushMessage := &StatusReportPushMessage{
 		Message:      message,
 		MachineState: *machineState,
 	}
@@ -1191,52 +955,52 @@ func NewMessagePushStatusReport(message string) (*MessagePushStatusReport, error
 
 		switch dataType {
 		case "MPos":
-			messagePushStatusReport.MachinePosition, err = NewStatusReportMachinePosition(dataValues)
+			statusReportPushMessage.MachinePosition, err = NewMachinePosition(dataValues)
 			if err != nil {
 				return nil, fmt.Errorf("status report message: failed to parse MPos: %w", err)
 			}
 		case "WPos":
-			messagePushStatusReport.WorkPosition, err = NewStatusReportWorkPosition(dataValues)
+			statusReportPushMessage.WorkPosition, err = NewWorkPosition(dataValues)
 			if err != nil {
 				return nil, fmt.Errorf("status report message: failed to parse WPos: %w", err)
 			}
 		case "WCO":
-			messagePushStatusReport.WorkCoordinateOffset, err = NewStatusReportWorkCoordinateOffset(dataValues)
+			statusReportPushMessage.WorkCoordinateOffset, err = NewWorkCoordinateOffset(dataValues)
 			if err != nil {
 				return nil, fmt.Errorf("status report message: failed to parse WCO: %w", err)
 			}
 		case "Bf":
-			messagePushStatusReport.BufferState, err = NewStatusReportBufferState(dataValues)
+			statusReportPushMessage.BufferState, err = NewBufferState(dataValues)
 			if err != nil {
 				return nil, fmt.Errorf("status report message: failed to parse Bf: %w", err)
 			}
 		case "Ln":
-			messagePushStatusReport.LineNumber, err = NewStatusReportLineNumber(dataValues)
+			statusReportPushMessage.LineNumber, err = NewLineNumber(dataValues)
 			if err != nil {
 				return nil, fmt.Errorf("status report message: failed to parse Ln: %w", err)
 			}
 		case "F":
-			messagePushStatusReport.Feed, err = NewStatusReportFeed(dataValues)
+			statusReportPushMessage.Feed, err = NewFeed(dataValues)
 			if err != nil {
 				return nil, fmt.Errorf("status report message: failed to parse F: %w", err)
 			}
 		case "FS":
-			messagePushStatusReport.FeedSpindle, err = NewStatusReportFeedSpindle(dataValues)
+			statusReportPushMessage.FeedSpindle, err = NewStatusReportFeedSpindle(dataValues)
 			if err != nil {
 				return nil, fmt.Errorf("status report message: failed to parse FS: %w", err)
 			}
 		case "Pn":
-			messagePushStatusReport.PinState, err = NewStatusReportPinState(dataValues)
+			statusReportPushMessage.PinState, err = NewPinState(dataValues)
 			if err != nil {
 				return nil, fmt.Errorf("status report message: failed to parse Pn: %w", err)
 			}
 		case "Ov":
-			messagePushStatusReport.OverrideValues, err = NewStatusReportOverrideValues(dataValues)
+			statusReportPushMessage.OverrideValues, err = NewOverrideValues(dataValues)
 			if err != nil {
 				return nil, fmt.Errorf("status report message: failed to parse Ov: %w", err)
 			}
 		case "A":
-			messagePushStatusReport.AccessoryState, err = NewStatusReportAccessoryState(dataValues)
+			statusReportPushMessage.AccessoryState, err = NewAccessoryState(dataValues)
 			if err != nil {
 				return nil, fmt.Errorf("status report message: failed to parse A: %w", err)
 			}
@@ -1247,57 +1011,85 @@ func NewMessagePushStatusReport(message string) (*MessagePushStatusReport, error
 		return nil, fmt.Errorf("status report message does not end with '>': %#v", message)
 	}
 
-	return messagePushStatusReport, nil
+	return statusReportPushMessage, nil
 }
 
-func (m *MessagePushStatusReport) Type() MessageType {
-	return MessageTypePush
-}
-
-func (m *MessagePushStatusReport) String() string {
+func (m *StatusReportPushMessage) String() string {
 	return m.Message
 }
 
-type MessagePushEcho struct {
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Echo
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type EchoPushMessage struct {
 	Message string
 }
 
-func (m *MessagePushEcho) Type() MessageType {
-	return MessageTypePush
-}
-
-func (m *MessagePushEcho) String() string {
+func (m *EchoPushMessage) String() string {
 	return m.Message
 }
 
-type MessagePushEmpty struct {
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Empty
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type EmptyPushMessage struct {
 }
 
-func (m *MessagePushEmpty) Type() MessageType {
-	return MessageTypePush
-}
-
-func (m *MessagePushEmpty) String() string {
+func (m *EmptyPushMessage) String() string {
 	return "(empty)"
 }
 
-type MessagePushUnknown struct {
-	Message string
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// New
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type PushMessage interface {
+	String() string
 }
 
-func (m *MessagePushUnknown) Type() MessageType {
-	return MessageTypePush
-}
-
-func (m *MessagePushUnknown) String() string {
-	return fmt.Sprintf("Unknown message: %s", m.Message)
-}
-
-func NewMessage(message string) (Message, error) {
-	if message == messageResponseOk || strings.HasPrefix(message, messageResponseErrorPrefix) {
-		return &MessageResponse{
-			Message: message,
-		}, nil
+func NewPushMessage(message string) (PushMessage, error) {
+	if strings.HasPrefix(message, "Grbl ") {
+		return &WelcomePushMessage{Message: message}, nil
 	}
-	return NewMessagePush(message)
+	if strings.HasPrefix(message, alarmPushMessagePrefix) {
+		return &AlarmPushMessage{Message: message}, nil
+	}
+	if strings.HasPrefix(message, "$") {
+		return NewSettingPushMessage(message)
+	}
+	if strings.HasPrefix(message, "[MSG:") {
+		return &FeedbackPushMessage{Message: message}, nil
+	}
+	if strings.HasPrefix(message, "[GC:") {
+		return NewGcodeStatePushMessage(message)
+	}
+	if strings.HasPrefix(message, "[HLP:") {
+		return &HelpPushMessage{Message: message}, nil
+	}
+	for prefix := range gcodeParamPrefixes {
+		if strings.HasPrefix(message, prefix) {
+			return NewGcodeParamPushMessage(message)
+		}
+	}
+	if strings.HasPrefix(message, "[VER:") {
+		return NewVersionPushMessage(message)
+	}
+	if strings.HasPrefix(message, "[OPT:") {
+		return NewCompileTimeOptionsPushMessage(message)
+	}
+	if strings.HasPrefix(message, ">") {
+		return &StartupLineExecutionPushMessage{Message: message}, nil
+	}
+	if strings.HasPrefix(message, "<") {
+		return NewStatusReportPushMessage(message)
+	}
+	if strings.HasPrefix(message, "[echo:") {
+		return &EchoPushMessage{Message: message}, nil
+	}
+	if len(message) == 0 {
+		return &EmptyPushMessage{}, nil
+	}
+	return nil, ErrInvalidMessage
 }

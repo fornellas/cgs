@@ -37,7 +37,7 @@ type commandParameterType struct {
 type ControlPrimitive struct {
 	*tview.Flex
 	grbl                   *grblMod.Grbl
-	pushMessageCh          chan grblMod.Message
+	pushMessageCh          chan grblMod.PushMessage
 	app                    *tview.Application
 	statusPrimitive        *StatusPrimitive
 	quietStatusComms       bool
@@ -60,7 +60,7 @@ type ControlPrimitive struct {
 func NewControlPrimitive(
 	ctx context.Context,
 	grbl *grblMod.Grbl,
-	pushMessageCh chan grblMod.Message,
+	pushMessageCh chan grblMod.PushMessage,
 	app *tview.Application,
 	statusPrimitive *StatusPrimitive,
 	quietStatusComms bool,
@@ -339,9 +339,9 @@ func (cp *ControlPrimitive) getBlockStatusCmdsAndTimeout(block *gcode.Block) (ma
 			// Grbl stops responding to status report queries while homing. Generating this
 			// virtual status report enables subscribers to process the otherwise unreported
 			//  state.
-			cp.pushMessageCh <- &grblMod.MessagePushStatusReport{
+			cp.pushMessageCh <- &grblMod.StatusReportPushMessage{
 				Message: "(virtual push message: status report: Home)",
-				MachineState: grblMod.StatusReportMachineState{
+				MachineState: grblMod.MachineState{
 					State: "Home",
 				},
 			}
@@ -487,12 +487,12 @@ func (cp *ControlPrimitive) RunSendRealTimeCommandWorker(ctx context.Context) er
 }
 
 //gocyclo:ignore
-func (cp *ControlPrimitive) processMessagePushGcodeState(
-	messagePushGcodeState *grblMod.MessagePushGcodeState,
+func (cp *ControlPrimitive) processGcodeStatePushMessage(
+	gcodeStatePushMessage *grblMod.GcodeStatePushMessage,
 ) tcell.Color {
 	var buf bytes.Buffer
 
-	if modalGroup := messagePushGcodeState.ModalGroup; modalGroup != nil {
+	if modalGroup := gcodeStatePushMessage.ModalGroup; modalGroup != nil {
 		if modalGroup.Motion != nil {
 			fmt.Fprintf(
 				&buf, "%s:%s\n",
@@ -512,7 +512,7 @@ func (cp *ControlPrimitive) processMessagePushGcodeState(
 			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.FeedRateMode.NormalizedString()), modalGroup.FeedRateMode.Name())
 		}
 		if modalGroup.Units != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(messagePushGcodeState.ModalGroup.Units.NormalizedString()), messagePushGcodeState.ModalGroup.Units.Name())
+			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(gcodeStatePushMessage.ModalGroup.Units.NormalizedString()), gcodeStatePushMessage.ModalGroup.Units.Name())
 		}
 		if modalGroup.CutterRadiusCompensation != nil {
 			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.CutterRadiusCompensation.NormalizedString()), modalGroup.CutterRadiusCompensation.Name())
@@ -534,14 +534,14 @@ func (cp *ControlPrimitive) processMessagePushGcodeState(
 		}
 	}
 
-	if messagePushGcodeState.Tool != nil {
-		fmt.Fprintf(&buf, "Tool: %s\n", sprintTool(*messagePushGcodeState.Tool))
+	if gcodeStatePushMessage.Tool != nil {
+		fmt.Fprintf(&buf, "Tool: %s\n", sprintTool(*gcodeStatePushMessage.Tool))
 	}
-	if messagePushGcodeState.FeedRate != nil {
-		fmt.Fprintf(&buf, "Feed Rate: %s\n", sprintFeed(*messagePushGcodeState.FeedRate))
+	if gcodeStatePushMessage.FeedRate != nil {
+		fmt.Fprintf(&buf, "Feed Rate: %s\n", sprintFeed(*gcodeStatePushMessage.FeedRate))
 	}
-	if messagePushGcodeState.SpindleSpeed != nil {
-		fmt.Fprintf(&buf, "Speed: %s\n", sprintSpeed(*messagePushGcodeState.SpindleSpeed))
+	if gcodeStatePushMessage.SpindleSpeed != nil {
+		fmt.Fprintf(&buf, "Speed: %s\n", sprintSpeed(*gcodeStatePushMessage.SpindleSpeed))
 	}
 
 	cp.app.QueueUpdate(func() {
@@ -555,10 +555,10 @@ func (cp *ControlPrimitive) processMessagePushGcodeState(
 }
 
 //gocyclo:ignore
-func (cp *ControlPrimitive) processMessagePushGcodeParam() tcell.Color {
+func (cp *ControlPrimitive) processGcodeParamPushMessage() tcell.Color {
 	color := tcell.ColorGreen
 
-	params := cp.grbl.GetLastGetGcodeParameters()
+	params := cp.grbl.GetLastGcodeParameters()
 	if params == nil {
 		return color
 	}
@@ -627,7 +627,7 @@ func (cp *ControlPrimitive) processMessagePushGcodeParam() tcell.Color {
 	return color
 }
 
-func (cp *ControlPrimitive) processMessagePushWelcome() {
+func (cp *ControlPrimitive) processWelcomePushMessage() {
 	cp.app.QueueUpdate(func() {
 		cp.gcodeParserTextView.Clear()
 		cp.gcodeParamsTextView.Clear()
@@ -636,78 +636,78 @@ func (cp *ControlPrimitive) processMessagePushWelcome() {
 	cp.sendStatusCommands()
 }
 
-func (cp *ControlPrimitive) processMessagePushAlarm(
-	messagePushAlarm *grblMod.MessagePushAlarm,
+func (cp *ControlPrimitive) processAlarmPushMessage(
+	alarmPushMessage *grblMod.AlarmPushMessage,
 ) (string, tcell.Color) {
-	return tview.Escape(messagePushAlarm.Error().Error()), tcell.ColorRed
+	return tview.Escape(alarmPushMessage.Error().Error()), tcell.ColorRed
 }
 
-func (cp *ControlPrimitive) processMessagePushStatusReport(
-	statusReport *grblMod.MessagePushStatusReport,
+func (cp *ControlPrimitive) processStatusReportPushMessage(
+	statusReportPushMessage *grblMod.StatusReportPushMessage,
 ) tcell.Color {
-	color := getMachineStateColor(statusReport.MachineState.State)
+	color := getMachineStateColor(statusReportPushMessage.MachineState.State)
 	if color == tcell.ColorBlack {
 		color = tcell.ColorWhite
 	}
-	cp.setMachineState(statusReport.MachineState.State)
+	cp.setMachineState(statusReportPushMessage.MachineState.State)
 	return color
 }
 
 //gocyclo:ignore
-func (cp *ControlPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
+func (cp *ControlPrimitive) ProcessPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
 	var color = tcell.ColorGreen
 	var extraInfo string
 
-	if messagePushGcodeState, ok := message.(*grblMod.MessagePushGcodeState); ok {
-		color = cp.processMessagePushGcodeState(messagePushGcodeState)
+	if gcodeStatePushMessage, ok := pushMessage.(*grblMod.GcodeStatePushMessage); ok {
+		color = cp.processGcodeStatePushMessage(gcodeStatePushMessage)
 		if cp.quietStatusComms {
 			return
 		}
 	}
 
-	if _, ok := message.(*grblMod.MessagePushGcodeParam); ok {
-		color = cp.processMessagePushGcodeParam()
+	if _, ok := pushMessage.(*grblMod.GcodeParamPushMessage); ok {
+		color = cp.processGcodeParamPushMessage()
 		if cp.quietStatusComms {
 			return
 		}
 	}
 
-	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
-		cp.processMessagePushWelcome()
+	if _, ok := pushMessage.(*grblMod.WelcomePushMessage); ok {
+		cp.processWelcomePushMessage()
 	}
 
-	if messagePushAlarm, ok := message.(*grblMod.MessagePushAlarm); ok {
-		extraInfo, color = cp.processMessagePushAlarm(messagePushAlarm)
+	if alarmPushMessage, ok := pushMessage.(*grblMod.AlarmPushMessage); ok {
+		extraInfo, color = cp.processAlarmPushMessage(alarmPushMessage)
 	}
 
-	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-		color = cp.processMessagePushStatusReport(messagePushStatusReport)
+	if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
+		color = cp.processStatusReportPushMessage(statusReportPushMessage)
 		if cp.quietStatusComms {
 			return
 		}
 	}
 
-	if _, ok := message.(*grblMod.MessagePushSetting); ok {
+	if _, ok := pushMessage.(*grblMod.SettingPushMessage); ok {
 		if cp.quietStatusComms {
 			return
 		}
 	}
 
-	if _, ok := message.(*grblMod.MessagePushVersion); ok {
+	if _, ok := pushMessage.(*grblMod.VersionPushMessage); ok {
 		if cp.quietStatusComms {
 			return
 		}
 	}
 
-	if _, ok := message.(*grblMod.MessagePushCompileTimeOptions); ok {
+	if _, ok := pushMessage.(*grblMod.CompileTimeOptionsPushMessage); ok {
 		if cp.quietStatusComms {
 			return
 		}
 	}
 
-	text := message.String()
+	text := pushMessage.String()
 	if len(text) == 0 {
-		fmt.Fprintf(cp.pushMessagesTextView, "\n[%s](%#v)[-]", color, tview.Escape(reflect.TypeOf(message).String()))
+		fmt.Fprintf(cp.pushMessagesTextView, "\n[%s](%#v)[-]", color, tview.Escape(reflect.TypeOf(pushMessage).String()))
 	} else {
 		fmt.Fprintf(cp.pushMessagesTextView, "\n[%s]%s[-]", color, tview.Escape(text))
 	}

@@ -49,7 +49,7 @@ type JoggingPrimitive struct {
 	paramsJogBlock             string
 	paramsCancelButton         *tview.Button
 	// Messages
-	machineState grblMod.StatusReportMachineState
+	machineState grblMod.MachineState
 	// Feed rate
 	xMaxFeedRate *float64
 	yMaxFeedRate *float64
@@ -473,22 +473,22 @@ func (jp *JoggingPrimitive) processMessagePushWelcome() {
 	})
 }
 
-func (jp *JoggingPrimitive) processMessagePushSetting(messagePushSetting *grblMod.MessagePushSetting) {
-	switch messagePushSetting.Key {
+func (jp *JoggingPrimitive) processSettingPushMessage(settingPushMessage *grblMod.SettingPushMessage) {
+	switch settingPushMessage.Key {
 	case "110":
-		rate, err := strconv.ParseFloat(messagePushSetting.Value, 64)
+		rate, err := strconv.ParseFloat(settingPushMessage.Value, 64)
 		if err != nil {
 			panic(fmt.Errorf("failed to parse $110: %w", err))
 		}
 		jp.xMaxFeedRate = &rate
 	case "111":
-		rate, err := strconv.ParseFloat(messagePushSetting.Value, 64)
+		rate, err := strconv.ParseFloat(settingPushMessage.Value, 64)
 		if err != nil {
 			panic(fmt.Errorf("failed to parse $111: %w", err))
 		}
 		jp.yMaxFeedRate = &rate
 	case "112":
-		rate, err := strconv.ParseFloat(messagePushSetting.Value, 64)
+		rate, err := strconv.ParseFloat(settingPushMessage.Value, 64)
 		if err != nil {
 			panic(fmt.Errorf("failed to parse $112: %w", err))
 		}
@@ -520,11 +520,11 @@ func (jp *JoggingPrimitive) processMessagePushSetting(messagePushSetting *grblMo
 	})
 }
 
-func (jp *JoggingPrimitive) processMessagePushGcodeState(
-	messagePushGcodeState *grblMod.MessagePushGcodeState,
+func (jp *JoggingPrimitive) processGcodeStatePushMessage(
+	gcodeStatePushMessage *grblMod.GcodeStatePushMessage,
 ) {
 	jp.app.QueueUpdateDraw(func() {
-		modalGroup := messagePushGcodeState.ModalGroup
+		modalGroup := gcodeStatePushMessage.ModalGroup
 		if modalGroup != nil {
 			units := modalGroup.Units
 			if units != nil {
@@ -550,7 +550,7 @@ func (jp *JoggingPrimitive) processMessagePushGcodeState(
 	})
 }
 
-func (jp *JoggingPrimitive) setMachineState(machineState grblMod.StatusReportMachineState) {
+func (jp *JoggingPrimitive) setMachineState(machineState grblMod.MachineState) {
 	if jp.machineState == machineState {
 		return
 	}
@@ -564,27 +564,27 @@ func (jp *JoggingPrimitive) setMachineState(machineState grblMod.StatusReportMac
 	})
 }
 
-func (jp *JoggingPrimitive) processMessagePushStatusReport(
-	messagePushStatusReport *grblMod.MessagePushStatusReport,
+func (jp *JoggingPrimitive) processStatusReportPushMessage(
+	statusReportPushMessage *grblMod.StatusReportPushMessage,
 ) {
-	jp.setMachineState(messagePushStatusReport.MachineState)
+	jp.setMachineState(statusReportPushMessage.MachineState)
 }
 
-func (jp *JoggingPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
-	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
+func (jp *JoggingPrimitive) ProcessPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
+	if _, ok := pushMessage.(*grblMod.WelcomePushMessage); ok {
 		jp.processMessagePushWelcome()
 		return
 	}
-	if messagePushSetting, ok := message.(*grblMod.MessagePushSetting); ok {
-		jp.processMessagePushSetting(messagePushSetting)
+	if settingPushMessage, ok := pushMessage.(*grblMod.SettingPushMessage); ok {
+		jp.processSettingPushMessage(settingPushMessage)
 		return
 	}
-	if messagePushGcodeState, ok := message.(*grblMod.MessagePushGcodeState); ok {
-		jp.processMessagePushGcodeState(messagePushGcodeState)
+	if gcodeStatePushMessage, ok := pushMessage.(*grblMod.GcodeStatePushMessage); ok {
+		jp.processGcodeStatePushMessage(gcodeStatePushMessage)
 		return
 	}
-	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-		jp.processMessagePushStatusReport(messagePushStatusReport)
+	if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
+		jp.processStatusReportPushMessage(statusReportPushMessage)
 		return
 	}
 }

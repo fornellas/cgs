@@ -29,7 +29,7 @@ type OverridesPrimitive struct {
 	spindleIncr10Button *tview.Button
 	coolantFloodButton  *tview.Button
 	coolantMistButton   *tview.Button
-	machineState        grblMod.StatusReportMachineState
+	machineState        grblMod.MachineState
 }
 
 func NewOverridesPrimitive(
@@ -328,23 +328,23 @@ func (op *OverridesPrimitive) updateDisabled() {
 	}
 }
 
-func (op *OverridesPrimitive) processMessagePushStatusReport(
-	messagePushStatusReport *grblMod.MessagePushStatusReport,
+func (op *OverridesPrimitive) processStatusReportPushMessage(
+	statusReportPushMessage *grblMod.StatusReportPushMessage,
 ) {
-	if op.machineState == messagePushStatusReport.MachineState {
+	if op.machineState == statusReportPushMessage.MachineState {
 		return
 	}
 
-	op.machineState = messagePushStatusReport.MachineState
+	op.machineState = statusReportPushMessage.MachineState
 
 	op.app.QueueUpdateDraw(func() {
 		op.updateDisabled()
 	})
 }
 
-func (op *OverridesPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
-	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-		op.processMessagePushStatusReport(messagePushStatusReport)
+func (op *OverridesPrimitive) ProcessPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
+	if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
+		op.processStatusReportPushMessage(statusReportPushMessage)
 		return
 	}
 }

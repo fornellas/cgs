@@ -89,7 +89,7 @@ type SettingsPrimitive struct {
 	restoreGcodeParametersButton *tview.Button
 	restoreAllButton             *tview.Button
 	// Messages
-	machineState grblMod.StatusReportMachineState
+	machineState grblMod.MachineState
 
 	mu               sync.Mutex
 	skipQueueCommand bool
@@ -404,15 +404,15 @@ func (sp *SettingsPrimitive) processMessagePushWelcome() {
 	})
 }
 
-func (sp *SettingsPrimitive) processMessagePushVersion(messagePushVersion *grblMod.MessagePushVersion) {
+func (sp *SettingsPrimitive) processVersionPushMessage(versionPushMessage *grblMod.VersionPushMessage) {
 	sp.app.QueueUpdateDraw(func() {
-		versionText := tview.Escape(messagePushVersion.Version)
+		versionText := tview.Escape(versionPushMessage.Version)
 		if versionText != sp.versionTextView.GetText(false) {
 			sp.skipQueueCommand = true
 			sp.versionTextView.SetText(versionText)
 			sp.skipQueueCommand = false
 		}
-		infoText := tview.Escape(messagePushVersion.Info)
+		infoText := tview.Escape(versionPushMessage.Info)
 		if infoText != sp.infoInputField.GetText() {
 			sp.skipQueueCommand = true
 			sp.infoInputField.SetText(infoText)
@@ -421,15 +421,15 @@ func (sp *SettingsPrimitive) processMessagePushVersion(messagePushVersion *grblM
 	})
 }
 
-func (sp *SettingsPrimitive) processMessagePushCompileTimeOptions(messagePushCompileTimeOptions *grblMod.MessagePushCompileTimeOptions) {
+func (sp *SettingsPrimitive) processCompileTimeOptionsPushMessage(compileTimeOptionsPushMessage *grblMod.CompileTimeOptionsPushMessage) {
 	var buf bytes.Buffer
 
 	fmt.Fprintf(&buf, "[%s]Compile Time Options[-]\n", tcell.ColorYellow)
-	for _, opt := range messagePushCompileTimeOptions.CompileTimeOptions {
+	for _, opt := range compileTimeOptionsPushMessage.CompileTimeOptions {
 		fmt.Fprintf(&buf, "[%s]%s[-]\n", tcell.ColorWhite, tview.Escape(opt))
 	}
-	fmt.Fprintf(&buf, "[%s]Planner Blocks[-]%d\n", tcell.ColorYellow, messagePushCompileTimeOptions.PlannerBlocks)
-	fmt.Fprintf(&buf, "[%s]Serial RX buffer bytes[-]%d\n", tcell.ColorYellow, messagePushCompileTimeOptions.SerialRxBufferBytes)
+	fmt.Fprintf(&buf, "[%s]Planner Blocks[-]%d\n", tcell.ColorYellow, compileTimeOptionsPushMessage.PlannerBlocks)
+	fmt.Fprintf(&buf, "[%s]Serial RX buffer bytes[-]%d\n", tcell.ColorYellow, compileTimeOptionsPushMessage.SerialRxBufferBytes)
 
 	sp.app.QueueUpdateDraw(func() {
 		if buf.String() == sp.compileTimeOptionsTextView.GetText(false) {
@@ -442,111 +442,111 @@ func (sp *SettingsPrimitive) processMessagePushCompileTimeOptions(messagePushCom
 }
 
 //gocyclo:ignore
-func (sp *SettingsPrimitive) processMessagePushSetting(messagePushSetting *grblMod.MessagePushSetting) {
+func (sp *SettingsPrimitive) processSettingPushMessage(settingPushMessage *grblMod.SettingPushMessage) {
 	sp.app.QueueUpdateDraw(func() {
 		sp.skipQueueCommand = true
 		defer func() { sp.skipQueueCommand = false }()
-		switch messagePushSetting.Key {
+		switch settingPushMessage.Key {
 		// Settings
 		case "0":
-			sp.stepPulse.SetText(messagePushSetting.Value)
+			sp.stepPulse.SetText(settingPushMessage.Value)
 		case "1":
-			sp.stepIdleDelay.SetText(messagePushSetting.Value)
+			sp.stepIdleDelay.SetText(settingPushMessage.Value)
 		case "2":
-			mask, err := strconv.Atoi(messagePushSetting.Value)
+			mask, err := strconv.Atoi(settingPushMessage.Value)
 			if err != nil {
-				panic(fmt.Sprintf("failed to parse: %s: %s", messagePushSetting, err))
+				panic(fmt.Sprintf("failed to parse: %s: %s", settingPushMessage, err))
 			}
 			x, y, z := maskToCheckboxes(mask)
 			sp.stepPortInvertX.SetChecked(x)
 			sp.stepPortInvertY.SetChecked(y)
 			sp.stepPortInvertZ.SetChecked(z)
 		case "3":
-			mask, err := strconv.Atoi(messagePushSetting.Value)
+			mask, err := strconv.Atoi(settingPushMessage.Value)
 			if err != nil {
-				panic(fmt.Sprintf("failed to parse: %s: %s", messagePushSetting, err))
+				panic(fmt.Sprintf("failed to parse: %s: %s", settingPushMessage, err))
 			}
 			x, y, z := maskToCheckboxes(mask)
 			sp.directionPortInvertX.SetChecked(x)
 			sp.directionPortInvertY.SetChecked(y)
 			sp.directionPortInvertZ.SetChecked(z)
 		case "4":
-			sp.stepEnableInvert.SetChecked(messagePushSetting.Value != "0")
+			sp.stepEnableInvert.SetChecked(settingPushMessage.Value != "0")
 		case "5":
-			sp.limitPinsInvert.SetChecked(messagePushSetting.Value != "0")
+			sp.limitPinsInvert.SetChecked(settingPushMessage.Value != "0")
 		case "6":
-			sp.probePinInvert.SetChecked(messagePushSetting.Value != "0")
+			sp.probePinInvert.SetChecked(settingPushMessage.Value != "0")
 		case "10":
-			mask, err := strconv.Atoi(messagePushSetting.Value)
+			mask, err := strconv.Atoi(settingPushMessage.Value)
 			if err != nil {
-				panic(fmt.Sprintf("failed to parse: %s: %s", messagePushSetting, err))
+				panic(fmt.Sprintf("failed to parse: %s: %s", settingPushMessage, err))
 			}
 			sp.statusReportMachinePosition.SetChecked(mask&1 != 0)
 			sp.statusReportBufferData.SetChecked(mask&2 != 0)
 		case "11":
-			sp.junctionDeviation.SetText(messagePushSetting.Value)
+			sp.junctionDeviation.SetText(settingPushMessage.Value)
 		case "12":
-			sp.arcTolerance.SetText(messagePushSetting.Value)
+			sp.arcTolerance.SetText(settingPushMessage.Value)
 		case "13":
-			sp.reportInches.SetChecked(messagePushSetting.Value != "0")
+			sp.reportInches.SetChecked(settingPushMessage.Value != "0")
 		case "20":
-			sp.softLimits.SetChecked(messagePushSetting.Value != "0")
+			sp.softLimits.SetChecked(settingPushMessage.Value != "0")
 		case "21":
-			sp.hardLimits.SetChecked(messagePushSetting.Value != "0")
+			sp.hardLimits.SetChecked(settingPushMessage.Value != "0")
 		case "22":
-			sp.homingCycle.SetChecked(messagePushSetting.Value != "0")
+			sp.homingCycle.SetChecked(settingPushMessage.Value != "0")
 		case "23":
-			mask, err := strconv.Atoi(messagePushSetting.Value)
+			mask, err := strconv.Atoi(settingPushMessage.Value)
 			if err != nil {
-				panic(fmt.Sprintf("failed to parse: %s: %s", messagePushSetting, err))
+				panic(fmt.Sprintf("failed to parse: %s: %s", settingPushMessage, err))
 			}
 			x, y, z := maskToCheckboxes(mask)
 			sp.homingDirInvertX.SetChecked(x)
 			sp.homingDirInvertY.SetChecked(y)
 			sp.homingDirInvertZ.SetChecked(z)
 		case "24":
-			sp.homingFeed.SetText(messagePushSetting.Value)
+			sp.homingFeed.SetText(settingPushMessage.Value)
 		case "25":
-			sp.homingSeek.SetText(messagePushSetting.Value)
+			sp.homingSeek.SetText(settingPushMessage.Value)
 		case "26":
-			sp.homingDebounce.SetText(messagePushSetting.Value)
+			sp.homingDebounce.SetText(settingPushMessage.Value)
 		case "27":
-			sp.homingPullOff.SetText(messagePushSetting.Value)
+			sp.homingPullOff.SetText(settingPushMessage.Value)
 		case "30":
-			sp.maxSpindleSpeed.SetText(messagePushSetting.Value)
+			sp.maxSpindleSpeed.SetText(settingPushMessage.Value)
 		case "31":
-			sp.minSpindleSpeed.SetText(messagePushSetting.Value)
+			sp.minSpindleSpeed.SetText(settingPushMessage.Value)
 		case "32":
-			sp.laserMode.SetChecked(messagePushSetting.Value != "0")
+			sp.laserMode.SetChecked(settingPushMessage.Value != "0")
 		case "100":
-			sp.xSteps.SetText(messagePushSetting.Value)
+			sp.xSteps.SetText(settingPushMessage.Value)
 		case "101":
-			sp.ySteps.SetText(messagePushSetting.Value)
+			sp.ySteps.SetText(settingPushMessage.Value)
 		case "102":
-			sp.zSteps.SetText(messagePushSetting.Value)
+			sp.zSteps.SetText(settingPushMessage.Value)
 		case "110":
-			sp.xMaxRate.SetText(messagePushSetting.Value)
+			sp.xMaxRate.SetText(settingPushMessage.Value)
 		case "111":
-			sp.yMaxRate.SetText(messagePushSetting.Value)
+			sp.yMaxRate.SetText(settingPushMessage.Value)
 		case "112":
-			sp.zMaxRate.SetText(messagePushSetting.Value)
+			sp.zMaxRate.SetText(settingPushMessage.Value)
 		case "120":
-			sp.xAcceleration.SetText(messagePushSetting.Value)
+			sp.xAcceleration.SetText(settingPushMessage.Value)
 		case "121":
-			sp.yAcceleration.SetText(messagePushSetting.Value)
+			sp.yAcceleration.SetText(settingPushMessage.Value)
 		case "122":
-			sp.zAcceleration.SetText(messagePushSetting.Value)
+			sp.zAcceleration.SetText(settingPushMessage.Value)
 		case "130":
-			sp.xMaxTravel.SetText(messagePushSetting.Value)
+			sp.xMaxTravel.SetText(settingPushMessage.Value)
 		case "131":
-			sp.yMaxTravel.SetText(messagePushSetting.Value)
+			sp.yMaxTravel.SetText(settingPushMessage.Value)
 		case "132":
-			sp.zMaxTravel.SetText(messagePushSetting.Value)
+			sp.zMaxTravel.SetText(settingPushMessage.Value)
 		// Startup Lines
 		case "N0":
-			sp.startupLine0InputField.SetText(messagePushSetting.Value)
+			sp.startupLine0InputField.SetText(settingPushMessage.Value)
 		case "N1":
-			sp.startupLine1InputField.SetText(messagePushSetting.Value)
+			sp.startupLine1InputField.SetText(settingPushMessage.Value)
 		}
 	})
 }
@@ -610,7 +610,7 @@ func (sp *SettingsPrimitive) updateDisabled() {
 	sp.mu.Unlock()
 }
 
-func (sp *SettingsPrimitive) setMachineState(machineState grblMod.StatusReportMachineState) {
+func (sp *SettingsPrimitive) setMachineState(machineState grblMod.MachineState) {
 	if sp.machineState == machineState {
 		return
 	}
@@ -624,31 +624,31 @@ func (sp *SettingsPrimitive) setMachineState(machineState grblMod.StatusReportMa
 	})
 }
 
-func (sp *SettingsPrimitive) processMessagePushStatusReport(
-	messagePushStatusReport *grblMod.MessagePushStatusReport,
+func (sp *SettingsPrimitive) processStatusReportPushMessage(
+	statusReportPushMessage *grblMod.StatusReportPushMessage,
 ) {
-	sp.setMachineState(messagePushStatusReport.MachineState)
+	sp.setMachineState(statusReportPushMessage.MachineState)
 }
 
-func (sp *SettingsPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
-	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
+func (sp *SettingsPrimitive) ProcessPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
+	if _, ok := pushMessage.(*grblMod.WelcomePushMessage); ok {
 		sp.processMessagePushWelcome()
 		return
 	}
-	if messagePushVersion, ok := message.(*grblMod.MessagePushVersion); ok {
-		sp.processMessagePushVersion(messagePushVersion)
+	if versionPushMessage, ok := pushMessage.(*grblMod.VersionPushMessage); ok {
+		sp.processVersionPushMessage(versionPushMessage)
 		return
 	}
-	if messagePushCompileTimeOptions, ok := message.(*grblMod.MessagePushCompileTimeOptions); ok {
-		sp.processMessagePushCompileTimeOptions(messagePushCompileTimeOptions)
+	if compileTimeOptionsPushMessage, ok := pushMessage.(*grblMod.CompileTimeOptionsPushMessage); ok {
+		sp.processCompileTimeOptionsPushMessage(compileTimeOptionsPushMessage)
 		return
 	}
-	if messagePushSetting, ok := message.(*grblMod.MessagePushSetting); ok {
-		sp.processMessagePushSetting(messagePushSetting)
+	if settingPushMessage, ok := pushMessage.(*grblMod.SettingPushMessage); ok {
+		sp.processSettingPushMessage(settingPushMessage)
 		return
 	}
-	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-		sp.processMessagePushStatusReport(messagePushStatusReport)
+	if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
+		sp.processStatusReportPushMessage(statusReportPushMessage)
 		return
 	}
 }

@@ -17,18 +17,20 @@ import (
 	"github.com/fornellas/cgs/gcode"
 )
 
+var ErrInvalidMessage = errors.New("invalid Grbl message")
+
 type Grbl struct {
 	dataMu                     sync.Mutex
 	commandMu                  sync.Mutex
 	openPortFn                 func(context.Context, *serial.Mode) (serial.Port, error)
 	port                       serial.Port
-	workCoordinateOffset       *StatusReportWorkCoordinateOffset
-	overrideValues             *StatusReportOverrideValues
+	workCoordinateOffset       *WorkCoordinateOffset
+	overrideValues             *OverrideValues
 	gcodeParameters            *GcodeParameters
-	accessoryState             *StatusReportAccessoryState
+	accessoryState             *AccessoryState
 	receiveCtxCancel           context.CancelFunc
-	pushMessageCh              chan Message
-	responseMessageCh          chan Message
+	pushMessageCh              chan PushMessage
+	responseMessageCh          chan *ResponseMessage
 	messageReceiverWorkerErrCh chan error
 }
 
@@ -40,17 +42,17 @@ func NewGrbl(openPortFn func(context.Context, *serial.Mode) (serial.Port, error)
 }
 
 //gocyclo:ignore
-func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
-	line := []byte{}
+func (g *Grbl) receiveMessage(ctx context.Context) (PushMessage, *ResponseMessage, error) {
+	messageBytes := []byte{}
 	for {
 		if err := ctx.Err(); err != nil {
-			return nil, fmt.Errorf("receive message: context error: %w", err)
+			return nil, nil, fmt.Errorf("receive message: context error: %w", err)
 		}
 		b := make([]byte, 1)
 
 		n, err := g.port.Read(b)
 		if err != nil && !errors.Is(err, os.ErrDeadlineExceeded) {
-			return nil, fmt.Errorf("receive message: read error: %w", err)
+			return nil, nil, fmt.Errorf("receive message: read error: %w", err)
 		}
 		if n == 0 {
 			continue
@@ -58,53 +60,65 @@ func (g *Grbl) receiveMessage(ctx context.Context) (Message, error) {
 		if b[0] == '\n' {
 			break
 		}
-		line = append(line, b[0])
+		messageBytes = append(messageBytes, b[0])
 	}
 
-	if len(line) >= 1 && line[len(line)-1] == '\r' {
-		line = line[:len(line)-1]
+	if len(messageBytes) >= 1 && messageBytes[len(messageBytes)-1] == '\r' {
+		messageBytes = messageBytes[:len(messageBytes)-1]
 	}
 
-	message, err := NewMessage(string(line))
+	pushMessage, err := NewPushMessage(string(messageBytes))
 	if err != nil {
-		return nil, fmt.Errorf("receive message: bad message: %w", err)
-	}
-
-	if _, ok := message.(*MessagePushWelcome); ok {
-		g.dataMu.Lock()
-		g.workCoordinateOffset = nil
-		g.overrideValues = nil
-		g.gcodeParameters = &GcodeParameters{}
-		g.accessoryState = nil
-		g.dataMu.Unlock()
-	}
-
-	if messagePushStatusReport, ok := message.(*MessagePushStatusReport); ok {
-		g.dataMu.Lock()
-		if messagePushStatusReport.WorkCoordinateOffset != nil {
-			g.workCoordinateOffset = messagePushStatusReport.WorkCoordinateOffset
+		if err != ErrInvalidMessage {
+			return nil, nil, fmt.Errorf("receive message: bad message: %w", err)
 		}
-		if messagePushStatusReport.OverrideValues != nil {
-			g.overrideValues = messagePushStatusReport.OverrideValues
+	} else {
+		if _, ok := pushMessage.(*WelcomePushMessage); ok {
+			g.dataMu.Lock()
+			g.workCoordinateOffset = nil
+			g.overrideValues = nil
+			g.gcodeParameters = &GcodeParameters{}
+			g.accessoryState = nil
+			g.dataMu.Unlock()
 		}
-		if messagePushStatusReport.AccessoryState != nil {
-			g.accessoryState = messagePushStatusReport.AccessoryState
+
+		if statusReportPushMessage, ok := pushMessage.(*StatusReportPushMessage); ok {
+			g.dataMu.Lock()
+			if statusReportPushMessage.WorkCoordinateOffset != nil {
+				g.workCoordinateOffset = statusReportPushMessage.WorkCoordinateOffset
+			}
+			if statusReportPushMessage.OverrideValues != nil {
+				g.overrideValues = statusReportPushMessage.OverrideValues
+			}
+			if statusReportPushMessage.AccessoryState != nil {
+				g.accessoryState = statusReportPushMessage.AccessoryState
+			}
+			g.dataMu.Unlock()
 		}
-		g.dataMu.Unlock()
+
+		if gcodeParamPushMessage, ok := pushMessage.(*GcodeParamPushMessage); ok {
+			g.dataMu.Lock()
+			g.gcodeParameters.Update(gcodeParamPushMessage)
+			g.dataMu.Unlock()
+		}
+		return pushMessage, nil, nil
 	}
 
-	if messagePushGcodeParam, ok := message.(*MessagePushGcodeParam); ok {
-		g.dataMu.Lock()
-		g.gcodeParameters.Update(messagePushGcodeParam)
-		g.dataMu.Unlock()
+	responseMessage, err := NewMessageResponse(string(messageBytes))
+	if err != nil {
+		if err != ErrInvalidMessage {
+			return nil, nil, fmt.Errorf("receive message: bad message: %w", err)
+		}
+	} else {
+		return nil, responseMessage, nil
 	}
 
-	return message, nil
+	panic(fmt.Sprintf("bug: unknown message: %#v", string(messageBytes)))
 }
 
 func (g *Grbl) messageReceiverWorker(ctx context.Context) {
 	for {
-		message, err := g.receiveMessage(ctx)
+		pushMessage, responseMessage, err := g.receiveMessage(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
 				err = nil
@@ -117,25 +131,30 @@ func (g *Grbl) messageReceiverWorker(ctx context.Context) {
 			return
 		}
 
-		var messageCh chan Message
-		switch message.Type() {
-		case MessageTypePush:
-			messageCh = g.pushMessageCh
-		case MessageTypeResponse:
-			messageCh = g.responseMessageCh
-		default:
-			panic(fmt.Sprintf("bug: unexpected message type: %#v", message.Type()))
+		if pushMessage != nil {
+			select {
+			case g.pushMessageCh <- pushMessage:
+			case <-ctx.Done():
+				g.dataMu.Lock()
+				close(g.pushMessageCh)
+				g.pushMessageCh = nil
+				g.dataMu.Unlock()
+				g.messageReceiverWorkerErrCh <- nil
+				return
+			}
 		}
 
-		select {
-		case messageCh <- message:
-		case <-ctx.Done():
-			g.dataMu.Lock()
-			close(g.pushMessageCh)
-			g.pushMessageCh = nil
-			g.dataMu.Unlock()
-			g.messageReceiverWorkerErrCh <- nil
-			return
+		if responseMessage != nil {
+			select {
+			case g.responseMessageCh <- responseMessage:
+			case <-ctx.Done():
+				g.dataMu.Lock()
+				close(g.pushMessageCh)
+				g.pushMessageCh = nil
+				g.dataMu.Unlock()
+				g.messageReceiverWorkerErrCh <- nil
+				return
+			}
 		}
 	}
 }
@@ -149,7 +168,7 @@ func (g *Grbl) waitForWelcomeMessage(ctx context.Context) error {
 			if !ok {
 				return errors.New("grbl: push message channel closed before welcome message received")
 			}
-			if _, ok := message.(*MessagePushWelcome); ok {
+			if _, ok := message.(*WelcomePushMessage); ok {
 				return nil
 			}
 		case <-welcomeCtx.Done():
@@ -165,7 +184,7 @@ func (g *Grbl) waitForWelcomeMessage(ctx context.Context) error {
 // Disconnect() must be called when the connection isn't needed anymore.
 //
 //gocyclo:ignore
-func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
+func (g *Grbl) Connect(ctx context.Context) (chan PushMessage, error) {
 	mode := &serial.Mode{
 		BaudRate: 115200,
 		DataBits: 8,
@@ -198,8 +217,8 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 
 	var receiveCtx context.Context
 	receiveCtx, g.receiveCtxCancel = context.WithCancel(ctx)
-	g.pushMessageCh = make(chan Message, 50)
-	g.responseMessageCh = make(chan Message, 50)
+	g.pushMessageCh = make(chan PushMessage, 50)
+	g.responseMessageCh = make(chan *ResponseMessage, 50)
 	g.messageReceiverWorkerErrCh = make(chan error, 1)
 	go g.messageReceiverWorker(receiveCtx)
 
@@ -212,25 +231,25 @@ func (g *Grbl) Connect(ctx context.Context) (chan Message, error) {
 	return g.pushMessageCh, nil
 }
 
-// GetLastGetWorkCoordinateOffset returns the newest value received via a push message status report.
+// GetLastWorkCoordinateOffset returns the newest value received via a push message status report.
 // Returns nil if no previous message was received.
-func (g *Grbl) GetLastGetWorkCoordinateOffset() *StatusReportWorkCoordinateOffset {
+func (g *Grbl) GetLastWorkCoordinateOffset() *WorkCoordinateOffset {
 	g.dataMu.Lock()
 	defer g.dataMu.Unlock()
 	return g.workCoordinateOffset
 }
 
-// GetLastGetOverrideValues returns the newest value received via a push message status report.
+// GetLastOverrideValues returns the newest value received via a push message status report.
 // Returns nil if no previous message was received.
-func (g *Grbl) GetLastGetOverrideValues() *StatusReportOverrideValues {
+func (g *Grbl) GetLastOverrideValues() *OverrideValues {
 	g.dataMu.Lock()
 	defer g.dataMu.Unlock()
 	return g.overrideValues
 }
 
-// GetLastGetGcodeParameters returns the newest value received via a push message gcode parameters.
+// GetLastGcodeParameters returns the newest value received via a push message gcode parameters.
 // Returns nil if no previous message was received.
-func (g *Grbl) GetLastGetGcodeParameters() *GcodeParameters {
+func (g *Grbl) GetLastGcodeParameters() *GcodeParameters {
 	g.dataMu.Lock()
 	defer g.dataMu.Unlock()
 	return g.gcodeParameters
@@ -238,7 +257,7 @@ func (g *Grbl) GetLastGetGcodeParameters() *GcodeParameters {
 
 // GetLastAccessoryState returns the newest value received via a push message status report.
 // Returns nil if no previous message was received.
-func (g *Grbl) GetLastAccessoryState() *StatusReportAccessoryState {
+func (g *Grbl) GetLastAccessoryState() *AccessoryState {
 	g.dataMu.Lock()
 	defer g.dataMu.Unlock()
 	return g.accessoryState
@@ -286,7 +305,7 @@ func (g *Grbl) emptyResponseMessageCh(ctx context.Context) error {
 
 // Send a command / system command to Grbl synchronously.
 // It waits for the response message and returns it.
-func (g *Grbl) SendCommand(ctx context.Context, command string) (*MessageResponse, error) {
+func (g *Grbl) SendCommand(ctx context.Context, command string) (*ResponseMessage, error) {
 	if strings.Contains(command, "\n") {
 		return nil, fmt.Errorf("command must be single line string: %#v", command)
 	}
@@ -315,9 +334,9 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (*MessageRespons
 		return nil, err
 	}
 
-	var message Message
+	var responseMessage *ResponseMessage
 	select {
-	case message, ok = <-g.responseMessageCh:
+	case responseMessage, ok = <-g.responseMessageCh:
 		if !ok {
 			return nil, fmt.Errorf("command failed: response message channel is closed")
 		}
@@ -325,7 +344,7 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (*MessageRespons
 		return nil, fmt.Errorf("command failed: %w", ctx.Err())
 	}
 
-	return message.(*MessageResponse), nil
+	return responseMessage, nil
 }
 
 //gocyclo:ignore

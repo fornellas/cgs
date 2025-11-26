@@ -21,8 +21,8 @@ type worker struct {
 	errCh chan error
 }
 
-type MessageProcessor interface {
-	ProcessMessage(ctx context.Context, message grblMod.Message)
+type PushMessageProcessor interface {
+	ProcessPushMessage(context.Context, grblMod.PushMessage)
 }
 
 type ControlOptions struct {
@@ -66,10 +66,10 @@ func (c *Control) statusQueryWorker(ctx context.Context) error {
 	}
 }
 
-func (c *Control) messageProcessorWorker(
+func (c *Control) pushMessageProcessorWorker(
 	ctx context.Context,
-	pushMessageCh chan grblMod.Message,
-	messageProcessors ...MessageProcessor,
+	pushMessageCh chan grblMod.PushMessage,
+	pushMessageProcessors ...PushMessageProcessor,
 ) error {
 	logger := log.MustLogger(ctx).WithGroup("messageProcessorWorker")
 
@@ -92,23 +92,23 @@ func (c *Control) messageProcessorWorker(
 			msgLogger := logger.WithGroup("Message").With("message", message, "type", reflect.TypeOf(message))
 			msgLogger.Debug("Received")
 
-			if _, ok := message.(*grblMod.MessagePushAlarm); ok {
+			if _, ok := message.(*grblMod.AlarmPushMessage); ok {
 				// Grbl can generate an alarm push message, but then stop answering to real time
 				// commands for status report query. This means that, there are effectively two sources
 				// to look for alarm state.
 				// We generate this virtual status report push message here, to simplify the rest of the
 				// codebase, that only need to look for alarm state in a sigle place.
-				pushMessageCh <- &grblMod.MessagePushStatusReport{
+				pushMessageCh <- &grblMod.StatusReportPushMessage{
 					Message: "(virtual push message: status report: Alarm)",
-					MachineState: grblMod.StatusReportMachineState{
+					MachineState: grblMod.MachineState{
 						State: "Alarm",
 					},
 				}
 			}
 
-			for _, messageProcessor := range messageProcessors {
-				msgLogger.Debug("Processor", "type", reflect.TypeOf(messageProcessor))
-				messageProcessor.ProcessMessage(ctx, message)
+			for _, pushMessageProcessor := range pushMessageProcessors {
+				msgLogger.Debug("Processor", "type", reflect.TypeOf(pushMessageProcessor))
+				pushMessageProcessor.ProcessPushMessage(ctx, message)
 			}
 			msgLogger.Debug("Done")
 		}
@@ -185,11 +185,11 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	}
 
 	// Message Processors
-	var messageProcessors []MessageProcessor
+	var pushMessageProcessors []PushMessageProcessor
 
 	// StatusPrimitive
 	statusPrimitive := NewStatusPrimitive(appCtx, c.grbl, app)
-	messageProcessors = append(messageProcessors, statusPrimitive)
+	pushMessageProcessors = append(pushMessageProcessors, statusPrimitive)
 
 	// ControlPrimitive
 	controlPrimitive := NewControlPrimitive(
@@ -214,19 +214,19 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		}
 		return event
 	})
-	messageProcessors = append(messageProcessors, controlPrimitive)
+	pushMessageProcessors = append(pushMessageProcessors, controlPrimitive)
 
 	// JoggingPrimitive
 	joggingPrimitive := NewJoggingPrimitive(appCtx, app, controlPrimitive)
-	messageProcessors = append(messageProcessors, joggingPrimitive)
+	pushMessageProcessors = append(pushMessageProcessors, joggingPrimitive)
 
 	// OverridesPrimitive
 	overridesPrimitive := NewOverridesPrimitive(appCtx, app, controlPrimitive)
-	messageProcessors = append(messageProcessors, overridesPrimitive)
+	pushMessageProcessors = append(pushMessageProcessors, overridesPrimitive)
 
 	// settingsPrimitive
 	settingsPrimitive := NewSettingsPrimitive(appCtx, app, controlPrimitive)
-	messageProcessors = append(messageProcessors, settingsPrimitive)
+	pushMessageProcessors = append(pushMessageProcessors, settingsPrimitive)
 
 	// RootPrimitive
 	rootPrimitive := NewRootPrimitive(
@@ -239,14 +239,14 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		logsPrimitive,
 	)
 	app.SetRoot(rootPrimitive, true)
-	messageProcessors = append(messageProcessors, rootPrimitive)
+	pushMessageProcessors = append(pushMessageProcessors, rootPrimitive)
 
 	// Workers
 	c.startWorker(
 		appCtx, exitFn,
 		"Control.messageProcessorWorker",
 		func(ctx context.Context) error {
-			return c.messageProcessorWorker(ctx, pushMessageCh, messageProcessors...)
+			return c.pushMessageProcessorWorker(ctx, pushMessageCh, pushMessageProcessors...)
 		},
 	)
 	c.startWorker(

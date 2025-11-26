@@ -29,7 +29,7 @@ type RootPrimitive struct {
 	helpButton         *tview.Button
 	holdButton         *tview.Button
 	resumeButton       *tview.Button
-	machineState       *grblMod.StatusReportMachineState
+	machineState       *grblMod.MachineState
 }
 
 func NewRootPrimitive(
@@ -210,7 +210,7 @@ func (rp *RootPrimitive) newRootFlex() {
 }
 
 func (rp *RootPrimitive) setMachineState(
-	machineState *grblMod.StatusReportMachineState,
+	machineState *grblMod.MachineState,
 ) {
 	if reflect.DeepEqual(rp.machineState, machineState) {
 		return
@@ -334,18 +334,18 @@ func (rp *RootPrimitive) processMessagePushWelcome() {
 	})
 }
 
-func (rp *RootPrimitive) processMessagePushFeedback(
-	messagePushFeedback *grblMod.MessagePushFeedback,
+func (rp *RootPrimitive) processFeedbackPushMessage(
+	feedbackPushMessage *grblMod.FeedbackPushMessage,
 ) {
 	rp.app.QueueUpdateDraw(func() {
-		text := tview.Escape(messagePushFeedback.Text())
+		text := tview.Escape(feedbackPushMessage.Text())
 		if text == rp.feedbackTextView.GetText(false) {
 			return
 		}
 		rp.feedbackTextView.SetText(text)
 	})
 
-	if messagePushFeedback.Text() == "Reset to continue" {
+	if feedbackPushMessage.Text() == "Reset to continue" {
 		rp.app.QueueUpdateDraw(func() {
 			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
@@ -360,23 +360,23 @@ func (rp *RootPrimitive) processMessagePushFeedback(
 	}
 }
 
-func (rp *RootPrimitive) processMessagePushStatusReport(
-	statusReport *grblMod.MessagePushStatusReport,
+func (rp *RootPrimitive) processStatusReportPushMessage(
+	statusReportPushMessage *grblMod.StatusReportPushMessage,
 ) {
-	rp.setMachineState(&statusReport.MachineState)
+	rp.setMachineState(&statusReportPushMessage.MachineState)
 }
 
-func (rp *RootPrimitive) ProcessMessage(ctx context.Context, message grblMod.Message) {
-	if _, ok := message.(*grblMod.MessagePushWelcome); ok {
+func (rp *RootPrimitive) ProcessPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
+	if _, ok := pushMessage.(*grblMod.WelcomePushMessage); ok {
 		rp.processMessagePushWelcome()
 		return
 	}
-	if messagePushFeedback, ok := message.(*grblMod.MessagePushFeedback); ok {
-		rp.processMessagePushFeedback(messagePushFeedback)
+	if feedbackPushMessage, ok := pushMessage.(*grblMod.FeedbackPushMessage); ok {
+		rp.processFeedbackPushMessage(feedbackPushMessage)
 		return
 	}
-	if messagePushStatusReport, ok := message.(*grblMod.MessagePushStatusReport); ok {
-		rp.processMessagePushStatusReport(messagePushStatusReport)
+	if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
+		rp.processStatusReportPushMessage(statusReportPushMessage)
 		return
 	}
 }
