@@ -16,3 +16,4 @@ This project is a Grbl CNC gcode sender & controller.
 - After changing anything:
   - Always check project diagnostics.
   - Always test any changes by running `make ci`.
+    - This command may reformat .go files.
