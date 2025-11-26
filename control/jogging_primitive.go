@@ -550,11 +550,11 @@ func (jp *JoggingPrimitive) processGcodeStatePushMessage(
 }
 
 func (jp *JoggingPrimitive) setMachineState(machineState grblMod.MachineState) {
+	jp.mu.Lock()
 	if jp.machineState == machineState {
+		jp.mu.Unlock()
 		return
 	}
-
-	jp.mu.Lock()
 	jp.machineState = machineState
 	jp.mu.Unlock()
 
