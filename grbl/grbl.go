@@ -12,8 +12,9 @@ import (
 
 	"go.bug.st/serial"
 
+	"github.com/fornellas/slogxt/log"
+
 	"github.com/fornellas/cgs/gcode"
-	"github.com/fornellas/cgs/worker"
 )
 
 type Grbl struct {
@@ -327,87 +328,112 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (*MessageRespons
 	return message.(*MessageResponse), nil
 }
 
-func (g *Grbl) streamCommandsWorker(
-	ctx context.Context, r io.Reader, sentBytesCh, receivedBytesCh chan int,
-) error {
-	// TODO call $I to check [OPT: response to fetch serial RX buffer bytes
-	var maxSerialRxBufferBytes = 128
-	var availableSerialRxBufferBytes = maxSerialRxBufferBytes
-
-	parser := gcode.NewParser(r)
-	parserReader := gcode.NewParserReader(parser)
-
-	for {
-		if availableSerialRxBufferBytes == 0 {
-			// FIXME handle: context cancellation, chanenl closed
-			availableSerialRxBufferBytes += <-receivedBytesCh
-		}
-
-		data := make([]byte, availableSerialRxBufferBytes)
-		n, err := parserReader.Read(data)
-		if err != nil && err != io.EOF {
-			return err
-		}
-
-		if n > 0 {
-			n, err := g.port.Write(data[:n])
-			if err != nil {
-				return fmt.Errorf("write to serial port error: %w", err)
-			}
-			if n != len(data) {
-				return fmt.Errorf("write to serial port error: wrote %d bytes, expected %d", n, len(data))
-			}
-		}
-
-		sentBytesCh <- n
-		if err == io.EOF {
-			<-ctx.Done()
-			return nil
-		}
-	}
-}
-
-func (g *Grbl) streamResponseMessagesWorker(ctx context.Context, sentBytesCh, receivedBytesCh chan int) error {
-	for {
-		select {
-		case message, ok := <-g.responseMessageCh:
-			if !ok {
-				return fmt.Errorf("response message failed: channel is closed")
-			}
-			messageResponse := message.(*MessageResponse)
-			if messageResponse.Error() != nil {
-				return fmt.Errorf("response message failed: %w", messageResponse.Error())
-			}
-			receivedBytesCh <- (<-sentBytesCh)
-		case <-ctx.Done():
-			return fmt.Errorf("response message failed: %w", ctx.Err())
-		}
-	}
-}
-
-func (g *Grbl) Stream(ctx context.Context, r io.Reader) error {
+//gocyclo:ignore
+func (g *Grbl) StreamProgram(ctx context.Context, r io.Reader) error {
 	g.commandMu.Lock()
 	defer g.commandMu.Unlock()
+
+	ctx, logger := log.MustWithGroup(ctx, "Stream Program")
 
 	if err := g.emptyResponseMessageCh(ctx); err != nil {
 		return err
 	}
 
-	sentBytesCh := make(chan int, 128)
-	receivedBytesCh := make(chan int, 128)
+	// TODO call $I to check [OPT: response to fetch serial RX buffer bytes
+	var maxSerialRxBufferBytes = 128
+	var availableSerialRxBufferBytes = maxSerialRxBufferBytes
 
-	workerManager := worker.NewWorkerManager(ctx)
-	workerManager.StartWorker("stream commands", func(ctx context.Context) error {
-		defer close(sentBytesCh)
-		return g.streamCommandsWorker(ctx, r, sentBytesCh, receivedBytesCh)
-	})
+	parser := gcode.NewParser(r)
 
-	workerManager.StartWorker("response messages", func(ctx context.Context) error {
-		defer close(receivedBytesCh)
-		return g.streamResponseMessagesWorker(ctx, sentBytesCh, receivedBytesCh)
-	})
+	writtenBytes := []int{}
 
-	return workerManager.Wait()
+	// Wait for buffer
+	processMessage := func(message Message) error {
+		messageResponse := message.(*MessageResponse)
+		if messageResponse.Error() != nil {
+			return fmt.Errorf("response message: %w", messageResponse.Error())
+		}
+		logger.Debug("OK", "bytes", writtenBytes[0])
+		availableSerialRxBufferBytes += writtenBytes[0]
+		writtenBytes = writtenBytes[1:]
+		return nil
+	}
+	for {
+		logger.Debug("Receive response message", "writtenBytes", writtenBytes)
+		for {
+			select {
+			case message, ok := <-g.responseMessageCh:
+				if !ok {
+					return fmt.Errorf("response message: channel is closed")
+				}
+				if err := processMessage(message); err != nil {
+					return err
+				}
+			case <-ctx.Done():
+				return fmt.Errorf("response message: %w", ctx.Err())
+			default:
+				if availableSerialRxBufferBytes == 0 {
+					select {
+					case message, ok := <-g.responseMessageCh:
+						if !ok {
+							return fmt.Errorf("response message: channel is closed")
+						}
+						if err := processMessage(message); err != nil {
+							return err
+						}
+					case <-ctx.Done():
+						return fmt.Errorf("response message: %w", ctx.Err())
+					}
+				}
+				goto next
+			}
+		}
+	next:
+		// Read data
+		logger.Debug("Reading", "available bytes", availableSerialRxBufferBytes)
+		eof, block, _, err := parser.Next()
+		if err != nil {
+			return err
+		}
+		if block != nil {
+			data := []byte(block.String())
+
+			// Write data
+			logger.Debug("Writing", "bytes", len(data))
+			n, writeErr := g.port.Write(data)
+			if writeErr != nil {
+				return fmt.Errorf("write to serial port error: %w", writeErr)
+			}
+			if n != len(data) {
+				return fmt.Errorf("write to serial port error: wrote %d bytes, expected %d", n, len(data))
+			}
+
+			logger.Debug("Wrote", "bytes", n)
+			availableSerialRxBufferBytes -= n
+			writtenBytes = append(writtenBytes, n)
+		}
+
+		// Finish up
+		if eof {
+			logger.Debug("EOF")
+			for range writtenBytes {
+				logger.Debug("Receive response message")
+				select {
+				case message, ok := <-g.responseMessageCh:
+					if !ok {
+						return fmt.Errorf("response message: channel is closed")
+					}
+					messageResponse := message.(*MessageResponse)
+					if messageResponse.Error() != nil {
+						return fmt.Errorf("response message: %w", messageResponse.Error())
+					}
+				case <-ctx.Done():
+					return fmt.Errorf("response message: %w", ctx.Err())
+				}
+			}
+			return nil
+		}
+	}
 }
 
 // Disconnect will stop all goroutines and close the serial port.
