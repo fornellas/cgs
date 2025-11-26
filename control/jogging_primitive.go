@@ -181,7 +181,7 @@ func (jp *JoggingPrimitive) newJoystickFlex() *tview.Flex {
 	jp.joystickUnitDropDown.SetLabel("Unit: ")
 	jp.joystickUnitDropDown.SetOptions(jp.unitOptions, nil)
 	jp.joystickUnitDropDown.SetCurrentOption(-1)
-	jp.joystickUnitDropDown.SetSelectedFunc(func(string, int) {})
+	jp.joystickUnitDropDown.SetSelectedFunc(func(string, int) { jp.updateJoystickJogOk() })
 
 	jp.joystickCancelButton = tview.NewButton("Cancel")
 	jp.joystickCancelButton.SetSelectedFunc(func() {})
@@ -516,6 +516,7 @@ func (jp *JoggingPrimitive) processSettingPushMessage(settingPushMessage *grblMo
 		if jp.paramsFeedRateInputField.GetText() == "" {
 			jp.paramsFeedRateInputField.SetText(text)
 		}
+		jp.updateJoystickJogOk()
 	})
 }
 
@@ -545,6 +546,7 @@ func (jp *JoggingPrimitive) processGcodeStatePushMessage(
 					jp.distanceModeDropDown.SetCurrentOption(slices.Index(jp.distanceModeOptions, "Incremental"))
 				}
 			}
+			jp.updateJoystickJogOk()
 		}
 	})
 }
