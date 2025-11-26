@@ -384,3 +384,99 @@ func (g *Grbl) Disconnect(ctx context.Context) (err error) {
 	g.messageReceiverWorkerErrCh = nil
 	return
 }
+
+// Send Grbl Command: Help ($).
+// It waits for the response message.
+func (g *Grbl) SendGrblCommandHelp(ctx context.Context) error {
+	return g.SendCommand(ctx, "$")
+}
+
+// Send Grbl Command: View Grbl settings ($$).
+// It waits for the response message.
+func (g *Grbl) SendGrblCommandViewGrblSettings(ctx context.Context) error {
+	return g.SendCommand(ctx, "$$")
+}
+
+// Send Grbl Command: Write Grbl settings ($x=val).
+// It waits for the response message.
+func (g *Grbl) SendGrblCommandWriteGrblSettings(ctx context.Context, x, val string) error {
+	return g.SendCommand(ctx, fmt.Sprintf("$%s=%s", x, val))
+}
+
+// Send Grbl Command: View gcode parameters ($#).
+// It waits for the response message.
+func (g *Grbl) SendGrblCommandViewGcodeParameters(ctx context.Context) error {
+	return g.SendCommand(ctx, "$#")
+}
+
+// Send Grbl Command: View gcode parser state ($G).
+// It waits for the response message.
+func (g *Grbl) SendGrblCommandViewGcodeParserState(ctx context.Context) error {
+	return g.SendCommand(ctx, "$G")
+}
+
+// Send Grbl Command: View build info ($I).
+// It waits for the response message.
+func (g *Grbl) SendGrblCommandViewBuildInfo(ctx context.Context) error {
+	return g.SendCommand(ctx, "$I")
+}
+
+// Send Grbl Command: View startup blocks ($N).
+// It waits for the response message.
+func (g *Grbl) SendGrblCommandViewStartupBlocks(ctx context.Context) error {
+	return g.SendCommand(ctx, "$N")
+}
+
+// Send Grbl Command: Save startup block ($Nx=line).
+// It waits for the response message.
+func (g *Grbl) SendGrblCommandSaveStartupBlock(ctx context.Context, x, line string) error {
+	return g.SendCommand(ctx, fmt.Sprintf("$N%s=%s", x, line))
+}
+
+// Send Grbl Command: Check gcode mode ($C).
+// It waits for the response message.
+func (g *Grbl) SendGrblCommandCheckGcodeMode(ctx context.Context) error {
+	return g.SendCommand(ctx, "$C")
+}
+
+// Send Grbl Command: Kill alarm lock ($X).
+// It waits for the response message.
+func (g *Grbl) SendGrblCommandKillAlarmLock(ctx context.Context) error {
+	return g.SendCommand(ctx, "$X")
+}
+
+// Send Grbl Command: Run homing cycle ($H).
+// It waits for the response message.
+func (g *Grbl) SendGrblCommandRunHomingCycle(ctx context.Context) error {
+	return g.SendCommand(ctx, "$H")
+}
+
+// Send Grbl Command: Run jogging motion ($Jx=line).
+// It waits for the response message.
+func (g *Grbl) SendGrblCommandRunJoggingMotion(ctx context.Context, x, line string) error {
+	return g.SendCommand(ctx, fmt.Sprintf("$J%s=%s", x, line))
+}
+
+// Send Grbl Command: Restore Grbl settings to defaults $$ ($RST=$).
+// It waits for the response message.
+func (g *Grbl) SendGrblCommandRestoreGrblSettingsToDefaults(ctx context.Context) error {
+	return g.SendCommand(ctx, "$RST=$")
+}
+
+// Send Grbl Command: Restore gcode parameters to defaults $# ($RST=#).
+// It waits for the response message.
+func (g *Grbl) SendGrblCommandRestoreGcodeParametersToDefaults(ctx context.Context) error {
+	return g.SendCommand(ctx, "$RST=#")
+}
+
+// Send Grbl Command: Restore all to defaults $$, $#, $N, $I ($RST=*).
+// It waits for the response message.
+func (g *Grbl) SendGrblCommandRestoreAllToDefaults(ctx context.Context) error {
+	return g.SendCommand(ctx, "$RST=*")
+}
+
+// Send Grbl Command: Enable Sleep Mode ($SLP).
+// It waits for the response message.
+func (g *Grbl) SendGrblCommandEnableSleepMode(ctx context.Context) error {
+	return g.SendCommand(ctx, "$SLP")
+}
