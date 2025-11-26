@@ -10,10 +10,14 @@ Features
             G-Code Parameters
                 UI setting
             Auto Complete
-        Settings
-            Save / Restore
+        Stream
+            Height Map
+            Rotation
+            Open / Save
         Script
             TBD
+        Settings
+            Save / Restore
         Buttons
             Per-axis homing (build option)
             Custom Programs
