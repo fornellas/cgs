@@ -188,6 +188,9 @@ func (p *Parser) handleTokenTypeEOF() (bool, error) {
 	if p.letter != nil {
 		return false, fmt.Errorf("line %d: unexpected word letter at end of file", p.Lexer.Line)
 	}
+	if p.block != nil {
+		return true, nil
+	}
 	if len(p.words) == 0 {
 		return true, nil
 	}
@@ -304,12 +307,11 @@ func (p *Parser) Blocks() ([]*Block, error) {
 		if err != nil {
 			return nil, err
 		}
+		if block != nil {
+			blocks = append(blocks, block)
+		}
 		if eof {
 			return blocks, nil
 		}
-		if block == nil {
-			continue
-		}
-		blocks = append(blocks, block)
 	}
 }

@@ -742,6 +742,41 @@ func TestParserTestCases(t *testing.T) {
 				{errorContains: "unexpected char"},
 			},
 		},
+		// System command without newline
+		{
+			lines: []string{"$H"},
+			nextReturns: []nextReturn{
+				{eof: true, block: NewBlockSystem("$H")},
+			},
+		},
+		// System command with spaces, no newline
+		{
+			lines: []string{" $H "},
+			nextReturns: []nextReturn{
+				{eof: true, block: NewBlockSystem("$H")},
+			},
+		},
+		// System command with comment, no newline
+		{
+			lines: []string{" $H ; homing"},
+			nextReturns: []nextReturn{
+				{eof: true, block: NewBlockSystem("$H")},
+			},
+		},
+		// System command $C without newline
+		{
+			lines: []string{"$C"},
+			nextReturns: []nextReturn{
+				{eof: true, block: NewBlockSystem("$C")},
+			},
+		},
+		// System command $SLP without newline
+		{
+			lines: []string{"$SLP"},
+			nextReturns: []nextReturn{
+				{eof: true, block: NewBlockSystem("$SLP")},
+			},
+		},
 	}
 
 	for i, tc := range testCases {
