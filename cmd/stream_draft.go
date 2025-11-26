@@ -40,12 +40,13 @@ var StreamCmd = &cobra.Command{
 			return fmt.Errorf("failed to connect to Grbl: %w", err)
 		}
 		defer func() { err = errors.Join(err, grbl.Disconnect(ctx)) }()
-		// FIXME
+		// FIXME need to home
 		grbl.SendCommand(ctx, "$X")
 		grbl.SendCommand(ctx, "$C")
 
 		go func() {
 			for message := range pushMessageCh {
+				// FIXME handle alarm & status messages: on error, cancel context
 				logger.Warn("Grbl push message", "message", message)
 			}
 		}()

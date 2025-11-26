@@ -340,126 +340,99 @@ func (g *Grbl) StreamProgram(ctx context.Context, r io.Reader) error {
 	}
 
 	// TODO call $I to check [OPT: response to fetch serial RX buffer bytes
-	var maxSerialRxBufferBytes = 128
-	var availableSerialRxBufferBytes = maxSerialRxBufferBytes
+	const maxSerialRxBufferBytes = 128
+	availableSerialRxBufferBytes := maxSerialRxBufferBytes
+	sentLineBytes := []int{}
 
 	parser := gcode.NewParser(r)
 
-	writtenBytes := []int{}
-
-	// Wait for buffer
-	processResponseMessage := func(message Message) error {
-		messageResponse := message.(*MessageResponse)
-		if messageResponse.Error() != nil {
-			return fmt.Errorf("response message: %w", messageResponse.Error())
-		}
-		logger.Debug("OK", "bytes", writtenBytes[0])
-		availableSerialRxBufferBytes += writtenBytes[0]
-		writtenBytes = writtenBytes[1:]
-		return nil
-	}
-	writeData := func(data []byte) error {
-		logger.Debug("Writing", "bytes", len(data))
-		n, writeErr := g.port.Write(data)
-		if writeErr != nil {
-			return fmt.Errorf("write to serial port error: %w", writeErr)
-		}
-		if n != len(data) {
-			return fmt.Errorf("write to serial port error: wrote %d bytes, expected %d", n, len(data))
-		}
-
-		logger.Debug("Wrote", "bytes", n)
-		availableSerialRxBufferBytes -= n
-		writtenBytes = append(writtenBytes, n)
-		return nil
-	}
-	var data []byte
 	for {
-		logger.Debug("Receive response message", "writtenBytes", writtenBytes)
-		for {
-			select {
-			case message, ok := <-g.responseMessageCh:
-				if !ok {
-					return fmt.Errorf("response message: channel is closed")
-				}
-				if err := processResponseMessage(message); err != nil {
-					return err
-				}
-			case <-ctx.Done():
-				return fmt.Errorf("response message: %w", ctx.Err())
-			default:
-				if availableSerialRxBufferBytes == 0 {
-					select {
-					case message, ok := <-g.responseMessageCh:
-						if !ok {
-							return fmt.Errorf("response message: channel is closed")
-						}
-						if err := processResponseMessage(message); err != nil {
-							return err
-						}
-					case <-ctx.Done():
-						return fmt.Errorf("response message: %w", ctx.Err())
-					}
-				}
-				goto next
-			}
+		eof, block, _, err := parser.Next()
+		if err != nil {
+			return fmt.Errorf("gcode parse error: %w", err)
 		}
-	next:
-		// Read data
-		if data == nil {
-			logger.Debug("Reading", "available bytes", availableSerialRxBufferBytes)
-			eof, block, _, err := parser.Next()
-			if err != nil {
-				return err
-			}
-			if block != nil {
-				blockData := []byte(block.String())
-				if len(blockData) > availableSerialRxBufferBytes {
-					data = blockData[availableSerialRxBufferBytes:]
-					blockData = blockData[:availableSerialRxBufferBytes]
-				}
 
-				// Write data
-				if err := writeData(blockData); err != nil {
-					return err
-				}
-			}
-
-			// Finish up
+		if block == nil || block.Empty() {
 			if eof {
-				logger.Debug("EOF")
-				for range writtenBytes {
-					logger.Debug("Receive response message")
-					select {
-					case message, ok := <-g.responseMessageCh:
-						if !ok {
-							return fmt.Errorf("response message: channel is closed")
-						}
-						messageResponse := message.(*MessageResponse)
-						if messageResponse.Error() != nil {
-							return fmt.Errorf("response message: %w", messageResponse.Error())
-						}
-					case <-ctx.Done():
-						return fmt.Errorf("response message: %w", ctx.Err())
+				break
+			}
+			continue
+		}
+
+		line := []byte(block.NormalizedString() + "\n")
+		sent := 0
+
+		// Send the line in chunks, respecting available buffer space
+		for sent < len(line) {
+			// Wait for buffer space if needed
+			for availableSerialRxBufferBytes == 0 {
+				var ok bool
+				select {
+				case _, ok = <-g.responseMessageCh:
+					if !ok {
+						return fmt.Errorf("stream program: response message channel is closed")
 					}
+				case <-ctx.Done():
+					return fmt.Errorf("stream program: %w", ctx.Err())
 				}
-				return nil
+
+				// One line was processed, free up its space
+				if len(sentLineBytes) > 0 {
+					availableSerialRxBufferBytes += sentLineBytes[0]
+					sentLineBytes = sentLineBytes[1:]
+				}
 			}
-			if block == nil {
-				goto next
+
+			// Write at most availableSerialRxBufferBytes
+			end := sent + availableSerialRxBufferBytes
+			end = min(end, len(line))
+			chunk := line[sent:end]
+
+			g.dataMu.Lock()
+			if g.port == nil {
+				g.dataMu.Unlock()
+				return fmt.Errorf("disconnected")
 			}
-		} else {
-			wData := data
-			if len(data) > availableSerialRxBufferBytes {
-				wData = data[availableSerialRxBufferBytes:]
-				data = data[:availableSerialRxBufferBytes]
+			n, err := g.port.Write(chunk)
+			g.dataMu.Unlock()
+			if err != nil {
+				return fmt.Errorf("write to serial port error: %w", err)
 			}
-			// Write data
-			if err := writeData(wData); err != nil {
-				return err
+			if n != len(chunk) {
+				return fmt.Errorf("write to serial port error: wrote %d bytes, expected %d", n, len(chunk))
 			}
+
+			sent += n
+			availableSerialRxBufferBytes -= n
+		}
+
+		// Track sent line
+		sentLineBytes = append(sentLineBytes, len(line))
+
+		logger.Debug("sent gcode line", "line", fmt.Sprintf("%#v", string(line[:len(line)-1])), "available_buffer", availableSerialRxBufferBytes)
+
+		if eof {
+			break
 		}
 	}
+
+	// Wait for all remaining responses
+	for len(sentLineBytes) > 0 {
+		var ok bool
+		select {
+		case _, ok = <-g.responseMessageCh:
+			if !ok {
+				return fmt.Errorf("stream program: response message channel is closed")
+			}
+		case <-ctx.Done():
+			return fmt.Errorf("stream program: %w", ctx.Err())
+		}
+
+		sentLineBytes = sentLineBytes[1:]
+	}
+
+	logger.Debug("stream program completed")
+	return nil
 }
 
 // Disconnect will stop all goroutines and close the serial port.
