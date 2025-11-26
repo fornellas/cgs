@@ -283,6 +283,29 @@ func (b *Block) Empty() bool {
 	return b.system == nil && len(b.words) == 0
 }
 
+// Block contains command that uses EEPROM.
+func (b *Block) IsEEPROM() bool {
+	if b.IsSystem() {
+		return true
+	}
+
+	for _, word := range b.Words() {
+		switch word.NormalizedString() {
+		case "G10":
+			for _, g10Word := range b.Words() {
+				normalizedString := g10Word.NormalizedString()
+				if normalizedString == "L2" || normalizedString == "L20" {
+					return true
+				}
+			}
+		case "G28.1", "G30.1", "G54", "G55", "G56", "G57", "G58", "G59", "G28", "G30":
+			return true
+		}
+	}
+
+	return false
+}
+
 var rotateXYCommands = map[string]bool{
 	"G0": true, // Coordinated Motion at Rapid Rate
 	"G1": true, // Coordinated Motion at Feed Rate

@@ -2,6 +2,7 @@ package grbl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/fornellas/cgs/gcode"
 )
+
+var ErrEEPROMCommandNotSupported = errors.New("EEPROM related commands can not be streamed")
 
 type ProgramStreamer struct {
 	port                   io.Writer
@@ -102,6 +105,10 @@ func (s *ProgramStreamer) Run(ctx context.Context, programReader io.Reader) erro
 				break
 			}
 			continue
+		}
+
+		if block.IsEEPROM() {
+			return fmt.Errorf("%w: %s", ErrEEPROMCommandNotSupported, block.NormalizedString())
 		}
 
 		line := []byte(block.NormalizedString() + "\n")
