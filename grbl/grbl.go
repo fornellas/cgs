@@ -348,7 +348,7 @@ func (g *Grbl) StreamProgram(ctx context.Context, r io.Reader) error {
 	writtenBytes := []int{}
 
 	// Wait for buffer
-	processMessage := func(message Message) error {
+	processResponseMessage := func(message Message) error {
 		messageResponse := message.(*MessageResponse)
 		if messageResponse.Error() != nil {
 			return fmt.Errorf("response message: %w", messageResponse.Error())
@@ -358,6 +358,22 @@ func (g *Grbl) StreamProgram(ctx context.Context, r io.Reader) error {
 		writtenBytes = writtenBytes[1:]
 		return nil
 	}
+	writeData := func(data []byte) error {
+		logger.Debug("Writing", "bytes", len(data))
+		n, writeErr := g.port.Write(data)
+		if writeErr != nil {
+			return fmt.Errorf("write to serial port error: %w", writeErr)
+		}
+		if n != len(data) {
+			return fmt.Errorf("write to serial port error: wrote %d bytes, expected %d", n, len(data))
+		}
+
+		logger.Debug("Wrote", "bytes", n)
+		availableSerialRxBufferBytes -= n
+		writtenBytes = append(writtenBytes, n)
+		return nil
+	}
+	var data []byte
 	for {
 		logger.Debug("Receive response message", "writtenBytes", writtenBytes)
 		for {
@@ -366,7 +382,7 @@ func (g *Grbl) StreamProgram(ctx context.Context, r io.Reader) error {
 				if !ok {
 					return fmt.Errorf("response message: channel is closed")
 				}
-				if err := processMessage(message); err != nil {
+				if err := processResponseMessage(message); err != nil {
 					return err
 				}
 			case <-ctx.Done():
@@ -378,7 +394,7 @@ func (g *Grbl) StreamProgram(ctx context.Context, r io.Reader) error {
 						if !ok {
 							return fmt.Errorf("response message: channel is closed")
 						}
-						if err := processMessage(message); err != nil {
+						if err := processResponseMessage(message); err != nil {
 							return err
 						}
 					case <-ctx.Done():
@@ -390,48 +406,58 @@ func (g *Grbl) StreamProgram(ctx context.Context, r io.Reader) error {
 		}
 	next:
 		// Read data
-		logger.Debug("Reading", "available bytes", availableSerialRxBufferBytes)
-		eof, block, _, err := parser.Next()
-		if err != nil {
-			return err
-		}
-		if block != nil {
-			data := []byte(block.String())
-
-			// Write data
-			logger.Debug("Writing", "bytes", len(data))
-			n, writeErr := g.port.Write(data)
-			if writeErr != nil {
-				return fmt.Errorf("write to serial port error: %w", writeErr)
+		if data == nil {
+			logger.Debug("Reading", "available bytes", availableSerialRxBufferBytes)
+			eof, block, _, err := parser.Next()
+			if err != nil {
+				return err
 			}
-			if n != len(data) {
-				return fmt.Errorf("write to serial port error: wrote %d bytes, expected %d", n, len(data))
-			}
+			if block != nil {
+				blockData := []byte(block.String())
+				if len(blockData) > availableSerialRxBufferBytes {
+					data = blockData[availableSerialRxBufferBytes:]
+					blockData = blockData[:availableSerialRxBufferBytes]
+				}
 
-			logger.Debug("Wrote", "bytes", n)
-			availableSerialRxBufferBytes -= n
-			writtenBytes = append(writtenBytes, n)
-		}
-
-		// Finish up
-		if eof {
-			logger.Debug("EOF")
-			for range writtenBytes {
-				logger.Debug("Receive response message")
-				select {
-				case message, ok := <-g.responseMessageCh:
-					if !ok {
-						return fmt.Errorf("response message: channel is closed")
-					}
-					messageResponse := message.(*MessageResponse)
-					if messageResponse.Error() != nil {
-						return fmt.Errorf("response message: %w", messageResponse.Error())
-					}
-				case <-ctx.Done():
-					return fmt.Errorf("response message: %w", ctx.Err())
+				// Write data
+				if err := writeData(blockData); err != nil {
+					return err
 				}
 			}
-			return nil
+
+			// Finish up
+			if eof {
+				logger.Debug("EOF")
+				for range writtenBytes {
+					logger.Debug("Receive response message")
+					select {
+					case message, ok := <-g.responseMessageCh:
+						if !ok {
+							return fmt.Errorf("response message: channel is closed")
+						}
+						messageResponse := message.(*MessageResponse)
+						if messageResponse.Error() != nil {
+							return fmt.Errorf("response message: %w", messageResponse.Error())
+						}
+					case <-ctx.Done():
+						return fmt.Errorf("response message: %w", ctx.Err())
+					}
+				}
+				return nil
+			}
+			if block == nil {
+				goto next
+			}
+		} else {
+			wData := data
+			if len(data) > availableSerialRxBufferBytes {
+				wData = data[availableSerialRxBufferBytes:]
+				data = data[:availableSerialRxBufferBytes]
+			}
+			// Write data
+			if err := writeData(wData); err != nil {
+				return err
+			}
 		}
 	}
 }
