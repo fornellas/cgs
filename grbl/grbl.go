@@ -11,17 +11,13 @@ import (
 	"time"
 
 	"go.bug.st/serial"
-
-	"github.com/fornellas/slogxt/log"
-
-	"github.com/fornellas/cgs/gcode"
 )
 
 var ErrInvalidMessage = errors.New("invalid Grbl message")
 
 type Grbl struct {
-	dataMu                     sync.Mutex
-	commandMu                  sync.Mutex
+	grblMu                     sync.Mutex
+	portWriteMu                sync.Mutex
 	openPortFn                 func(context.Context, *serial.Mode) (serial.Port, error)
 	port                       serial.Port
 	workCoordinateOffset       *WorkCoordinateOffset
@@ -74,16 +70,16 @@ func (g *Grbl) receiveMessage(ctx context.Context) (PushMessage, *ResponseMessag
 		}
 	} else {
 		if _, ok := pushMessage.(*WelcomePushMessage); ok {
-			g.dataMu.Lock()
+			g.grblMu.Lock()
 			g.workCoordinateOffset = nil
 			g.overrideValues = nil
 			g.gcodeParameters = &GcodeParameters{}
 			g.accessoryState = nil
-			g.dataMu.Unlock()
+			g.grblMu.Unlock()
 		}
 
 		if statusReportPushMessage, ok := pushMessage.(*StatusReportPushMessage); ok {
-			g.dataMu.Lock()
+			g.grblMu.Lock()
 			if statusReportPushMessage.WorkCoordinateOffset != nil {
 				g.workCoordinateOffset = statusReportPushMessage.WorkCoordinateOffset
 			}
@@ -93,13 +89,13 @@ func (g *Grbl) receiveMessage(ctx context.Context) (PushMessage, *ResponseMessag
 			if statusReportPushMessage.AccessoryState != nil {
 				g.accessoryState = statusReportPushMessage.AccessoryState
 			}
-			g.dataMu.Unlock()
+			g.grblMu.Unlock()
 		}
 
 		if gcodeParamPushMessage, ok := pushMessage.(*GcodeParamPushMessage); ok {
-			g.dataMu.Lock()
+			g.grblMu.Lock()
 			g.gcodeParameters.Update(gcodeParamPushMessage)
-			g.dataMu.Unlock()
+			g.grblMu.Unlock()
 		}
 		return pushMessage, nil, nil
 	}
@@ -123,10 +119,10 @@ func (g *Grbl) messageReceiverWorker(ctx context.Context) {
 			if errors.Is(err, context.Canceled) {
 				err = nil
 			}
-			g.dataMu.Lock()
+			g.grblMu.Lock()
 			close(g.pushMessageCh)
 			g.pushMessageCh = nil
-			g.dataMu.Unlock()
+			g.grblMu.Unlock()
 			g.messageReceiverWorkerErrCh <- err
 			return
 		}
@@ -135,10 +131,10 @@ func (g *Grbl) messageReceiverWorker(ctx context.Context) {
 			select {
 			case g.pushMessageCh <- pushMessage:
 			case <-ctx.Done():
-				g.dataMu.Lock()
+				g.grblMu.Lock()
 				close(g.pushMessageCh)
 				g.pushMessageCh = nil
-				g.dataMu.Unlock()
+				g.grblMu.Unlock()
 				g.messageReceiverWorkerErrCh <- nil
 				return
 			}
@@ -148,10 +144,10 @@ func (g *Grbl) messageReceiverWorker(ctx context.Context) {
 			select {
 			case g.responseMessageCh <- responseMessage:
 			case <-ctx.Done():
-				g.dataMu.Lock()
+				g.grblMu.Lock()
 				close(g.pushMessageCh)
 				g.pushMessageCh = nil
-				g.dataMu.Unlock()
+				g.grblMu.Unlock()
 				g.messageReceiverWorkerErrCh <- nil
 				return
 			}
@@ -206,7 +202,7 @@ func (g *Grbl) Connect(ctx context.Context) (chan PushMessage, error) {
 		return nil, errors.Join(fmt.Errorf("error setting read timeout: %w", err), closeErr)
 	}
 
-	g.dataMu.Lock()
+	g.grblMu.Lock()
 
 	g.port = port
 
@@ -222,7 +218,7 @@ func (g *Grbl) Connect(ctx context.Context) (chan PushMessage, error) {
 	g.messageReceiverWorkerErrCh = make(chan error, 1)
 	go g.messageReceiverWorker(receiveCtx)
 
-	g.dataMu.Unlock()
+	g.grblMu.Unlock()
 
 	if err := g.waitForWelcomeMessage(ctx); err != nil {
 		return nil, errors.Join(err, g.Disconnect(ctx))
@@ -234,39 +230,39 @@ func (g *Grbl) Connect(ctx context.Context) (chan PushMessage, error) {
 // GetLastWorkCoordinateOffset returns the newest value received via a push message status report.
 // Returns nil if no previous message was received.
 func (g *Grbl) GetLastWorkCoordinateOffset() *WorkCoordinateOffset {
-	g.dataMu.Lock()
-	defer g.dataMu.Unlock()
+	g.grblMu.Lock()
+	defer g.grblMu.Unlock()
 	return g.workCoordinateOffset
 }
 
 // GetLastOverrideValues returns the newest value received via a push message status report.
 // Returns nil if no previous message was received.
 func (g *Grbl) GetLastOverrideValues() *OverrideValues {
-	g.dataMu.Lock()
-	defer g.dataMu.Unlock()
+	g.grblMu.Lock()
+	defer g.grblMu.Unlock()
 	return g.overrideValues
 }
 
 // GetLastGcodeParameters returns the newest value received via a push message gcode parameters.
 // Returns nil if no previous message was received.
 func (g *Grbl) GetLastGcodeParameters() *GcodeParameters {
-	g.dataMu.Lock()
-	defer g.dataMu.Unlock()
+	g.grblMu.Lock()
+	defer g.grblMu.Unlock()
 	return g.gcodeParameters
 }
 
 // GetLastAccessoryState returns the newest value received via a push message status report.
 // Returns nil if no previous message was received.
 func (g *Grbl) GetLastAccessoryState() *AccessoryState {
-	g.dataMu.Lock()
-	defer g.dataMu.Unlock()
+	g.grblMu.Lock()
+	defer g.grblMu.Unlock()
 	return g.accessoryState
 }
 
 // SendRealTimeCommand issues a real time command to Grbl.
 func (g *Grbl) SendRealTimeCommand(cmd RealTimeCommand) error {
-	g.dataMu.Lock()
-	defer g.dataMu.Unlock()
+	g.grblMu.Lock()
+	defer g.grblMu.Unlock()
 	if g.port == nil {
 		return fmt.Errorf("disconnected")
 	}
@@ -310,17 +306,17 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (*ResponseMessag
 		return nil, fmt.Errorf("command must be single line string: %#v", command)
 	}
 
-	g.commandMu.Lock()
-	defer g.commandMu.Unlock()
+	g.portWriteMu.Lock()
+	defer g.portWriteMu.Unlock()
 
-	g.dataMu.Lock()
+	g.grblMu.Lock()
 	if g.port == nil {
-		g.dataMu.Unlock()
+		g.grblMu.Unlock()
 		return nil, fmt.Errorf("disconnected")
 	}
 	line := append([]byte(command), '\n')
 	n, err := g.port.Write(line)
-	g.dataMu.Unlock()
+	g.grblMu.Unlock()
 	if err != nil {
 		return nil, fmt.Errorf("write to serial port error: %w", err)
 	}
@@ -347,12 +343,9 @@ func (g *Grbl) SendCommand(ctx context.Context, command string) (*ResponseMessag
 	return responseMessage, nil
 }
 
-//gocyclo:ignore
-func (g *Grbl) StreamProgram(ctx context.Context, r io.Reader) error {
-	g.commandMu.Lock()
-	defer g.commandMu.Unlock()
-
-	ctx, logger := log.MustWithGroup(ctx, "Stream Program")
+func (g *Grbl) StreamProgram(ctx context.Context, programReader io.Reader) error {
+	g.portWriteMu.Lock()
+	defer g.portWriteMu.Unlock()
 
 	if err := g.emptyResponseMessageCh(ctx); err != nil {
 		return err
@@ -360,108 +353,23 @@ func (g *Grbl) StreamProgram(ctx context.Context, r io.Reader) error {
 
 	// TODO call $I to check [OPT: response to fetch serial RX buffer bytes
 	const maxSerialRxBufferBytes = 128
-	availableSerialRxBufferBytes := maxSerialRxBufferBytes
-	sentLineBytes := []int{}
-
-	parser := gcode.NewParser(r)
-
-	for {
-		eof, block, _, err := parser.Next()
-		if err != nil {
-			return fmt.Errorf("gcode parse error: %w", err)
-		}
-
-		if block == nil || block.Empty() {
-			if eof {
-				break
-			}
-			continue
-		}
-
-		line := []byte(block.NormalizedString() + "\n")
-		sent := 0
-
-		for sent < len(line) {
-			for availableSerialRxBufferBytes == 0 {
-				var ok bool
-				select {
-				case _, ok = <-g.responseMessageCh:
-					if !ok {
-						return fmt.Errorf("stream program: response message channel is closed")
-					}
-				case <-ctx.Done():
-					return fmt.Errorf("stream program: %w", ctx.Err())
-				}
-
-				if len(sentLineBytes) > 0 {
-					availableSerialRxBufferBytes += sentLineBytes[0]
-					sentLineBytes = sentLineBytes[1:]
-				}
-			}
-
-			end := sent + availableSerialRxBufferBytes
-			end = min(end, len(line))
-			chunk := line[sent:end]
-
-			g.dataMu.Lock()
-			if g.port == nil {
-				g.dataMu.Unlock()
-				return fmt.Errorf("disconnected")
-			}
-			n, err := g.port.Write(chunk)
-			g.dataMu.Unlock()
-			if err != nil {
-				return fmt.Errorf("write to serial port error: %w", err)
-			}
-			if n != len(chunk) {
-				return fmt.Errorf("write to serial port error: wrote %d bytes, expected %d", n, len(chunk))
-			}
-
-			sent += n
-			availableSerialRxBufferBytes -= n
-		}
-
-		sentLineBytes = append(sentLineBytes, len(line))
-
-		logger.Debug("sent gcode line", "line", fmt.Sprintf("%#v", string(line[:len(line)-1])), "available_buffer", availableSerialRxBufferBytes)
-
-		if eof {
-			break
-		}
-	}
-
-	// Wait for all remaining responses
-	for len(sentLineBytes) > 0 {
-		var ok bool
-		select {
-		case _, ok = <-g.responseMessageCh:
-			if !ok {
-				return fmt.Errorf("stream program: response message channel is closed")
-			}
-		case <-ctx.Done():
-			return fmt.Errorf("stream program: %w", ctx.Err())
-		}
-
-		sentLineBytes = sentLineBytes[1:]
-	}
-
-	return nil
+	return NewProgramStreamer(g.port, g.responseMessageCh, maxSerialRxBufferBytes).Run(ctx, programReader)
 }
 
 // Disconnect will stop all goroutines and close the serial port.
 func (g *Grbl) Disconnect(ctx context.Context) (err error) {
-	g.dataMu.Lock()
+	g.grblMu.Lock()
 	if g.port == nil {
-		g.dataMu.Unlock()
+		g.grblMu.Unlock()
 		return
 	}
 	g.receiveCtxCancel()
-	g.dataMu.Unlock()
+	g.grblMu.Unlock()
 
 	err = <-g.messageReceiverWorkerErrCh
 
-	g.dataMu.Lock()
-	defer g.dataMu.Unlock()
+	g.grblMu.Lock()
+	defer g.grblMu.Unlock()
 	close(g.responseMessageCh)
 	close(g.messageReceiverWorkerErrCh)
 	err = errors.Join(err, g.port.Close())
