@@ -46,7 +46,8 @@ func (s *ProgramStreamer) writeChunk(chunk []byte) error {
 	return nil
 }
 
-func (s *ProgramStreamer) waitForResponseMessage(ctx context.Context) error {
+func (s *ProgramStreamer) waitForResponseMessage(ctx context.Context, warnIfEmpty bool) error {
+	logger := log.MustLogger(ctx)
 	var ok bool
 	select {
 	case _, ok = <-s.responseMessageCh:
@@ -57,6 +58,9 @@ func (s *ProgramStreamer) waitForResponseMessage(ctx context.Context) error {
 		return fmt.Errorf("stream program: %w", ctx.Err())
 	}
 	s.availableBufferBytes += s.sentChunkBytes[0]
+	if s.availableBufferBytes == s.maxSerialRxBufferBytes && warnIfEmpty {
+		logger.Warn("Grbl serial RX buffer empty")
+	}
 	s.sentChunkBytes = s.sentChunkBytes[1:]
 	return nil
 }
@@ -65,7 +69,7 @@ func (s *ProgramStreamer) writeLine(ctx context.Context, line []byte) error {
 	sent := 0
 	for sent < len(line) {
 		for s.availableBufferBytes == 0 {
-			if err := s.waitForResponseMessage(ctx); err != nil {
+			if err := s.waitForResponseMessage(ctx, true); err != nil {
 				return err
 			}
 		}
@@ -125,7 +129,7 @@ func (s *ProgramStreamer) Run(ctx context.Context, programReader io.Reader) erro
 	}
 
 	for len(s.sentChunkBytes) > 0 {
-		if err := s.waitForResponseMessage(ctx); err != nil {
+		if err := s.waitForResponseMessage(ctx, false); err != nil {
 			return err
 		}
 	}
