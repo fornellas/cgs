@@ -152,7 +152,7 @@ func NewControlPrimitive(
 
 	// Command
 	commandInputField := tview.NewInputField()
-	commandInputField.SetLabel("Command: ")
+	commandInputField.SetLabel("Command")
 	commandInputField.SetDoneFunc(func(key tcell.Key) {
 		switch key {
 		case tcell.KeyEscape:
