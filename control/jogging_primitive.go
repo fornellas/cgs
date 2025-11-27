@@ -212,7 +212,7 @@ func (jp *JoggingPrimitive) getParamsJogBlock() (string, error) {
 		}
 		v, err := strconv.ParseFloat(value, 64)
 		if err != nil {
-			panic(fmt.Sprintf("bug: parsing not expected to fail: %s", err))
+			return false
 		}
 		fmt.Fprintf(&buf, "%s%.4f", letter, v)
 		return true
