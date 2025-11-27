@@ -57,7 +57,7 @@ func NewProbePrimitive(
 func (pp *ProbePrimitive) newStraight() {
 	// Move Orientation
 	straightMoveOrientationDropdown := tview.NewDropDown()
-	straightMoveOrientationDropdown.SetLabel("Move Orientation")
+	straightMoveOrientationDropdown.SetLabel("Move Orientation ")
 	straightMoveOrientationDropdown.SetOptions([]string{"Toward piece[lightblue]G38.2[-]", "From piece[lightblue]G38.4[-]"}, func(text string, index int) {
 		// TODO
 	})
@@ -67,7 +67,7 @@ func (pp *ProbePrimitive) newStraight() {
 	// x
 	straightXInputField := tview.NewInputField()
 	straightXInputField.SetFieldWidth(coordinateWidth)
-	straightXInputField.SetLabel("X")
+	straightXInputField.SetLabel("X ")
 	straightXInputField.SetAcceptanceFunc(acceptFloat)
 	straightXInputField.SetChangedFunc(func(string) {
 		// TODO
@@ -76,7 +76,7 @@ func (pp *ProbePrimitive) newStraight() {
 
 	// y
 	straightYInputField := tview.NewInputField()
-	straightYInputField.SetLabel("Y")
+	straightYInputField.SetLabel("Y ")
 	straightYInputField.SetFieldWidth(coordinateWidth)
 	straightYInputField.SetAcceptanceFunc(acceptFloat)
 	straightYInputField.SetChangedFunc(func(string) {
@@ -86,7 +86,7 @@ func (pp *ProbePrimitive) newStraight() {
 
 	// z
 	straightZInputField := tview.NewInputField()
-	straightZInputField.SetLabel("Z")
+	straightZInputField.SetLabel("Z ")
 	straightZInputField.SetFieldWidth(coordinateWidth)
 	straightZInputField.SetAcceptanceFunc(acceptFloat)
 	straightZInputField.SetChangedFunc(func(string) {
@@ -96,7 +96,7 @@ func (pp *ProbePrimitive) newStraight() {
 
 	// Feed rate
 	straightFeedRateInputField := tview.NewInputField()
-	straightFeedRateInputField.SetLabel("Feed rate")
+	straightFeedRateInputField.SetLabel("Feed rate ")
 	straightFeedRateInputField.SetFieldWidth(feedWidth)
 	straightFeedRateInputField.SetAcceptanceFunc(acceptUFloat)
 	straightFeedRateInputField.SetChangedFunc(func(string) {
@@ -134,6 +134,7 @@ func (pp *ProbePrimitive) newStraight() {
 	straightFlex := tview.NewFlex()
 	straightFlex.SetBorder(true)
 	straightFlex.SetTitle("Straight")
+	straightFlex.SetBorderPadding(1, 1, 1, 1)
 	straightFlex.SetDirection(tview.FlexColumn)
 	straightFlex.AddItem(probeFlex, 0, 1, false)
 	straightFlex.AddItem(setFlex, 0, 1, false)

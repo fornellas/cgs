@@ -165,20 +165,20 @@ func (jp *JoggingPrimitive) newJoystickFlex() *tview.Flex {
 	joystickGrid.AddItem(jp.zPlusButton, 0, 3, 1, 1, 0, 0, false)
 
 	jp.joystickFeedRateInputField = tview.NewInputField()
-	jp.joystickFeedRateInputField.SetLabel("Feed rate")
+	jp.joystickFeedRateInputField.SetLabel("Feed rate ")
 	jp.joystickFeedRateInputField.SetFieldWidth(feedWidth)
 	jp.joystickFeedRateInputField.SetAcceptanceFunc(acceptUFloat)
 	jp.joystickFeedRateInputField.SetChangedFunc(func(string) { jp.updateJoystickJogOk() })
 
 	jp.distanceInputField = tview.NewInputField()
-	jp.distanceInputField.SetLabel("Distance")
+	jp.distanceInputField.SetLabel("Distance ")
 	jp.distanceInputField.SetText("10")
 	jp.distanceInputField.SetFieldWidth(coordinateWidth)
 	jp.distanceInputField.SetAcceptanceFunc(acceptUFloat)
 	jp.distanceInputField.SetChangedFunc(func(string) { jp.updateJoystickJogOk() })
 
 	jp.joystickUnitDropDown = tview.NewDropDown()
-	jp.joystickUnitDropDown.SetLabel("Unit")
+	jp.joystickUnitDropDown.SetLabel("Unit ")
 	jp.joystickUnitDropDown.SetOptions(unitOptions, nil)
 	jp.joystickUnitDropDown.SetCurrentOption(-1)
 	jp.joystickUnitDropDown.SetSelectedFunc(func(string, int) { jp.updateJoystickJogOk() })
@@ -375,42 +375,41 @@ func (jp *JoggingPrimitive) setParamsJogBlock() {
 func (jp *JoggingPrimitive) newParametersFlex() *tview.Flex {
 	jp.paramErrTextView = tview.NewTextView()
 	jp.paramErrTextView.SetDynamicColors(true)
-	jp.paramErrTextView.SetText("Error")
 
 	jp.xInputField = tview.NewInputField()
 	jp.xInputField.SetFieldWidth(coordinateWidth)
-	jp.xInputField.SetLabel("X")
+	jp.xInputField.SetLabel("X ")
 	jp.xInputField.SetAcceptanceFunc(acceptFloat)
 	jp.xInputField.SetChangedFunc(func(string) { jp.setParamsJogBlock() })
 
 	jp.yInputField = tview.NewInputField()
-	jp.yInputField.SetLabel("Y")
+	jp.yInputField.SetLabel("Y ")
 	jp.yInputField.SetFieldWidth(coordinateWidth)
 	jp.yInputField.SetAcceptanceFunc(acceptFloat)
 	jp.yInputField.SetChangedFunc(func(string) { jp.setParamsJogBlock() })
 
 	jp.zInputField = tview.NewInputField()
-	jp.zInputField.SetLabel("Z")
+	jp.zInputField.SetLabel("Z ")
 	jp.zInputField.SetFieldWidth(coordinateWidth)
 	jp.zInputField.SetAcceptanceFunc(acceptFloat)
 	jp.zInputField.SetChangedFunc(func(string) { jp.setParamsJogBlock() })
 
 	jp.paramsUnitDropDown = tview.NewDropDown()
-	jp.paramsUnitDropDown.SetLabel("Unit")
+	jp.paramsUnitDropDown.SetLabel("Unit ")
 	jp.paramsUnitDropDown.SetOptions(unitOptions, func(string, int) { jp.setParamsJogBlock() })
 	jp.paramsUnitDropDown.SetCurrentOption(-1)
 
 	jp.distanceModeDropDown = tview.NewDropDown()
-	jp.distanceModeDropDown.SetLabel("Distance mode")
+	jp.distanceModeDropDown.SetLabel("Distance mode ")
 
 	jp.paramsFeedRateInputField = tview.NewInputField()
-	jp.paramsFeedRateInputField.SetLabel("Feed rate")
+	jp.paramsFeedRateInputField.SetLabel("Feed rate ")
 	jp.paramsFeedRateInputField.SetFieldWidth(feedWidth)
 	jp.paramsFeedRateInputField.SetAcceptanceFunc(acceptUFloat)
 	jp.paramsFeedRateInputField.SetChangedFunc(func(string) { jp.setParamsJogBlock() })
 
 	jp.machineCoordinatesCheckbox = tview.NewCheckbox()
-	jp.machineCoordinatesCheckbox.SetLabel("Machine Coordinates[blue]G53[-]")
+	jp.machineCoordinatesCheckbox.SetLabel("Machine Coordinates[blue]G53[-] ")
 	jp.machineCoordinatesCheckbox.SetChangedFunc(func(bool) { jp.setParamsJogBlock() })
 	jp.distanceModeDropDown.SetOptions(distanceModeOptions, func(option string, optionIndex int) {
 		jp.setParamsJogBlock()

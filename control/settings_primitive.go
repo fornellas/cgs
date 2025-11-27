@@ -107,7 +107,7 @@ func NewSettingsPrimitive(
 
 	newSettingInputField := func(key, label string, width int) *tview.InputField {
 		field := tview.NewInputField()
-		field.SetLabel(label)
+		field.SetLabel(label + " ")
 		if width > 0 {
 			field.SetFieldWidth(width)
 		}
@@ -122,7 +122,7 @@ func NewSettingsPrimitive(
 
 	newSettingCheckbox := func(key, label string) *tview.Checkbox {
 		cb := tview.NewCheckbox()
-		cb.SetLabel(label)
+		cb.SetLabel(label + " ")
 		cb.SetChangedFunc(func(checked bool) {
 			if sp.skipQueueCommand {
 				return
@@ -138,11 +138,11 @@ func NewSettingsPrimitive(
 
 	newSettingMask := func(key string) (*tview.Checkbox, *tview.Checkbox, *tview.Checkbox) {
 		x := tview.NewCheckbox()
-		x.SetLabel("X")
+		x.SetLabel("X ")
 		y := tview.NewCheckbox()
-		y.SetLabel("Y")
+		y.SetLabel("Y ")
 		z := tview.NewCheckbox()
-		z.SetLabel("Z")
+		z.SetLabel("Z ")
 
 		updateMask := func() {
 			if sp.skipQueueCommand {
@@ -165,9 +165,9 @@ func NewSettingsPrimitive(
 		labelView := tview.NewTextView()
 		labelView.SetText(label)
 		flex.AddItem(labelView, len(label)+1, 0, false)
-		flex.AddItem(x, 3, 0, false)
-		flex.AddItem(y, 3, 0, false)
-		flex.AddItem(z, 3, 0, false)
+		flex.AddItem(x, 4, 0, false)
+		flex.AddItem(y, 4, 0, false)
+		flex.AddItem(z, 4, 0, false)
 		return flex
 	}
 
@@ -188,9 +188,9 @@ func NewSettingsPrimitive(
 	sp.limitPinsInvert = newSettingCheckbox("5", "Limit pins invert")
 	sp.probePinInvert = newSettingCheckbox("6", "Probe pin invert")
 	statusReportMachinePosition := tview.NewCheckbox()
-	statusReportMachinePosition.SetLabel("Status Report: Machine Position")
+	statusReportMachinePosition.SetLabel("Status Report: Machine Position ")
 	statusReportBufferData := tview.NewCheckbox()
-	statusReportBufferData.SetLabel("Status Report: Buffer Data")
+	statusReportBufferData.SetLabel("Status Report: Buffer Data ")
 	updateStatusReportMask := func() {
 		if sp.skipQueueCommand {
 			return
