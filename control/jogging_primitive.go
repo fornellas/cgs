@@ -363,7 +363,7 @@ func (jp *JoggingPrimitive) setParamsJogBlock() {
 		return
 	}
 
-	jp.paramErrTextView.SetText(fmt.Sprintf("[%s]None[-]", tcell.ColorGreen))
+	jp.paramErrTextView.SetText("")
 
 	jp.mu.Lock()
 	jp.paramsJogBlock = jogBlock
