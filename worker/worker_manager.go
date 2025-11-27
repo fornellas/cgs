@@ -57,7 +57,7 @@ func (c *WorkerManager) Wait(ctx context.Context) (err error) {
 		logger.Debug("Waiting", "worker", worker.name)
 		err = errors.Join(err, <-worker.errCh)
 	}
-	logger.Debug("All workers finished", "err", err)
+	logger.Debug("All workers finished")
 	c.workers = nil
 	return
 }
