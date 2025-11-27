@@ -104,8 +104,6 @@ func (g *Grbl) receiveMessage(ctx context.Context) (PushMessage, *ResponseMessag
 			}
 			if statusReportPushMessage.OverrideValues != nil {
 				g.overrideValues = statusReportPushMessage.OverrideValues
-			}
-			if statusReportPushMessage.AccessoryState != nil {
 				g.accessoryState = statusReportPushMessage.AccessoryState
 			}
 			g.grblMu.Unlock()
