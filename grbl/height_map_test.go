@@ -9,7 +9,30 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHeightMapGetCorrectedValue(t *testing.T) {
+func TestNewHeightMap(t *testing.T) {
+	for _, tc := range []struct {
+		x0, y0, x1, y1, maxDistance float64
+		errorContains               string
+	}{
+		{0, 0, 2, 2, 1, ""},
+		{0, 0, 0, 2, 1, "x values must be different"},
+		{0, 0, 2, 0, 1, "y values must be different"},
+		{0, 0, 2, 4, 2, "not enough x probe points"},
+		{0, 0, 4, 2, 2, "not enough y probe points"},
+	} {
+		t.Run(fmt.Sprintf("x0=%.1f,%.1f x1=%.1f,%.1f maxDistance=%.1f", tc.x0, tc.y0, tc.x1, tc.y1, tc.maxDistance), func(t *testing.T) {
+			hm, err := NewHeightMap(tc.x0, tc.y0, tc.x1, tc.y1, tc.maxDistance)
+			if tc.errorContains != "" {
+				require.ErrorContains(t, err, tc.errorContains)
+			} else {
+				require.NoError(t, err)
+				require.IsType(t, hm, &HeightMap{})
+			}
+		})
+	}
+}
+
+func TestHeightMap(t *testing.T) {
 	min := 0.0
 	max := 2.0
 	maxDistance := 1.0

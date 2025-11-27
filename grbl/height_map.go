@@ -43,11 +43,11 @@ func NewHeightMap(
 
 	h.xSteps = int((x1 - x0) / maxDistance)
 	if h.xSteps+1 < 3 {
-		return nil, fmt.Errorf("not enough probe points")
+		return nil, fmt.Errorf("not enough x probe points")
 	}
 	h.ySteps = int((y1 - y0) / maxDistance)
 	if h.ySteps+1 < 3 {
-		return nil, fmt.Errorf("not enough probe points")
+		return nil, fmt.Errorf("not enough y probe points")
 	}
 
 	h.z = make([][]float64, h.xSteps+1)
