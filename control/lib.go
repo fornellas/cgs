@@ -11,6 +11,9 @@ import (
 	iFmt "github.com/fornellas/cgs/internal/fmt"
 )
 
+const coordinateWidth = len("20000.0000") + 1
+const feedWidth = len("20000") + 1
+
 func acceptFloat(textToCheck string, lastChar rune) bool {
 	if len(textToCheck) > 0 && textToCheck[0] == '-' {
 		return true

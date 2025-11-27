@@ -15,9 +15,6 @@ import (
 	grblMod "github.com/fornellas/cgs/grbl"
 )
 
-const coordinateWidth = len("20000.0000") + 1
-const feedWidth = len("20000") + 1
-
 type JoggingPrimitive struct {
 	*tview.Flex
 	app              *tview.Application
