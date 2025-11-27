@@ -24,6 +24,13 @@ func NewHeightMapPrimitive(
 		controlPrimitive: controlPrimitive,
 	}
 
+	// Parameters
+	// x0
+	// y0
+	// x1
+	// y1
+	// maxDistance
+
 	rootFlex := tview.NewFlex()
 	rootFlex.SetBorder(true)
 	rootFlex.SetTitle("Height Map")
