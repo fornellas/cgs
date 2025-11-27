@@ -15,6 +15,13 @@ import (
 	grblMod "github.com/fornellas/cgs/grbl"
 )
 
+var unitInchesText = "Inches[lightblue]G20[-]"
+var unitMillimetersText = "Millimeters[lightblue]G21[-]"
+var unitOptions = []string{unitInchesText, unitMillimetersText}
+var distanceModeOptionAbsoluteText = "Absolute[lightblue]G90[-]"
+var distanceModeOptionIncrementalText = "Incremental[lightblue]G91[-]"
+var distanceModeOptions = []string{distanceModeOptionAbsoluteText, distanceModeOptionIncrementalText}
+
 type JoggingPrimitive struct {
 	*tview.Flex
 	app              *tview.Application
@@ -35,9 +42,7 @@ type JoggingPrimitive struct {
 	xInputField                *tview.InputField
 	yInputField                *tview.InputField
 	zInputField                *tview.InputField
-	unitOptions                []string
 	paramsUnitDropDown         *tview.DropDown
-	distanceModeOptions        []string
 	distanceModeDropDown       *tview.DropDown
 	paramsFeedRateInputField   *tview.InputField
 	machineCoordinatesCheckbox *tview.Checkbox
@@ -61,10 +66,8 @@ func NewJoggingPrimitive(
 	controlPrimitive *ControlPrimitive,
 ) *JoggingPrimitive {
 	jp := &JoggingPrimitive{
-		app:                 app,
-		controlPrimitive:    controlPrimitive,
-		unitOptions:         []string{"Inches", "Millimeters"},
-		distanceModeOptions: []string{"Absolute", "Incremental"},
+		app:              app,
+		controlPrimitive: controlPrimitive,
 	}
 
 	joystickFlex := jp.newJoystickFlex()
@@ -115,9 +118,9 @@ func (jp *JoggingPrimitive) newJoystickFlex() *tview.Flex {
 		var unitWord string
 		_, unit := jp.joystickUnitDropDown.GetCurrentOption()
 		switch unit {
-		case "Inches":
+		case unitInchesText:
 			unitWord = "G20"
-		case "Millimeters":
+		case unitMillimetersText:
 			unitWord = "G21"
 		default:
 			return
@@ -176,7 +179,7 @@ func (jp *JoggingPrimitive) newJoystickFlex() *tview.Flex {
 
 	jp.joystickUnitDropDown = tview.NewDropDown()
 	jp.joystickUnitDropDown.SetLabel("Unit")
-	jp.joystickUnitDropDown.SetOptions(jp.unitOptions, nil)
+	jp.joystickUnitDropDown.SetOptions(unitOptions, nil)
 	jp.joystickUnitDropDown.SetCurrentOption(-1)
 	jp.joystickUnitDropDown.SetSelectedFunc(func(string, int) { jp.updateJoystickJogOk() })
 
@@ -233,9 +236,9 @@ func (jp *JoggingPrimitive) getParamsJogBlock() (string, error) {
 	var unitWord string
 	_, unit := jp.paramsUnitDropDown.GetCurrentOption()
 	switch unit {
-	case "Inches":
+	case unitInchesText:
 		unitWord = "G20"
-	case "Millimeters":
+	case unitMillimetersText:
 		unitWord = "G21"
 	default:
 		return "", errors.New("no unit set")
@@ -245,9 +248,9 @@ func (jp *JoggingPrimitive) getParamsJogBlock() (string, error) {
 	var distanceModeWord string
 	_, distanceMode := jp.distanceModeDropDown.GetCurrentOption()
 	switch distanceMode {
-	case "Absolute":
+	case distanceModeOptionAbsoluteText:
 		distanceModeWord = "G90"
-	case "Incremental":
+	case distanceModeOptionIncrementalText:
 		distanceModeWord = "G91"
 	default:
 		return "", errors.New("no distance mode set")
@@ -288,7 +291,7 @@ func (jp *JoggingPrimitive) updateDisabled() {
 		jp.paramsUnitDropDown.SetDisabled(false)
 		jp.distanceModeDropDown.SetDisabled(false)
 		jp.paramsFeedRateInputField.SetDisabled(false)
-		if _, option := jp.distanceModeDropDown.GetCurrentOption(); option == "Incremental" {
+		if _, option := jp.distanceModeDropDown.GetCurrentOption(); option == distanceModeOptionIncrementalText {
 			jp.machineCoordinatesCheckbox.SetDisabled(true)
 		} else {
 			jp.machineCoordinatesCheckbox.SetDisabled(false)
@@ -394,7 +397,7 @@ func (jp *JoggingPrimitive) newParametersFlex() *tview.Flex {
 
 	jp.paramsUnitDropDown = tview.NewDropDown()
 	jp.paramsUnitDropDown.SetLabel("Unit")
-	jp.paramsUnitDropDown.SetOptions(jp.unitOptions, func(string, int) { jp.setParamsJogBlock() })
+	jp.paramsUnitDropDown.SetOptions(unitOptions, func(string, int) { jp.setParamsJogBlock() })
 	jp.paramsUnitDropDown.SetCurrentOption(-1)
 
 	jp.distanceModeDropDown = tview.NewDropDown()
@@ -407,11 +410,11 @@ func (jp *JoggingPrimitive) newParametersFlex() *tview.Flex {
 	jp.paramsFeedRateInputField.SetChangedFunc(func(string) { jp.setParamsJogBlock() })
 
 	jp.machineCoordinatesCheckbox = tview.NewCheckbox()
-	jp.machineCoordinatesCheckbox.SetLabel("Machine Coordinates")
+	jp.machineCoordinatesCheckbox.SetLabel("Machine Coordinates[blue]G53[-]")
 	jp.machineCoordinatesCheckbox.SetChangedFunc(func(bool) { jp.setParamsJogBlock() })
-	jp.distanceModeDropDown.SetOptions(jp.distanceModeOptions, func(option string, optionIndex int) {
+	jp.distanceModeDropDown.SetOptions(distanceModeOptions, func(option string, optionIndex int) {
 		jp.setParamsJogBlock()
-		if option == "Incremental" {
+		if option == distanceModeOptionIncrementalText {
 			jp.machineCoordinatesCheckbox.SetDisabled(true)
 		} else {
 			jp.machineCoordinatesCheckbox.SetDisabled(false)
@@ -527,20 +530,20 @@ func (jp *JoggingPrimitive) processGcodeStatePushMessage(
 			if units != nil {
 				switch units.NormalizedString() {
 				case "G20":
-					jp.joystickUnitDropDown.SetCurrentOption(slices.Index(jp.unitOptions, "Inches"))
-					jp.paramsUnitDropDown.SetCurrentOption(slices.Index(jp.unitOptions, "Inches"))
+					jp.joystickUnitDropDown.SetCurrentOption(slices.Index(unitOptions, unitInchesText))
+					jp.paramsUnitDropDown.SetCurrentOption(slices.Index(unitOptions, unitInchesText))
 				case "G21":
-					jp.joystickUnitDropDown.SetCurrentOption(slices.Index(jp.unitOptions, "Millimeters"))
-					jp.paramsUnitDropDown.SetCurrentOption(slices.Index(jp.unitOptions, "Millimeters"))
+					jp.joystickUnitDropDown.SetCurrentOption(slices.Index(unitOptions, unitMillimetersText))
+					jp.paramsUnitDropDown.SetCurrentOption(slices.Index(unitOptions, unitMillimetersText))
 				}
 			}
 			distanceMode := modalGroup.DistanceMode
 			if distanceMode != nil {
 				switch distanceMode.NormalizedString() {
 				case "G90":
-					jp.distanceModeDropDown.SetCurrentOption(slices.Index(jp.distanceModeOptions, "Absolute"))
+					jp.distanceModeDropDown.SetCurrentOption(slices.Index(distanceModeOptions, distanceModeOptionAbsoluteText))
 				case "G91":
-					jp.distanceModeDropDown.SetCurrentOption(slices.Index(jp.distanceModeOptions, "Incremental"))
+					jp.distanceModeDropDown.SetCurrentOption(slices.Index(distanceModeOptions, distanceModeOptionIncrementalText))
 				}
 			}
 			jp.updateJoystickJogOk()

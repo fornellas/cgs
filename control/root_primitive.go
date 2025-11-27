@@ -58,32 +58,36 @@ func NewRootPrimitive(
 		logsPrimitive:      logsPrimitive,
 	}
 
+	getButtonText := func(name, command string) string {
+		return fmt.Sprintf("%s[lightblue]%s[-]", name, command)
+	}
+
 	rp.newFeedbackTextView()
-	rp.homeButton = tview.NewButton("Home").SetSelectedFunc(func() {
+	rp.homeButton = tview.NewButton(getButtonText("Home", grblMod.GrblCommandRunHomingCycle)).SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueCommand(grblMod.GrblCommandRunHomingCycle)
 	}).SetDisabled(true)
-	rp.unlockButton = tview.NewButton("Unlock").SetSelectedFunc(func() {
+	rp.unlockButton = tview.NewButton(getButtonText("Unlock", grblMod.GrblCommandKillAlarmLock)).SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueCommand(grblMod.GrblCommandKillAlarmLock)
 	}).SetDisabled(true)
-	rp.resetButton = tview.NewButton("Reset").SetSelectedFunc(func() {
+	rp.resetButton = tview.NewButton(getButtonText("Reset", "^X")).SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset)
 	}).SetDisabled(true)
-	rp.checkButton = tview.NewButton("Check").SetSelectedFunc(func() {
+	rp.checkButton = tview.NewButton(getButtonText("Check", grblMod.GrblCommandCheckGcodeMode)).SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueCommand(grblMod.GrblCommandCheckGcodeMode)
 	}).SetDisabled(true)
-	rp.doorButton = tview.NewButton("Door").SetSelectedFunc(func() {
+	rp.doorButton = tview.NewButton(getButtonText("Door", fmt.Sprintf("0x%x", int(grblMod.RealTimeCommandSafetyDoor)))).SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSafetyDoor)
 	}).SetDisabled(true)
-	rp.sleepButton = tview.NewButton("Sleep").SetSelectedFunc(func() {
+	rp.sleepButton = tview.NewButton(getButtonText("Sleep", grblMod.GrblCommandEnableSleepMode)).SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueCommand(grblMod.GrblCommandEnableSleepMode)
 	}).SetDisabled(true)
-	rp.helpButton = tview.NewButton("Help").SetSelectedFunc(func() {
+	rp.helpButton = tview.NewButton(getButtonText("Help", grblMod.GrblCommandHelp)).SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueCommand(grblMod.GrblCommandHelp)
 	}).SetDisabled(true)
-	rp.holdButton = tview.NewButton("Hold").SetSelectedFunc(func() {
+	rp.holdButton = tview.NewButton(getButtonText("Hold", string(grblMod.RealTimeCommandFeedHold))).SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedHold)
 	}).SetDisabled(true)
-	rp.resumeButton = tview.NewButton("Resume").SetSelectedFunc(func() {
+	rp.resumeButton = tview.NewButton(getButtonText("Resume", string(grblMod.RealTimeCommandCycleStartResume))).SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandCycleStartResume)
 	}).SetDisabled(true)
 

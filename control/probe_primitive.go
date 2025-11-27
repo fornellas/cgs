@@ -58,7 +58,7 @@ func (pp *ProbePrimitive) newStraight() {
 	// Move Orientation
 	straightMoveOrientationDropdown := tview.NewDropDown()
 	straightMoveOrientationDropdown.SetLabel("Move Orientation")
-	straightMoveOrientationDropdown.SetOptions([]string{"Toward piece [darkblue]G38.2[-]", "From piece [darkblue]G38.4[-]"}, func(text string, index int) {
+	straightMoveOrientationDropdown.SetOptions([]string{"Toward piece[lightblue]G38.2[-]", "From piece[lightblue]G38.4[-]"}, func(text string, index int) {
 		// TODO
 	})
 	straightMoveOrientationDropdown.SetCurrentOption(0)
