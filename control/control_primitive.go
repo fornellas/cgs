@@ -36,6 +36,11 @@ type commandParameterType struct {
 	quiet   bool
 }
 
+var syncCommand = &commandParameterType{
+	command: "G4 P0.01",
+	quiet:   true,
+}
+
 type ControlPrimitive struct {
 	*tview.Flex
 	grbl                   *grblMod.Grbl
@@ -420,6 +425,7 @@ func (cp *ControlPrimitive) processCommand(ctx context.Context, command string) 
 	cp.DisableCommandInput(ctx, true)
 	defer cp.DisableCommandInput(ctx, false)
 	cp.sendCommand(ctx, commandParameter)
+	cp.sendCommand(ctx, syncCommand)
 	for command := range statusCommands {
 		cp.sendCommand(ctx, &commandParameterType{
 			command: command,
