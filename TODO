@@ -1,6 +1,7 @@
 Bug
     InputFields
         When it looses focus, the entered value is not applied
+    When one of the workers fail, UI hangs, it does not exit
 Features
     Panels
         Probe
