@@ -157,10 +157,10 @@ func NewOverridesPrimitive(
 	overridesFlex.SetBorder(true)
 	overridesFlex.SetTitle("Overrides")
 	overridesFlex.SetDirection(tview.FlexRow)
-	overridesFlex.AddItem(feedOverridesFlex, 0, 1, false)
-	overridesFlex.AddItem(rapidOverridesFlex, 0, 1, false)
-	overridesFlex.AddItem(spindleOverridesFlex, 0, 1, false)
-	overridesFlex.AddItem(coolantOverridesFlex, 0, 1, false)
+	overridesFlex.AddItem(feedOverridesFlex, 5, 0, false)
+	overridesFlex.AddItem(rapidOverridesFlex, 5, 0, false)
+	overridesFlex.AddItem(spindleOverridesFlex, 5, 0, false)
+	overridesFlex.AddItem(coolantOverridesFlex, 5, 0, false)
 	op.Flex = overridesFlex
 
 	op.updateDisabled()

@@ -119,7 +119,7 @@ func (pp *ProbePrimitive) newStraight() {
 	probeFlex.AddItem(straightYInputField, 1, 0, false)
 	probeFlex.AddItem(straightZInputField, 1, 0, false)
 	probeFlex.AddItem(straightFeedRateInputField, 1, 0, false)
-	probeFlex.AddItem(straightProbeButton, 1, 0, false)
+	probeFlex.AddItem(straightProbeButton, 3, 0, false)
 	// TODO probe result
 
 	// Set

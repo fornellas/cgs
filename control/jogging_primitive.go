@@ -192,13 +192,13 @@ func (jp *JoggingPrimitive) newJoystickFlex() *tview.Flex {
 	parametersFlex.AddItem(jp.joystickFeedRateInputField, 1, 0, false)
 	parametersFlex.AddItem(jp.distanceInputField, 1, 0, false)
 	parametersFlex.AddItem(jp.joystickUnitDropDown, 1, 0, false)
-	parametersFlex.AddItem(jp.joystickCancelButton, 1, 0, false)
+	parametersFlex.AddItem(jp.joystickCancelButton, 3, 0, false)
 
 	joystickFlex := tview.NewFlex()
 	joystickFlex.SetBorder(true)
 	joystickFlex.SetDirection(tview.FlexRow)
 	joystickFlex.SetTitle("Joystick")
-	joystickFlex.AddItem(joystickGrid, 0, 1, false)
+	joystickFlex.AddItem(joystickGrid, 7, 0, false)
 	joystickFlex.AddItem(parametersFlex, 0, 1, false)
 	return joystickFlex
 }
@@ -451,7 +451,7 @@ func (jp *JoggingPrimitive) newParametersFlex() *tview.Flex {
 	parametersFlex.AddItem(jp.paramsFeedRateInputField, 1, 0, false)
 	parametersFlex.AddItem(jp.machineCoordinatesCheckbox, 1, 0, false)
 	parametersFlex.AddItem(jp.paramErrTextView, 1, 0, false)
-	parametersFlex.AddItem(buttonsFlex, 1, 0, false)
+	parametersFlex.AddItem(buttonsFlex, 3, 0, false)
 
 	return parametersFlex
 }
