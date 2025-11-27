@@ -23,6 +23,19 @@ Features
             Per-axis homing (build option)
             Custom Programs
                 ie: probe, go to Predefined Position etc
+    Server
+        This error should not be considered error when client disconnects
+            🏷 Connection
+                LocalAddr: 127.0.0.1:9999
+                RemoteAddr: 127.0.0.1:46082
+                INFO Accepted
+                INFO Opening serial port
+                INFO Copying I/O
+                INFO Closing connection
+                INFO Closing port
+                INFO Waiting for copy routine to return
+                ERROR Failed to handle connection
+                error: readfrom tcp 127.0.0.1:9999->127.0.0.1:46082: Port has been closed
     Tool changing
         Intercept M6
         Run macro, eg:
