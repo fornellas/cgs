@@ -104,6 +104,14 @@ func (m *ModalGroup) Update(word *Word) {
 		if skip {
 			break
 		}
+		newCoolant := []*Word{}
+		for _, w := range m.Coolant {
+			if w.NormalizedString() == "M9" {
+				continue
+			}
+			newCoolant = append(newCoolant, w)
+		}
+		m.Coolant = newCoolant
 		m.Coolant = append(m.Coolant, word)
 	case "M9":
 		m.Coolant = []*Word{word}
