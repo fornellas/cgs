@@ -9,21 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHeightMapProbe(t *testing.T) {
-	hm, err := NewHeightMap(0, 0, 2, 2, 1)
-	require.NoError(t, err)
-
-	callCount := 0
-	mockProbe := func(ctx context.Context, x, y float64) (float64, error) {
-		callCount++
-		return x + y, nil
-	}
-
-	err = hm.Probe(context.Background(), mockProbe)
-	require.NoError(t, err)
-	require.Equal(t, 9, callCount)
-}
-
 func TestHeightMapGetCorrectedValue(t *testing.T) {
 	min := 0.0
 	max := 2.0
@@ -36,6 +21,7 @@ func TestHeightMapGetCorrectedValue(t *testing.T) {
 	for i := min; i <= max; i += maxDistance {
 		probeY = append(probeY, min+maxDistance*i)
 	}
+	expectedProbeCount := len(probeX) * len(probeY)
 	x0, y0 := min, min
 	x1, y1 := max, max
 	zt := 1.0
@@ -64,8 +50,8 @@ func TestHeightMapGetCorrectedValue(t *testing.T) {
 		fmt.Println()
 	}
 
+	var probeCount int
 	step := maxDistance / 4
-
 	for x := x0 - step; x <= x1+step; x += step / 2 {
 		for y := y0 - step; y <= y1+step; y += step / 2 {
 			z := hm.GetCorrectedValue(x, y)
@@ -74,6 +60,7 @@ func TestHeightMapGetCorrectedValue(t *testing.T) {
 			} else {
 				isProbePoint := slices.Contains(probeX, x) && slices.Contains(probeY, y)
 				if isProbePoint {
+					probeCount++
 					pz, err := probeFn(t.Context(), x, y)
 					require.NoError(t, err)
 					require.InDeltaf(t, pz, *z, 0.0001, "Probe point: %.2f %.2f: expected %.2f, got %.2f", x, y, pz, *z)
@@ -82,4 +69,5 @@ func TestHeightMapGetCorrectedValue(t *testing.T) {
 			}
 		}
 	}
+	require.Equal(t, expectedProbeCount, probeCount)
 }
