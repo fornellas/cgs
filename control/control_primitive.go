@@ -539,10 +539,10 @@ func (cp *ControlPrimitive) processGcodeStatePushMessage(
 	if gcodeStatePushMessage.Tool != nil {
 		fmt.Fprintf(&buf, "Tool: %s\n", sprintTool(*gcodeStatePushMessage.Tool))
 	}
-	if gcodeStatePushMessage.FeedRate != nil {
+	if gcodeStatePushMessage.FeedRate != nil && *gcodeStatePushMessage.FeedRate != 0 {
 		fmt.Fprintf(&buf, "Feed Rate: %s\n", sprintFeed(*gcodeStatePushMessage.FeedRate))
 	}
-	if gcodeStatePushMessage.SpindleSpeed != nil {
+	if gcodeStatePushMessage.SpindleSpeed != nil && *gcodeStatePushMessage.SpindleSpeed != 0 {
 		fmt.Fprintf(&buf, "Speed: %s\n", sprintSpeed(*gcodeStatePushMessage.SpindleSpeed))
 	}
 
