@@ -7,9 +7,9 @@ type HeightMap struct {
 	x1, y1      float64
 	maxDistance float64
 
-	xProbeCount int
-	yProbeCount int
-	z           []float64
+	xSteps int
+	ySteps int
+	z      [][]float64
 }
 
 // Creates a new HeightMap. x0, y0 , x1, y1 specify the rectangular area to be probed. maxDistance
@@ -32,40 +32,44 @@ func NewHeightMap(
 
 	h.maxDistance = maxDistance
 
-	h.xProbeCount = int((x1-x0)/maxDistance) + 1
-	h.yProbeCount = int((y1-y0)/maxDistance) + 1
+	h.xSteps = int((x1-x0)/maxDistance) + 1
+	h.ySteps = int((y1-y0)/maxDistance) + 1
 
-	h.z = make([]float64, (h.xProbeCount+1)*(h.yProbeCount+1))
+	h.z = make([][]float64, h.xSteps+1)
+	for i := range h.z {
+		h.z[i] = make([]float64, h.ySteps+1)
+	}
 
 	return h
 }
 
 // Probe the height map, using the currently active coordinate system.
+// probeFn probes at given point, and return the measured z value.
 func (h *HeightMap) Probe(
 	ctx context.Context,
 	probeFn func(ctx context.Context, x, y float64) (float64, error),
 ) error {
-	xStep := (h.x1 - h.x0) / float64(h.xProbeCount)
-	yStep := (h.y1 - h.y0) / float64(h.yProbeCount)
-	for i := range h.xProbeCount {
+	xStep := (h.x1 - h.x0) / float64(h.xSteps)
+	yStep := (h.y1 - h.y0) / float64(h.ySteps)
+	for i := range h.xSteps + 1 {
 		x := h.x0 + float64(i)*xStep
 		if i%2 == 0 {
-			for j := range h.yProbeCount {
+			for j := range h.ySteps + 1 {
 				y := h.y0 + float64(j)*yStep
 				z, err := probeFn(ctx, x, y)
 				if err != nil {
 					return err
 				}
-				h.z[j*h.xProbeCount+i] = z
+				h.z[i][j] = z
 			}
 		} else {
-			for j := h.yProbeCount - 1; j >= 0; j-- {
+			for j := h.ySteps; j >= 0; j-- {
 				y := h.y0 + float64(j)*yStep
 				z, err := probeFn(ctx, x, y)
 				if err != nil {
 					return err
 				}
-				h.z[j*h.xProbeCount+i] = z
+				h.z[i][j] = z
 			}
 		}
 	}
@@ -79,21 +83,29 @@ func (h *HeightMap) GetCorrectedValue(x, y float64) *float64 {
 	}
 
 	// Find the grid cell that contains (x, y)
-	i := (x - h.x0) / (h.x1 - h.x0) * float64(h.xProbeCount)
-	j := (y - h.y0) / (h.y1 - h.y0) * float64(h.yProbeCount)
+	i := (x - h.x0) / (h.x1 - h.x0) * float64(h.xSteps)
+	j := (y - h.y0) / (h.y1 - h.y0) * float64(h.ySteps)
 
 	// Get the integer indices of the lower-left corner
 	i0 := int(i)
 	j0 := int(j)
 
+	// Clamp to valid range
+	if i0 > h.xSteps-1 {
+		i0 = h.xSteps - 1
+	}
+	if j0 > h.ySteps-1 {
+		j0 = h.ySteps - 1
+	}
+
 	i1 := i0 + 1
 	j1 := j0 + 1
 
 	// Get the 4 corner points
-	z00 := h.z[j0*h.xProbeCount+i0]
-	z10 := h.z[j0*h.xProbeCount+i1]
-	z01 := h.z[j1*h.xProbeCount+i0]
-	z11 := h.z[j1*h.xProbeCount+i1]
+	z00 := h.z[i0][j0]
+	z10 := h.z[i1][j0]
+	z01 := h.z[i0][j1]
+	z11 := h.z[i1][j1]
 
 	// Bilinear interpolation
 	fx := i - float64(i0)
