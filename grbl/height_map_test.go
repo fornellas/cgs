@@ -9,8 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestProbe(t *testing.T) {
-	hm := NewHeightMap(0, 0, 10, 10, 5)
+func TestHeightMapProbe(t *testing.T) {
+	hm, err := NewHeightMap(0, 0, 2, 2, 1)
+	require.NoError(t, err)
 
 	callCount := 0
 	mockProbe := func(ctx context.Context, x, y float64) (float64, error) {
@@ -18,12 +19,12 @@ func TestProbe(t *testing.T) {
 		return x + y, nil
 	}
 
-	err := hm.Probe(context.Background(), mockProbe)
+	err = hm.Probe(context.Background(), mockProbe)
 	require.NoError(t, err)
-	require.Equal(t, 16, callCount)
+	require.Equal(t, 9, callCount)
 }
 
-func TestGetCorrectedValueAtGridPoints(t *testing.T) {
+func TestHeightMapGetCorrectedValue(t *testing.T) {
 	min := 0.0
 	max := 2.0
 	maxDistance := 1.0
@@ -50,9 +51,10 @@ func TestGetCorrectedValueAtGridPoints(t *testing.T) {
 		return z, nil
 	}
 
-	hm := NewHeightMap(x0, y0, x1, y1, maxDistance)
+	hm, err := NewHeightMap(x0, y0, x1, y1, maxDistance)
+	require.NoError(t, err)
 
-	err := hm.Probe(t.Context(), probeFn)
+	err = hm.Probe(t.Context(), probeFn)
 	require.NoError(t, err)
 
 	for _, ySlice := range hm.z {

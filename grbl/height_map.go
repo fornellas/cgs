@@ -1,6 +1,9 @@
 package grbl
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 type HeightMap struct {
 	x0, y0      float64
@@ -16,7 +19,7 @@ type HeightMap struct {
 // specify the horizontal/vertical distance limit between probes.
 func NewHeightMap(
 	x0, y0, x1, y1, maxDistance float64,
-) *HeightMap {
+) (*HeightMap, error) {
 	h := &HeightMap{}
 
 	if x1 < x0 {
@@ -26,21 +29,33 @@ func NewHeightMap(
 		y0, y1 = y1, y0
 	}
 	h.x0 = x0
-	h.y0 = y0
 	h.x1 = x1
+	if h.x0 == h.x1 {
+		return nil, fmt.Errorf("x values must be different")
+	}
+	h.y0 = y0
 	h.y1 = y1
+	if h.y0 == h.y1 {
+		return nil, fmt.Errorf("y values must be different")
+	}
 
 	h.maxDistance = maxDistance
 
-	h.xSteps = int((x1-x0)/maxDistance) + 1
-	h.ySteps = int((y1-y0)/maxDistance) + 1
+	h.xSteps = int((x1 - x0) / maxDistance)
+	if h.xSteps+1 < 3 {
+		return nil, fmt.Errorf("not enough probe points")
+	}
+	h.ySteps = int((y1 - y0) / maxDistance)
+	if h.ySteps+1 < 3 {
+		return nil, fmt.Errorf("not enough probe points")
+	}
 
 	h.z = make([][]float64, h.xSteps+1)
 	for i := range h.z {
 		h.z[i] = make([]float64, h.ySteps+1)
 	}
 
-	return h
+	return h, nil
 }
 
 // Probe the height map, using the currently active coordinate system.
