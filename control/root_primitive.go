@@ -17,6 +17,7 @@ type RootPrimitive struct {
 	controlPrimitive   *ControlPrimitive
 	joggingPrimitive   *JoggingPrimitive
 	overridesPrimitive *OverridesPrimitive
+	streamPrimitive    *StreamPrimitive
 	settingsPrimitive  *SettingsPrimitive
 	logsPrimitive      *LogsPrimitive
 	feedbackTextView   *tview.TextView
@@ -39,6 +40,7 @@ func NewRootPrimitive(
 	controlPrimitive *ControlPrimitive,
 	joggingPrimitive *JoggingPrimitive,
 	overridesPrimitive *OverridesPrimitive,
+	streamPrimitive *StreamPrimitive,
 	settingsPrimitive *SettingsPrimitive,
 	logsPrimitive *LogsPrimitive,
 ) *RootPrimitive {
@@ -48,6 +50,7 @@ func NewRootPrimitive(
 		controlPrimitive:   controlPrimitive,
 		joggingPrimitive:   joggingPrimitive,
 		overridesPrimitive: overridesPrimitive,
+		streamPrimitive:    streamPrimitive,
 		settingsPrimitive:  settingsPrimitive,
 		logsPrimitive:      logsPrimitive,
 	}
@@ -140,23 +143,18 @@ func (rp *RootPrimitive) getButtonsFLex() *tview.Flex {
 	return buttonsFlex
 }
 
-func (rp *RootPrimitive) getStreamPrimitive() tview.Primitive {
-	return tview.NewBox().SetBorder(true).SetTitle("Stream")
-}
-
 func (rp *RootPrimitive) getScriptPrimitive() tview.Primitive {
 	return tview.NewBox().SetBorder(true).SetTitle("Script")
 }
 
 func (rp *RootPrimitive) getMainFlex() *tview.Flex {
-	stream := rp.getStreamPrimitive()
 	script := rp.getScriptPrimitive()
 
 	page := tview.NewPages()
 	page.AddPage("Control", rp.controlPrimitive, true, true)
 	page.AddPage("Jogging", rp.joggingPrimitive, true, true)
 	page.AddPage("Overrides", rp.overridesPrimitive, true, true)
-	page.AddPage("Stream", stream, true, true)
+	page.AddPage("Stream", rp.streamPrimitive, true, true)
 	page.AddPage("Script", script, true, true)
 	page.AddPage("Settings", rp.settingsPrimitive, true, true)
 	page.AddPage("Logs", rp.logsPrimitive, true, true)

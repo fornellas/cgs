@@ -182,6 +182,12 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	overridesPrimitive := NewOverridesPrimitive(appCtx, app, controlPrimitive)
 	pushMessageProcessors = append(pushMessageProcessors, overridesPrimitive)
 
+	// StreamPrimitive
+	heightMapPrimitive := NewHeightMapPrimitive(appCtx, app, controlPrimitive)
+	pushMessageProcessors = append(pushMessageProcessors, heightMapPrimitive)
+	streamPrimitive := NewStreamPrimitive(appCtx, app, controlPrimitive, heightMapPrimitive)
+	pushMessageProcessors = append(pushMessageProcessors, streamPrimitive)
+
 	// settingsPrimitive
 	settingsPrimitive := NewSettingsPrimitive(appCtx, app, controlPrimitive)
 	pushMessageProcessors = append(pushMessageProcessors, settingsPrimitive)
@@ -193,6 +199,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		controlPrimitive,
 		joggingPrimitive,
 		overridesPrimitive,
+		streamPrimitive,
 		settingsPrimitive,
 		logsPrimitive,
 	)
