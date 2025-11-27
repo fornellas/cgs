@@ -21,6 +21,7 @@ type WorkerManager struct {
 
 // NewWorkerManager creates a new WorkerManager with the given context.
 func NewWorkerManager(ctx context.Context) *WorkerManager {
+	ctx, _ = log.MustWithGroup(ctx, "Worker Manager")
 	ctx, cancelFunc := context.WithCancel(ctx)
 	return &WorkerManager{
 		ctx:        ctx,
@@ -44,11 +45,16 @@ func (c *WorkerManager) StartWorker(name string, fn func(context.Context) error)
 	c.workers = append([]worker{{name: name, errCh: errCh}}, c.workers...)
 }
 
+// Cancel cancels the manager's context, causing all workers to exit.
+func (c *WorkerManager) Cancel() {
+	c.cancelFunc()
+}
+
 // Wait blocks until all workers have completed and returns any errors that occurred.
-func (c *WorkerManager) Wait() (err error) {
-	logger := log.MustLogger(c.ctx)
-	logger.Debug("Waiting for workers")
+func (c *WorkerManager) Wait(ctx context.Context) (err error) {
+	logger := log.MustLogger(ctx)
 	for _, worker := range c.workers {
+		logger.Debug("Waiting", "worker", worker.name)
 		err = errors.Join(err, <-worker.errCh)
 	}
 	logger.Debug("All workers finished", "err", err)

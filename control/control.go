@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"reflect"
 	"sync"
 	"time"
 
@@ -14,12 +13,8 @@ import (
 	"github.com/rivo/tview"
 
 	grblMod "github.com/fornellas/cgs/grbl"
+	"github.com/fornellas/cgs/worker"
 )
-
-type worker struct {
-	name  string
-	errCh chan error
-}
 
 type PushMessageProcessor interface {
 	ProcessPushMessage(context.Context, grblMod.PushMessage)
@@ -32,7 +27,6 @@ type ControlOptions struct {
 type Control struct {
 	grbl    *grblMod.Grbl
 	options *ControlOptions
-	workers []worker
 }
 
 func NewControl(grbl *grblMod.Grbl, options *ControlOptions) *Control {
@@ -46,7 +40,6 @@ func NewControl(grbl *grblMod.Grbl, options *ControlOptions) *Control {
 }
 
 func (c *Control) statusQueryWorker(ctx context.Context) error {
-	logger := log.MustLogger(ctx).WithGroup("statusQueryWorker")
 	for {
 		select {
 		case <-ctx.Done():
@@ -54,12 +47,10 @@ func (c *Control) statusQueryWorker(ctx context.Context) error {
 			if errors.Is(err, context.Canceled) {
 				err = nil
 			}
-			logger.Debug("Exiting", "err", err)
 			return err
 		case <-time.After(200 * time.Millisecond):
 			if err := c.grbl.SendRealTimeCommand(grblMod.RealTimeCommandStatusReportQuery); err != nil {
 				err := fmt.Errorf("failed to send periodic status query real-time command: %w", err)
-				logger.Debug("Exiting", "err", err)
 				return err
 			}
 		}
@@ -71,8 +62,6 @@ func (c *Control) pushMessageProcessorWorker(
 	pushMessageCh chan grblMod.PushMessage,
 	pushMessageProcessors ...PushMessageProcessor,
 ) error {
-	logger := log.MustLogger(ctx).WithGroup("messageProcessorWorker")
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -80,17 +69,11 @@ func (c *Control) pushMessageProcessorWorker(
 			if errors.Is(err, context.Canceled) {
 				err = nil
 			}
-			logger.Debug("Exiting", "err", err)
 			return err
 		case message, ok := <-pushMessageCh:
 			if !ok {
-				err := fmt.Errorf("push message channel closed")
-				logger.Debug("Exiting", "err", err)
-				return err
+				return fmt.Errorf("push message channel closed")
 			}
-
-			msgLogger := logger.WithGroup("Message").With("message", message, "type", reflect.TypeOf(message))
-			msgLogger.Debug("Received")
 
 			if _, ok := message.(*grblMod.AlarmPushMessage); ok {
 				// Grbl can generate an alarm push message, but then stop answering to real time
@@ -107,38 +90,10 @@ func (c *Control) pushMessageProcessorWorker(
 			}
 
 			for _, pushMessageProcessor := range pushMessageProcessors {
-				msgLogger.Debug("Processor", "type", reflect.TypeOf(pushMessageProcessor))
 				pushMessageProcessor.ProcessPushMessage(ctx, message)
 			}
-			msgLogger.Debug("Done")
 		}
 	}
-}
-
-func (c *Control) startWorker(
-	ctx context.Context, exitFn func(ctx context.Context, stop bool),
-	name string, fn func(context.Context) error,
-) {
-	_, logger := log.MustWithGroupAttrs(ctx, "Worker", "name", name)
-	errCh := make(chan error, 1)
-	go func() {
-		logger.Debug("Starting")
-		errCh <- fn(ctx)
-		logger.Debug("Stopped")
-		exitFn(ctx, true)
-	}()
-	c.workers = append([]worker{{name: name, errCh: errCh}}, c.workers...)
-}
-
-func (c *Control) waitForWorkers(ctx context.Context) (err error) {
-	_, logger := log.MustWithGroupAttrs(ctx, "waitForWorkers", "total", len(c.workers))
-	for i, worker := range c.workers {
-		logger.Debug("Waiting for worker", "name", worker.name, "number", i+1)
-		err = errors.Join(err, <-worker.errCh)
-	}
-	logger.Debug("All workers stopped")
-	c.workers = nil
-	return
 }
 
 func (c *Control) Run(ctx context.Context) (err error) {
@@ -161,13 +116,19 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		EnabledHandler: consoleLogger.Handler(),
 	})
 	appCtx := log.WithLogger(consoleCtx, appLogger)
-	appCtx, cancel := context.WithCancel(appCtx)
+
+	// WorkerManager
+	workerMgr := worker.NewWorkerManager(appCtx)
+
+	// Exit
 	var exitOnce sync.Once
 	exitFn := func(ctx context.Context, stop bool) {
 		exitOnce.Do(func() {
-			cancel()
 			logger := log.MustLogger(ctx)
-			err = errors.Join(err, c.waitForWorkers(ctx))
+			logger.Info("Exiting")
+			logger.Info("Stopping all workers")
+			workerMgr.Cancel()
+			err = errors.Join(err, workerMgr.Wait(ctx))
 			logger.Info("Disconnecting")
 			err = errors.Join(err, c.grbl.Disconnect(ctx))
 			if stop {
@@ -180,7 +141,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	consoleLogger.Info("Connecting to Grbl")
 	pushMessageCh, err := c.grbl.Connect(consoleCtx)
 	if err != nil {
-		cancel()
+		workerMgr.Cancel()
 		return err
 	}
 
@@ -206,10 +167,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 			return nil
 		}
 		if event.Key() == tcell.KeyCtrlC {
-			go func() {
-				logger.Info("Exiting")
-				exitFn(appCtx, true)
-			}()
+			go func() { exitFn(appCtx, true) }()
 			return nil
 		}
 		return event
@@ -242,27 +200,27 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	pushMessageProcessors = append(pushMessageProcessors, rootPrimitive)
 
 	// Workers
-	c.startWorker(
-		appCtx, exitFn,
+	workerMgr.StartWorker(
 		"Control.messageProcessorWorker",
 		func(ctx context.Context) error {
 			return c.pushMessageProcessorWorker(ctx, pushMessageCh, pushMessageProcessors...)
 		},
 	)
-	c.startWorker(
-		appCtx, exitFn,
+	workerMgr.StartWorker(
 		"ControlPrimitive.RunSendCommandWorker",
 		controlPrimitive.RunSendCommandWorker,
 	)
-	c.startWorker(
-		appCtx, exitFn,
+	workerMgr.StartWorker(
 		"ControlPrimitive.RunSendRealTimeCommandWorker",
 		controlPrimitive.RunSendRealTimeCommandWorker,
 	)
-	c.startWorker(appCtx, exitFn, "Control.statusQueryWorker", c.statusQueryWorker)
+	workerMgr.StartWorker(
+		"Control.statusQueryWorker",
+		c.statusQueryWorker,
+	)
 
 	if runErr := app.Run(); runErr != nil {
-		consoleLogger.Error("Application failed", "err", err)
+		consoleLogger.Error("Application failed", "err", runErr)
 		err = errors.Join(err, runErr)
 		exitFn(consoleCtx, false)
 	}
