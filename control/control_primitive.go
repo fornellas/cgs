@@ -19,6 +19,8 @@ import (
 )
 
 var defaultCommandTimeout = 1 * time.Second
+var homeCommandTimeout = 2 * time.Minute
+var probeCommandTimeout = 2 * time.Minute
 
 var allStatusCommands = map[string]bool{
 	grblMod.GrblCommandViewGcodeParameters:  true,
@@ -318,6 +320,7 @@ func (cp *ControlPrimitive) extractRealTimeCommands(command string) ([]grblMod.R
 	return realTimeCommands, cmdBuffer.String(), nil
 }
 
+//gocyclo:ignore
 func (cp *ControlPrimitive) getBlockStatusCmdsAndTimeout(block *gcode.Block) (map[string]bool, time.Duration) {
 	statusCommands := map[string]bool{}
 	var timeout time.Duration
@@ -337,7 +340,7 @@ func (cp *ControlPrimitive) getBlockStatusCmdsAndTimeout(block *gcode.Block) (ma
 			statusCommands[grblMod.GrblCommandViewStartupBlocks] = true
 		}
 		if strings.HasPrefix(block.String(), grblMod.GrblCommandRunHomingCyclePrefix) {
-			timeout = 120 * time.Second
+			timeout = homeCommandTimeout
 			// Grbl stops responding to status report queries while homing. Generating this
 			// virtual status report enables subscribers to process the otherwise unreported
 			//  state.
@@ -363,8 +366,11 @@ func (cp *ControlPrimitive) getBlockStatusCmdsAndTimeout(block *gcode.Block) (ma
 		}
 	} else if block.IsCommand() {
 		for _, word := range block.Words() {
-			if word.NormalizedString() == "M0" {
+			switch word.NormalizedString() {
+			case "M0":
 				timeout = 0
+			case "G38.2", "G38.3", "G38.4", "G38.5":
+				timeout = probeCommandTimeout
 			}
 		}
 		statusCommands[grblMod.GrblCommandViewGcodeParserState] = true
