@@ -12,7 +12,7 @@ import (
 )
 
 var StreamCmd = &cobra.Command{
-	Use:   "stream [path]",
+	Use:   "stream path",
 	Short: "Stream program at given file via Grbl serial connection.",
 	Args:  cobra.ExactArgs(1),
 	Run: GetRunFn(func(cmd *cobra.Command, args []string) (err error) {

@@ -14,7 +14,7 @@ import (
 )
 
 var RotateCmd = &cobra.Command{
-	Use:   "rotate [path]",
+	Use:   "rotate path",
 	Short: "Read g-code from given path and rotate X/Y coordinates.",
 	Args:  cobra.ExactArgs(1),
 	Run: GetRunFn(func(cmd *cobra.Command, args []string) (err error) {

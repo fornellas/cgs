@@ -13,7 +13,7 @@ import (
 )
 
 var CompactCmd = &cobra.Command{
-	Use:   "compact [path]",
+	Use:   "compact path",
 	Short: "Read g-code from given path and compact it by stripping spaces and comments.",
 	Args:  cobra.ExactArgs(1),
 	Run: GetRunFn(func(cmd *cobra.Command, args []string) (err error) {
