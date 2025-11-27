@@ -117,33 +117,15 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	})
 	appCtx := log.WithLogger(consoleCtx, appLogger)
 
-	// WorkerManager
-	workerMgr := worker.NewWorkerManager(appCtx)
-
-	// Exit
-	var exitOnce sync.Once
-	exitFn := func(ctx context.Context, stop bool) {
-		exitOnce.Do(func() {
-			logger := log.MustLogger(ctx)
-			logger.Info("Exiting")
-			logger.Info("Stopping all workers")
-			workerMgr.Cancel()
-			err = errors.Join(err, workerMgr.Wait(ctx))
-			logger.Info("Disconnecting")
-			err = errors.Join(err, c.grbl.Disconnect(ctx))
-			if stop {
-				app.Stop()
-			}
-		})
-	}
-
 	// Grbl
 	consoleLogger.Info("Connecting to Grbl")
 	pushMessageCh, err := c.grbl.Connect(consoleCtx)
 	if err != nil {
-		workerMgr.Cancel()
 		return err
 	}
+
+	// WorkerManager
+	workerManager := worker.NewWorkerManager(appCtx)
 
 	// Message Processors
 	var pushMessageProcessors []PushMessageProcessor
@@ -159,7 +141,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		!c.options.DisplayStatusComms,
 	)
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		appCtx, logger := log.MustWithGroup(appCtx, "Application.InputCapture")
+		_, logger := log.MustWithGroup(appCtx, "Application.InputCapture")
 		logger.Debug("Called", "event", event)
 		if event.Key() == tcell.KeyCtrlX {
 			logger.Debug("QueueRealTimeCommand SoftReset")
@@ -167,7 +149,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 			return nil
 		}
 		if event.Key() == tcell.KeyCtrlC {
-			go func() { exitFn(appCtx, true) }()
+			go func() { app.Stop() }()
 			return nil
 		}
 		return event
@@ -207,29 +189,47 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	pushMessageProcessors = append(pushMessageProcessors, rootPrimitive)
 
 	// Workers
-	workerMgr.StartWorker(
+	workerManager.StartWorker(
 		"Control.messageProcessorWorker",
 		func(ctx context.Context) error {
 			return c.pushMessageProcessorWorker(ctx, pushMessageCh, pushMessageProcessors...)
 		},
 	)
-	workerMgr.StartWorker(
+	workerManager.StartWorker(
 		"ControlPrimitive.RunSendCommandWorker",
 		controlPrimitive.RunSendCommandWorker,
 	)
-	workerMgr.StartWorker(
+	workerManager.StartWorker(
 		"ControlPrimitive.RunSendRealTimeCommandWorker",
 		controlPrimitive.RunSendRealTimeCommandWorker,
 	)
-	workerMgr.StartWorker(
+	workerManager.StartWorker(
 		"Control.statusQueryWorker",
 		c.statusQueryWorker,
 	)
 
+	// Exit
+	var exitMu sync.Mutex
+	exitMu.Lock()
+	defer func() { exitMu.Lock() }()
+	defer func() {
+		logger := log.MustLogger(appCtx)
+		logger.Info("Stopping all workers")
+		workerManager.Cancel()
+	}()
+	go func() {
+		logger := log.MustLogger(appCtx)
+		err = errors.Join(err, workerManager.Wait(appCtx))
+		logger.Info("Disconnecting")
+		err = errors.Join(err, c.grbl.Disconnect(appCtx))
+		logger.Info("Stopping App")
+		app.Stop()
+		exitMu.Unlock()
+	}()
+
 	if runErr := app.Run(); runErr != nil {
 		consoleLogger.Error("Application failed", "err", runErr)
 		err = errors.Join(err, runErr)
-		exitFn(consoleCtx, false)
 	}
 	return
 }
