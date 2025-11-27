@@ -70,10 +70,7 @@ func TestGetCorrectedValueAtGridPoints(t *testing.T) {
 			if x < x0 || x > x1 || y < y0 || y > y1 {
 				require.Nilf(t, z, "%.2f,%.2f: z should have been nil: %#v", x, y, z)
 			} else {
-				var isProbePoint bool
-				if slices.Contains(probeX, x) && slices.Contains(probeY, y) {
-					isProbePoint = true
-				}
+				isProbePoint := slices.Contains(probeX, x) && slices.Contains(probeY, y)
 				if isProbePoint {
 					pz, err := probeFn(t.Context(), x, y)
 					require.NoError(t, err)
