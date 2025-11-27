@@ -16,6 +16,7 @@ type RootPrimitive struct {
 	statusPrimitive    *StatusPrimitive
 	controlPrimitive   *ControlPrimitive
 	joggingPrimitive   *JoggingPrimitive
+	probePrimitive     *ProbePrimitive
 	overridesPrimitive *OverridesPrimitive
 	streamPrimitive    *StreamPrimitive
 	settingsPrimitive  *SettingsPrimitive
@@ -39,6 +40,7 @@ func NewRootPrimitive(
 	statusPrimitive *StatusPrimitive,
 	controlPrimitive *ControlPrimitive,
 	joggingPrimitive *JoggingPrimitive,
+	probePrimitive *ProbePrimitive,
 	overridesPrimitive *OverridesPrimitive,
 	streamPrimitive *StreamPrimitive,
 	settingsPrimitive *SettingsPrimitive,
@@ -49,6 +51,7 @@ func NewRootPrimitive(
 		statusPrimitive:    statusPrimitive,
 		controlPrimitive:   controlPrimitive,
 		joggingPrimitive:   joggingPrimitive,
+		probePrimitive:     probePrimitive,
 		overridesPrimitive: overridesPrimitive,
 		streamPrimitive:    streamPrimitive,
 		settingsPrimitive:  settingsPrimitive,
@@ -153,6 +156,7 @@ func (rp *RootPrimitive) getMainFlex() *tview.Flex {
 	page := tview.NewPages()
 	page.AddPage("Control", rp.controlPrimitive, true, true)
 	page.AddPage("Jogging", rp.joggingPrimitive, true, true)
+	page.AddPage("Probe", rp.probePrimitive, true, true)
 	page.AddPage("Overrides", rp.overridesPrimitive, true, true)
 	page.AddPage("Stream", rp.streamPrimitive, true, true)
 	page.AddPage("Script", script, true, true)
@@ -166,6 +170,9 @@ func (rp *RootPrimitive) getMainFlex() *tview.Flex {
 	}), 0, 1, false)
 	buttonsFlex.AddItem(tview.NewButton("Jogging").SetSelectedFunc(func() {
 		page.SwitchToPage("Jogging")
+	}), 0, 1, false)
+	buttonsFlex.AddItem(tview.NewButton("Probe").SetSelectedFunc(func() {
+		page.SwitchToPage("Probe")
 	}), 0, 1, false)
 	buttonsFlex.AddItem(tview.NewButton("Overrides").SetSelectedFunc(func() {
 		page.SwitchToPage("Overrides")

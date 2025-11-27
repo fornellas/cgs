@@ -160,6 +160,10 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	joggingPrimitive := NewJoggingPrimitive(appCtx, app, controlPrimitive)
 	pushMessageProcessors = append(pushMessageProcessors, joggingPrimitive)
 
+	// probePrimitive
+	probePrimitive := NewProbePrimitive(appCtx, app, controlPrimitive)
+	pushMessageProcessors = append(pushMessageProcessors, probePrimitive)
+
 	// OverridesPrimitive
 	overridesPrimitive := NewOverridesPrimitive(appCtx, app, controlPrimitive)
 	pushMessageProcessors = append(pushMessageProcessors, overridesPrimitive)
@@ -180,6 +184,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		statusPrimitive,
 		controlPrimitive,
 		joggingPrimitive,
+		probePrimitive,
 		overridesPrimitive,
 		streamPrimitive,
 		settingsPrimitive,
