@@ -114,6 +114,7 @@ func (pp *ProbePrimitive) newStraight() {
 	// Probe
 	probeFlex := tview.NewFlex()
 	probeFlex.SetDirection(tview.FlexRow)
+	probeFlex.SetBorderPadding(1, 1, 1, 1)
 	probeFlex.AddItem(straightMoveOrientationDropdown, 1, 0, false)
 	probeFlex.AddItem(straightXInputField, 1, 0, false)
 	probeFlex.AddItem(straightYInputField, 1, 0, false)
@@ -134,7 +135,6 @@ func (pp *ProbePrimitive) newStraight() {
 	straightFlex := tview.NewFlex()
 	straightFlex.SetBorder(true)
 	straightFlex.SetTitle("Straight")
-	straightFlex.SetBorderPadding(1, 1, 1, 1)
 	straightFlex.SetDirection(tview.FlexColumn)
 	straightFlex.AddItem(probeFlex, 0, 1, false)
 	straightFlex.AddItem(setFlex, 0, 1, false)
