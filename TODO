@@ -3,6 +3,7 @@ Bug
         When it looses focus, the entered value is not applied
 Features
     Panels
+        Probe
         Control
             Use grid to hide Gcode row if height is too small
             G-Code Parser
@@ -11,10 +12,10 @@ Features
                 UI setting
             Auto Complete
         Stream
+            Open / Save
             Height Map
                 Use table for visualization
             Rotation
-            Open / Save
         Script
             TBD
             https://github.com/traefik/yaegi
