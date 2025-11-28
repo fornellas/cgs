@@ -233,8 +233,8 @@ func (g *Grbl) Connect(ctx context.Context) (chan PushMessage, error) {
 
 	var receiveCtx context.Context
 	receiveCtx, g.receiveCtxCancel = context.WithCancel(ctx)
-	g.pushMessageCh = make(chan PushMessage, 50)
-	g.responseMessageCh = make(chan *ResponseMessage, 50)
+	g.pushMessageCh = make(chan PushMessage, 100)
+	g.responseMessageCh = make(chan *ResponseMessage, 100)
 	g.messageReceiverWorkerErrCh = make(chan error, 1)
 	go g.messageReceiverWorker(receiveCtx)
 
