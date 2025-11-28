@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"log/slog"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -11,6 +14,11 @@ import (
 	slogxtCobra "github.com/fornellas/slogxt/cobra"
 	"github.com/fornellas/slogxt/log"
 )
+
+var logDebugPath string
+var logDebugFile io.WriteCloser
+var logDebugFileLogger *slog.Logger
+var defaultLogDebugPath = ""
 
 func getCmdChainStr(cmd *cobra.Command) string {
 	cmdChain := []string{cmd.Name()}
@@ -30,6 +38,7 @@ var RootCmd = &cobra.Command{
 	Short: "CLI G-Code Sender",
 	Args:  cobra.NoArgs,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Environment Flags
 		// Inspired by https://github.com/spf13/viper/issues/671#issuecomment-671067523
 		v := viper.New()
 		v.SetEnvPrefix("CGS")
@@ -41,10 +50,37 @@ var RootCmd = &cobra.Command{
 			}
 		})
 
+		// Logging
 		logger := slogxtCobra.GetLogger(cmd.OutOrStderr()).
 			WithGroup(getCmdChainStr(cmd))
 		ctx := log.WithLogger(cmd.Context(), logger)
 		cmd.SetContext(ctx)
+
+		if logDebugPath != "" {
+			var err error
+			logDebugFile, err = os.OpenFile(logDebugPath, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return err
+			}
+			debugFileHandler := log.NewTerminalTreeHandler(logDebugFile, &log.TerminalHandlerOptions{
+				HandlerOptions: slog.HandlerOptions{
+					AddSource: true,
+					Level:     slog.LevelDebug,
+				},
+				NoColor: true,
+			}).WithGroup(getCmdChainStr(cmd))
+			logDebugFileLogger = slog.New(debugFileHandler)
+
+			logger := slog.New(log.NewMultiHandler(debugFileHandler, logger.Handler()))
+			ctx = log.WithLogger(cmd.Context(), logger)
+			cmd.SetContext(ctx)
+		}
+		return nil
+	},
+	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+		if logDebugFile != nil {
+			return logDebugFile.Close()
+		}
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
@@ -68,4 +104,13 @@ func ResetFlags() {
 
 func init() {
 	slogxtCobra.AddLoggerFlags(RootCmd)
+
+	ControlCmd.PersistentFlags().StringVarP(
+		&logDebugPath, "log-debug-path", "", defaultLogDebugPath,
+		"Truncate file and write debugging logging to it.",
+	)
+
+	resetFlagsFns = append(resetFlagsFns, func() {
+		logDebugPath = defaultLogDebugPath
+	})
 }

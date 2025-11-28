@@ -22,6 +22,7 @@ type PushMessageProcessor interface {
 
 type ControlOptions struct {
 	DisplayStatusComms bool
+	AppLogger          *slog.Logger
 }
 
 type Control struct {
@@ -104,7 +105,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	// Context & Logging
 	consoleCtx, consoleLogger := log.MustWithGroup(ctx, "Control")
 	logsPrimitive := NewLogsPrimitive(app)
-	appLogger := slog.New(&EnabledOverrideHandler{
+	appHandler := &EnabledOverrideHandler{
 		Handler: log.NewTerminalTreeHandler(
 			tview.ANSIWriter(logsPrimitive),
 			&log.TerminalHandlerOptions{
@@ -114,7 +115,14 @@ func (c *Control) Run(ctx context.Context) (err error) {
 			},
 		),
 		EnabledHandler: consoleLogger.Handler(),
-	})
+	}
+	appHandlers := []slog.Handler{
+		appHandler,
+	}
+	if c.options.AppLogger != nil {
+		appHandlers = append(appHandlers, c.options.AppLogger.Handler())
+	}
+	appLogger := slog.New(log.NewMultiHandler(appHandlers...))
 	appCtx := log.WithLogger(consoleCtx, appLogger)
 
 	// Grbl
@@ -140,10 +148,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		!c.options.DisplayStatusComms,
 	)
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		_, logger := log.MustWithGroup(appCtx, "Application.InputCapture")
-		logger.Debug("Called", "event", event)
 		if event.Key() == tcell.KeyCtrlX {
-			logger.Debug("QueueRealTimeCommand SoftReset")
 			controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset)
 			return nil
 		}

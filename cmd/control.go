@@ -34,6 +34,7 @@ var ControlCmd = &cobra.Command{
 
 		control := controlMod.NewControl(grbl, &controlMod.ControlOptions{
 			DisplayStatusComms: displayStatusComms,
+			AppLogger:          logDebugFileLogger,
 		})
 
 		return control.Run(ctx)
