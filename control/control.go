@@ -153,7 +153,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 			return nil
 		}
 		if event.Key() == tcell.KeyCtrlC {
-			go func() { app.Stop() }()
+			workerManager.Cancel()
 			return nil
 		}
 		return event
