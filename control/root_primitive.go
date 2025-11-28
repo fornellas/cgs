@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
 	grblMod "github.com/fornellas/cgs/grbl"
@@ -21,7 +22,7 @@ type RootPrimitive struct {
 	streamPrimitive    *StreamPrimitive
 	settingsPrimitive  *SettingsPrimitive
 	logsPrimitive      *LogsPrimitive
-	feedbackTextView   *tview.TextView
+	infoTextView       *tview.TextView
 	homeButton         *tview.Button
 	unlockButton       *tview.Button
 	resetButton        *tview.Button
@@ -62,7 +63,7 @@ func NewRootPrimitive(
 		return fmt.Sprintf("%s[lightblue]%s[-]", name, command)
 	}
 
-	rp.newFeedbackTextView()
+	rp.newInfoTextView()
 	rp.homeButton = tview.NewButton(getButtonText("Home", grblMod.GrblCommandRunHomingCycle)).SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueCommand(grblMod.GrblCommandRunHomingCycle)
 	}).SetDisabled(true)
@@ -96,14 +97,13 @@ func NewRootPrimitive(
 	return rp
 }
 
-func (rp *RootPrimitive) newFeedbackTextView() {
+func (rp *RootPrimitive) newInfoTextView() {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
 		SetWrap(true)
-	textView.SetTitle("Feedback Message")
 	textView.SetChangedFunc(func() {})
-	rp.feedbackTextView = textView
+	rp.infoTextView = textView
 }
 
 func (rp *RootPrimitive) getButtonsFLex() *tview.Flex {
@@ -207,7 +207,7 @@ func (rp *RootPrimitive) newRootFlex() {
 	column0Flex := tview.NewFlex()
 	column0Flex.SetDirection(tview.FlexRow)
 	column0Flex.AddItem(rp.getMainFlex(), 0, 1, false)
-	column0Flex.AddItem(rp.feedbackTextView, 1, 0, false)
+	column0Flex.AddItem(rp.infoTextView, 1, 0, false)
 	column0Flex.AddItem(rp.getButtonsFLex(), 4, 0, false)
 
 	rootFlex := tview.NewFlex()
@@ -339,7 +339,16 @@ func (rp *RootPrimitive) setMachineState(
 func (rp *RootPrimitive) processMessagePushWelcome() {
 	rp.setMachineState(nil)
 	rp.app.QueueUpdateDraw(func() {
-		rp.feedbackTextView.SetText("")
+		rp.infoTextView.SetText("")
+	})
+}
+
+func (rp *RootPrimitive) processAlarmPushMessage(
+	alarmPushMessage *grblMod.AlarmPushMessage,
+) {
+	rp.setMachineState(nil)
+	rp.app.QueueUpdateDraw(func() {
+		rp.infoTextView.SetText(fmt.Sprintf("[%s]%s[-]", tcell.ColorRed, tview.Escape(alarmPushMessage.Error().Error())))
 	})
 }
 
@@ -348,10 +357,10 @@ func (rp *RootPrimitive) processFeedbackPushMessage(
 ) {
 	rp.app.QueueUpdateDraw(func() {
 		text := tview.Escape(feedbackPushMessage.Text())
-		if text == rp.feedbackTextView.GetText(false) {
+		if text == rp.infoTextView.GetText(false) {
 			return
 		}
-		rp.feedbackTextView.SetText(text)
+		rp.infoTextView.SetText(text)
 	})
 
 	if feedbackPushMessage.Text() == "Reset to continue" {
@@ -378,6 +387,10 @@ func (rp *RootPrimitive) processStatusReportPushMessage(
 func (rp *RootPrimitive) ProcessPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
 	if _, ok := pushMessage.(*grblMod.WelcomePushMessage); ok {
 		rp.processMessagePushWelcome()
+		return
+	}
+	if alarmPushmessage, ok := pushMessage.(*grblMod.AlarmPushMessage); ok {
+		rp.processAlarmPushMessage(alarmPushmessage)
 		return
 	}
 	if feedbackPushMessage, ok := pushMessage.(*grblMod.FeedbackPushMessage); ok {
