@@ -8,8 +8,6 @@ Bug
         When it looses focus, the entered value is not applied
     When one of the workers fail, UI hangs, it does not exit
 Features
-    State
-        capture latest alarm message, display alarm message at state panel
     Settings
         add Gcode commands to UI
             $$
