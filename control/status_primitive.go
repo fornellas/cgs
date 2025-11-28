@@ -67,6 +67,7 @@ func (sp *StatusPrimitive) newStatusTextView() {
 	textView.SetChangedFunc(func() {
 		textView.ScrollToBeginning()
 	})
+	textView.SetTextAlign(tview.AlignCenter)
 	sp.statusTextView = textView
 }
 
