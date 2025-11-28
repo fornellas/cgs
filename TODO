@@ -1,13 +1,16 @@
 Bug
+    Fix: sometimes status messages stop coming through and no command works anymore.
+    Fix: race condition: virtual status may be immediately overriden by other status message (eg: alarm)
     Fix: when Homing active, ^C does not exit
     Fix: if state is Check, then G-Code Parser, G-Code Params & Status must be blank
         Any $* command will fail, should not send them after sending a command
     Fix sync command G4 sometimes failing when jogging: "g-code locked out during alarm or jog state"
-    Fix joystick jogging cancel button not working
     InputFields
         When it looses focus, the entered value is not applied
     When one of the workers fail, UI hangs, it does not exit
 Features
+    State
+        capture latest alarm message, display alarm message at state panel
     Settings
         add Gcode commands to UI
             $$
