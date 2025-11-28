@@ -263,17 +263,14 @@ func (cp *ControlPrimitive) setMachineState(machineState string) {
 	cp.setDisabledState()
 }
 
-func (cp *ControlPrimitive) DisableCommandInput(ctx context.Context, disabled bool) {
+func (cp *ControlPrimitive) DisableCommandInput(disabled bool) {
 	cp.mu.Lock()
 	cp.disableCommandInput = disabled
 	cp.mu.Unlock()
 	cp.setDisabledState()
 }
 
-func (cp *ControlPrimitive) sendCommand(
-	ctx context.Context,
-	commandParameter *commandParameterType,
-) {
+func (cp *ControlPrimitive) sendCommand(ctx context.Context, commandParameter *commandParameterType) {
 	if !commandParameter.quiet {
 		fmt.Fprintf(cp.commandsTextView, "\n[%s]%s[-]", tcell.ColorWhite, tview.Escape(commandParameter.command))
 	}
@@ -422,8 +419,8 @@ func (cp *ControlPrimitive) processCommand(ctx context.Context, command string) 
 		}
 	}
 
-	cp.DisableCommandInput(ctx, true)
-	defer cp.DisableCommandInput(ctx, false)
+	cp.DisableCommandInput(true)
+	defer cp.DisableCommandInput(false)
 	cp.sendCommand(ctx, commandParameter)
 	cp.sendCommand(ctx, syncCommand)
 	for command := range statusCommands {
