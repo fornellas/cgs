@@ -77,10 +77,17 @@ var SettingsSaveCmd = &cobra.Command{
 			return err
 		}
 
-		// Read settings with timeout
+		// Send command to read startup lines
+		logger.Info("Requesting Grbl Startup Lines")
+		sendCtx, cancel = context.WithTimeout(ctx, 1*time.Second)
+		err = grbl.SendGrblCommandViewStartupBlocks(sendCtx)
+		cancel()
+		if err != nil {
+			return err
+		}
+
 		readCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
 		defer cancel()
-		settingCount := 0
 		for {
 			select {
 			case msg, ok := <-pushMessageCh:
@@ -92,12 +99,17 @@ var SettingsSaveCmd = &cobra.Command{
 					if _, err := fmt.Fprintln(output, settingMsg.String()); err != nil {
 						return err
 					}
-					settingCount++
+				}
+
+				if settingMsg, ok := msg.(*grblMod.StartupLineExecutionPushMessage); ok {
+					if _, err := fmt.Fprintln(output, settingMsg.String()); err != nil {
+						return err
+					}
 				}
 			case <-readCtx.Done():
 				return ctx.Err()
 			default:
-				return
+				return nil
 			}
 		}
 	}),
