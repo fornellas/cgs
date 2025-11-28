@@ -16,10 +16,6 @@ import (
 	"github.com/fornellas/cgs/worker"
 )
 
-type PushMessageProcessor interface {
-	ProcessPushMessage(context.Context, grblMod.PushMessage)
-}
-
 type ControlOptions struct {
 	DisplayStatusComms bool
 	AppLogger          *slog.Logger
