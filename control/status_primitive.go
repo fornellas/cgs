@@ -92,7 +92,7 @@ func (sp *StatusPrimitive) updateStateTextView(machineState grblMod.MachineState
 		sp.stateTextView.Clear()
 		sp.stateTextView.SetBackgroundColor(stateColor)
 	})
-	fmt.Fprintf(sp.stateTextView, "%s\n", tview.Escape(sp.machineState.State))
+	fmt.Fprintf(sp.stateTextView, "%s\n", tview.Escape(string(sp.machineState.State)))
 	subState := sp.machineState.SubStateString()
 	if len(subState) > 0 {
 		fmt.Fprintf(sp.stateTextView, "(%s)\n", tview.Escape(subState))

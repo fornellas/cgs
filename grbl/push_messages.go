@@ -563,9 +563,34 @@ func (m *StartupLineExecutionPushMessage) String() string {
 // StatusReport
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+type State string
+
+var StateIdle State = "Idle"
+var StateRun State = "Run"
+var StateHold State = "Hold"
+var StateJog State = "Jog"
+var StateAlarm State = "Alarm"
+var StateDoor State = "Door"
+var StateCheck State = "Check"
+var StateHome State = "Home"
+var StateSleep State = "Sleep"
+var StateUnknown State = ""
+
+var knownStates = map[State]bool{
+	StateIdle:  true,
+	StateRun:   true,
+	StateHold:  true,
+	StateJog:   true,
+	StateAlarm: true,
+	StateDoor:  true,
+	StateCheck: true,
+	StateHome:  true,
+	StateSleep: true,
+}
+
 type MachineState struct {
 	// Valid states types:  `Idle, Run, Hold, Jog, Alarm, Door, Check, Home, Sleep`
-	State string
+	State State
 	// Current sub-states are:
 	// - `Hold:0` Hold complete. Ready to resume.
 	// - `Hold:1` Hold in-progress. Reset will throw an alarm.
@@ -584,7 +609,7 @@ func NewMachineState(dataField string) (*MachineState, error) {
 	if len(parts) > 2 {
 		return nil, fmt.Errorf("machine state field malformed: %#v", dataField)
 	}
-	state := parts[0]
+	state := State(parts[0])
 	var subStatePtr *int
 	if len(parts) == 2 {
 		subState, err := strconv.Atoi(parts[1])
@@ -593,6 +618,10 @@ func NewMachineState(dataField string) (*MachineState, error) {
 		}
 		subStatePtr = &subState
 	}
+	if _, ok := knownStates[state]; !ok {
+		return nil, fmt.Errorf("unknown machine state: %#v", state)
+	}
+
 	return &MachineState{
 		State:    state,
 		SubState: subStatePtr,

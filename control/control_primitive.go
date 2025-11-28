@@ -60,7 +60,7 @@ type ControlPrimitive struct {
 	commandInputHistoryIdx int
 	mu                     sync.Mutex
 	disableCommandInput    bool
-	machineState           *string
+	machineState           *grblMod.State
 }
 
 //gocyclo:ignore
@@ -256,7 +256,7 @@ func (cp *ControlPrimitive) setDisabledState() {
 	})
 }
 
-func (cp *ControlPrimitive) setMachineState(machineState string) {
+func (cp *ControlPrimitive) setMachineState(machineState grblMod.State) {
 	cp.mu.Lock()
 	cp.machineState = &machineState
 	cp.mu.Unlock()

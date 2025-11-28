@@ -76,25 +76,25 @@ func sprintGcodeWord(word string) string {
 	return fmt.Sprintf("[%s]%s[-]", tcell.ColorBlue, word)
 }
 
-func getMachineStateColor(state string) tcell.Color {
+func getMachineStateColor(state grblMod.State) tcell.Color {
 	switch state {
-	case "Idle":
+	case grblMod.StateIdle:
 		return tcell.ColorBlack
-	case "Run":
+	case grblMod.StateRun:
 		return tcell.ColorGreen
-	case "Hold":
+	case grblMod.StateHold:
 		return tcell.ColorYellow
-	case "Jog":
+	case grblMod.StateJog:
 		return tcell.ColorDarkGreen
-	case "Alarm":
+	case grblMod.StateAlarm:
 		return tcell.ColorRed
-	case "Door":
+	case grblMod.StateDoor:
 		return tcell.ColorOrange
-	case "Check":
+	case grblMod.StateCheck:
 		return tcell.ColorDarkCyan
-	case "Home":
+	case grblMod.StateHome:
 		return tcell.ColorLightGreen
-	case "Sleep":
+	case grblMod.StateSleep:
 		return tcell.ColorDarkBlue
 	default:
 		return tcell.ColorWhite
