@@ -118,7 +118,6 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	appCtx := log.WithLogger(consoleCtx, appLogger)
 
 	// Grbl
-	consoleLogger.Info("Connecting to Grbl")
 	pushMessageCh, err := c.grbl.Connect(consoleCtx)
 	if err != nil {
 		return err

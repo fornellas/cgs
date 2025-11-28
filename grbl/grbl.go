@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fornellas/slogxt/log"
 	"go.bug.st/serial"
 )
 
@@ -198,12 +199,14 @@ func (g *Grbl) waitForWelcomeMessage(ctx context.Context) error {
 //
 //gocyclo:ignore
 func (g *Grbl) Connect(ctx context.Context) (chan PushMessage, error) {
+	ctx, logger := log.MustWithGroup(ctx, "Grbl")
 	mode := &serial.Mode{
 		BaudRate: 115200,
 		DataBits: 8,
 		Parity:   serial.NoParity,
 		StopBits: serial.OneStopBit,
 	}
+	logger.Info("Connecting")
 
 	port, err := g.openPortFn(ctx, mode)
 	if err != nil {

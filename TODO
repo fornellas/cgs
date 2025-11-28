@@ -3,6 +3,14 @@ Bug
         When it looses focus, the entered value is not applied
     When one of the workers fail, UI hangs, it does not exit
 Features
+    Settings
+        add Gcode commands to UI
+            $$
+            $N
+            $I
+            $RST=#
+            $RST=G
+            $RST=*
     Panels
         Probe
         Control
