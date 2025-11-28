@@ -1,4 +1,9 @@
 Bug
+    Fix: when Homing active, ^C does not exit
+    Fix: if state is Check, then G-Code Parser, G-Code Params & Status must be blank
+        Any $* command will fail, should not send them after sending a command
+    Fix sync command G4 sometimes failing when jogging: "g-code locked out during alarm or jog state"
+    Fix joystick jogging cancel button not working
     InputFields
         When it looses focus, the entered value is not applied
     When one of the workers fail, UI hangs, it does not exit
@@ -13,11 +18,13 @@ Features
             $RST=*
     Panels
         Probe
+            Straight
+                Probe button, enable / disable
+                Set
+                    G92, G54+
+                Angle
+                    TODO
         Control
-            Fix: when Homing active, ^C does not exit
-            Fix: if state is Check, then G-Code Parser, G-Code Params & Status must be blank
-                Any $* command will fail, should not send them after sending a command
-            Fix sync command G4 sometimes failing when jogging: "g-code locked out during alarm or jog state"
             Use grid to hide Gcode row if height is too small
             G-Code Parser
                 UI setting
