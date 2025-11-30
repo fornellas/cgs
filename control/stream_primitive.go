@@ -2,10 +2,10 @@ package control
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/rivo/tview"
-
-	grblMod "github.com/fornellas/cgs/grbl"
 )
 
 type StreamPrimitive struct {
@@ -44,8 +44,27 @@ func NewStreamPrimitive(
 	streamRootFlex.AddItem(rotationFlex, 3, 0, false)
 	sp.Flex = streamRootFlex
 
+	// TODO set disabled state
+
 	return sp
 }
 
-func (sp *StreamPrimitive) ProcessPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
+func (sp *StreamPrimitive) Worker(
+	ctx context.Context, trackedStateCh <-chan *TrackedState,
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			err := ctx.Err()
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
+			return err
+		case _, ok := <-trackedStateCh:
+			if !ok {
+				return fmt.Errorf("tracked state channel closed")
+			}
+			// TODO
+		}
+	}
 }

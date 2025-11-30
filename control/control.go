@@ -54,45 +54,6 @@ func (c *Control) statusQueryWorker(ctx context.Context) error {
 	}
 }
 
-func (c *Control) pushMessageProcessorWorker(
-	ctx context.Context,
-	pushMessageCh chan grblMod.PushMessage,
-	pushMessageProcessors ...PushMessageProcessor,
-) error {
-	for {
-		select {
-		case <-ctx.Done():
-			err := ctx.Err()
-			if errors.Is(err, context.Canceled) {
-				err = nil
-			}
-			return err
-		case message, ok := <-pushMessageCh:
-			if !ok {
-				return fmt.Errorf("push message channel closed")
-			}
-
-			if _, ok := message.(*grblMod.AlarmPushMessage); ok {
-				// Grbl can generate an alarm push message, but then stop answering to real time
-				// commands for status report query. This means that, there are effectively two sources
-				// to look for alarm state.
-				// We generate this virtual status report push message here, to simplify the rest of the
-				// codebase, that only need to look for alarm state in a sigle place.
-				pushMessageCh <- &grblMod.StatusReportPushMessage{
-					Message: "(virtual push message: status report: Alarm)",
-					MachineState: grblMod.MachineState{
-						State: "Alarm",
-					},
-				}
-			}
-
-			for _, pushMessageProcessor := range pushMessageProcessors {
-				pushMessageProcessor.ProcessPushMessage(ctx, message)
-			}
-		}
-	}
-}
-
 func (c *Control) Run(ctx context.Context) (err error) {
 	// Application
 	app := tview.NewApplication()
@@ -122,7 +83,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	appCtx := log.WithLogger(consoleCtx, appLogger)
 
 	// Grbl
-	pushMessageCh, err := c.grbl.Connect(consoleCtx)
+	grblPushMessageCh, err := c.grbl.Connect(consoleCtx)
 	if err != nil {
 		return err
 	}
@@ -130,53 +91,99 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	// WorkerManager
 	workerManager := worker.NewWorkerManager(appCtx)
 
-	// Message Processors
-	var pushMessageProcessors []PushMessageProcessor
+	subscriberChSize := 50
+
+	// Push Message Broker
+	pushMessageBroker := NewPushMessageBroker()
+	workerManager.StartWorker("PushMessageBroker", func(ctx context.Context) error {
+		return pushMessageBroker.Worker(ctx, grblPushMessageCh)
+	})
+
+	// StateTracker
+	stateTracker := NewStateTracker()
+	workerManager.StartWorker("StateTracker", func(ctx context.Context) error {
+		return stateTracker.Worker(
+			ctx, pushMessageBroker.Subscribe("StateTracker", subscriberChSize),
+		)
+	})
 
 	// StatusPrimitive
 	statusPrimitive := NewStatusPrimitive(appCtx, c.grbl, app)
-	pushMessageProcessors = append(pushMessageProcessors, statusPrimitive)
+	workerManager.StartWorker("StatusPrimitive", func(ctx context.Context) error {
+		return statusPrimitive.Worker(
+			ctx,
+			pushMessageBroker.Subscribe("StatusPrimitive", subscriberChSize),
+			stateTracker.Subscribe("StatusPrimitive", subscriberChSize),
+		)
+	})
 
 	// ControlPrimitive
 	controlPrimitive := NewControlPrimitive(
-		appCtx, c.grbl, pushMessageCh,
-		app, statusPrimitive,
+		appCtx, c.grbl, app, stateTracker,
 		!c.options.DisplayStatusComms,
 	)
-	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyCtrlX {
-			controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset)
-			return nil
-		}
-		if event.Key() == tcell.KeyCtrlC {
-			workerManager.Cancel()
-			return nil
-		}
-		return event
+	workerManager.StartWorker("ControlPrimitive.Worker", func(ctx context.Context) error {
+		return controlPrimitive.Worker(
+			ctx,
+			pushMessageBroker.Subscribe("ControlPrimitive", subscriberChSize),
+			stateTracker.Subscribe("ControlPrimitive", subscriberChSize),
+		)
 	})
-	pushMessageProcessors = append(pushMessageProcessors, controlPrimitive)
 
 	// JoggingPrimitive
 	joggingPrimitive := NewJoggingPrimitive(appCtx, app, controlPrimitive)
-	pushMessageProcessors = append(pushMessageProcessors, joggingPrimitive)
+	workerManager.StartWorker("JoggingPrimitive", func(ctx context.Context) error {
+		return joggingPrimitive.Worker(
+			ctx,
+			pushMessageBroker.Subscribe("JoggingPrimitive", subscriberChSize),
+			stateTracker.Subscribe("JoggingPrimitive", subscriberChSize),
+		)
+	})
 
 	// probePrimitive
 	probePrimitive := NewProbePrimitive(appCtx, app, controlPrimitive)
-	pushMessageProcessors = append(pushMessageProcessors, probePrimitive)
+	workerManager.StartWorker("ProbePrimitive", func(ctx context.Context) error {
+		return probePrimitive.Worker(
+			ctx,
+			pushMessageBroker.Subscribe("ProbePrimitive", subscriberChSize),
+			stateTracker.Subscribe("ProbePrimitive", subscriberChSize),
+		)
+	})
 
 	// OverridesPrimitive
 	overridesPrimitive := NewOverridesPrimitive(appCtx, app, controlPrimitive)
-	pushMessageProcessors = append(pushMessageProcessors, overridesPrimitive)
+	workerManager.StartWorker("OverridesPrimitive", func(ctx context.Context) error {
+		return overridesPrimitive.Worker(
+			ctx,
+			stateTracker.Subscribe("OverridesPrimitive", subscriberChSize),
+		)
+	})
 
 	// StreamPrimitive
 	heightMapPrimitive := NewHeightMapPrimitive(appCtx, app, controlPrimitive)
-	pushMessageProcessors = append(pushMessageProcessors, heightMapPrimitive)
+	workerManager.StartWorker("HeightMapPrimitive", func(ctx context.Context) error {
+		return heightMapPrimitive.Worker(
+			ctx,
+			stateTracker.Subscribe("HeightMapPrimitive", subscriberChSize),
+		)
+	})
 	streamPrimitive := NewStreamPrimitive(appCtx, app, controlPrimitive, heightMapPrimitive)
-	pushMessageProcessors = append(pushMessageProcessors, streamPrimitive)
+	workerManager.StartWorker("StreamPrimitive", func(ctx context.Context) error {
+		return streamPrimitive.Worker(
+			ctx,
+			stateTracker.Subscribe("StreamPrimitive", subscriberChSize),
+		)
+	})
 
 	// settingsPrimitive
 	settingsPrimitive := NewSettingsPrimitive(appCtx, app, controlPrimitive)
-	pushMessageProcessors = append(pushMessageProcessors, settingsPrimitive)
+	workerManager.StartWorker("SettingsPrimitive", func(ctx context.Context) error {
+		return settingsPrimitive.Worker(
+			ctx,
+			pushMessageBroker.Subscribe("SettingsPrimitive", subscriberChSize),
+			stateTracker.Subscribe("SettingsPrimitive", subscriberChSize),
+		)
+	})
 
 	// RootPrimitive
 	rootPrimitive := NewRootPrimitive(
@@ -190,38 +197,34 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		settingsPrimitive,
 		logsPrimitive,
 	)
+	workerManager.StartWorker("RootPrimitive", func(ctx context.Context) error {
+		return rootPrimitive.Worker(
+			ctx,
+			pushMessageBroker.Subscribe("RootPrimitive", subscriberChSize),
+			stateTracker.Subscribe("RootPrimitive", subscriberChSize),
+		)
+	})
 	app.SetRoot(rootPrimitive, true)
-	pushMessageProcessors = append(pushMessageProcessors, rootPrimitive)
 
-	// Workers
-	workerManager.StartWorker(
-		"Control.messageProcessorWorker",
-		func(ctx context.Context) error {
-			return c.pushMessageProcessorWorker(ctx, pushMessageCh, pushMessageProcessors...)
-		},
-	)
-	workerManager.StartWorker(
-		"ControlPrimitive.RunSendCommandWorker",
-		controlPrimitive.RunSendCommandWorker,
-	)
-	workerManager.StartWorker(
-		"ControlPrimitive.RunSendRealTimeCommandWorker",
-		controlPrimitive.RunSendRealTimeCommandWorker,
-	)
-	workerManager.StartWorker(
-		"Control.statusQueryWorker",
-		c.statusQueryWorker,
-	)
+	// Status Query
+	workerManager.StartWorker("Control.statusQueryWorker", c.statusQueryWorker)
+
+	// App Input
+	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyCtrlX {
+			controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset)
+			return nil
+		}
+		if event.Key() == tcell.KeyCtrlC {
+			workerManager.Cancel()
+			return nil
+		}
+		return event
+	})
 
 	// Exit
 	var exitMu sync.Mutex
 	exitMu.Lock()
-	defer func() { exitMu.Lock() }()
-	defer func() {
-		logger := log.MustLogger(appCtx)
-		logger.Info("Stopping all workers")
-		workerManager.Cancel()
-	}()
 	go func() {
 		logger := log.MustLogger(appCtx)
 		err = errors.Join(err, workerManager.Wait(appCtx))
@@ -230,6 +233,12 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		logger.Info("Stopping App")
 		app.Stop()
 		exitMu.Unlock()
+	}()
+	defer func() { exitMu.Lock() }()
+	defer func() {
+		logger := log.MustLogger(appCtx)
+		logger.Info("Stopping all workers")
+		workerManager.Cancel()
 	}()
 
 	if runErr := app.Run(); runErr != nil {

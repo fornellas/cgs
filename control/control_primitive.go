@@ -44,9 +44,8 @@ var syncCommand = &commandParameterType{
 type ControlPrimitive struct {
 	*tview.Flex
 	grbl                   *grblMod.Grbl
-	pushMessageCh          chan grblMod.PushMessage
 	app                    *tview.Application
-	statusPrimitive        *StatusPrimitive
+	stateTracker           *StateTracker
 	quietStatusComms       bool
 	sendStatusCommandCh    chan string
 	sendCommandCh          chan string
@@ -60,28 +59,27 @@ type ControlPrimitive struct {
 	commandInputHistoryIdx int
 	mu                     sync.Mutex
 	disableCommandInput    bool
-	machineState           *grblMod.State
+	state                  grblMod.State
 }
 
 //gocyclo:ignore
 func NewControlPrimitive(
 	ctx context.Context,
 	grbl *grblMod.Grbl,
-	pushMessageCh chan grblMod.PushMessage,
 	app *tview.Application,
-	statusPrimitive *StatusPrimitive,
+	stateTracker *StateTracker,
 	quietStatusComms bool,
 ) *ControlPrimitive {
 	cp := &ControlPrimitive{
 		grbl:                   grbl,
-		pushMessageCh:          pushMessageCh,
 		app:                    app,
-		statusPrimitive:        statusPrimitive,
+		stateTracker:           stateTracker,
 		quietStatusComms:       quietStatusComms,
 		sendStatusCommandCh:    make(chan string, 10),
 		sendCommandCh:          make(chan string, 10),
 		sendRealTimeCommandCh:  make(chan grblMod.RealTimeCommand, 10),
 		commandInputHistoryIdx: -1,
+		state:                  grblMod.StateUnknown,
 	}
 
 	// Commands
@@ -212,6 +210,8 @@ func NewControlPrimitive(
 	controlFlex.AddItem(commandInputField, 1, 0, true)
 	cp.Flex = controlFlex
 
+	cp.setDisabledState()
+
 	cp.sendStatusCommands()
 
 	return cp
@@ -224,41 +224,41 @@ func (cp *ControlPrimitive) sendStatusCommands() {
 }
 
 func (cp *ControlPrimitive) setDisabledState() {
-	cp.app.QueueUpdate(func() {
-		cp.mu.Lock()
-		defer cp.mu.Unlock()
-		if cp.disableCommandInput || cp.machineState == nil {
-			cp.commandInputField.SetDisabled(true)
-			return
-		}
-		switch *cp.machineState {
-		case "Idle":
-			cp.commandInputField.SetDisabled(false)
-		case "Run":
-			cp.commandInputField.SetDisabled(true)
-		case "Hold":
-			cp.commandInputField.SetDisabled(true)
-		case "Jog":
-			cp.commandInputField.SetDisabled(true)
-		case "Alarm":
-			cp.commandInputField.SetDisabled(true)
-		case "Door":
-			cp.commandInputField.SetDisabled(true)
-		case "Check":
-			cp.commandInputField.SetDisabled(false)
-		case "Home":
-			cp.commandInputField.SetDisabled(true)
-		case "Sleep":
-			cp.commandInputField.SetDisabled(true)
-		default:
-			panic(fmt.Errorf("unknown state: %s", *cp.machineState))
-		}
-	})
+	cp.mu.Lock()
+	defer cp.mu.Unlock()
+	if cp.disableCommandInput {
+		cp.commandInputField.SetDisabled(true)
+		return
+	}
+	switch cp.state {
+	case grblMod.StateIdle:
+		cp.commandInputField.SetDisabled(false)
+	case grblMod.StateRun:
+		cp.commandInputField.SetDisabled(true)
+	case grblMod.StateHold:
+		cp.commandInputField.SetDisabled(true)
+	case grblMod.StateJog:
+		cp.commandInputField.SetDisabled(true)
+	case grblMod.StateAlarm:
+		cp.commandInputField.SetDisabled(true)
+	case grblMod.StateDoor:
+		cp.commandInputField.SetDisabled(true)
+	case grblMod.StateCheck:
+		cp.commandInputField.SetDisabled(false)
+	case grblMod.StateHome:
+		cp.commandInputField.SetDisabled(true)
+	case grblMod.StateSleep:
+		cp.commandInputField.SetDisabled(true)
+	case grblMod.StateUnknown:
+		cp.commandInputField.SetDisabled(true)
+	default:
+		panic(fmt.Errorf("unknown state: %s", cp.state))
+	}
 }
 
-func (cp *ControlPrimitive) setMachineState(machineState grblMod.State) {
+func (cp *ControlPrimitive) setState(state grblMod.State) {
 	cp.mu.Lock()
-	cp.machineState = &machineState
+	cp.state = state
 	cp.mu.Unlock()
 	cp.setDisabledState()
 }
@@ -267,7 +267,7 @@ func (cp *ControlPrimitive) DisableCommandInput(disabled bool) {
 	cp.mu.Lock()
 	cp.disableCommandInput = disabled
 	cp.mu.Unlock()
-	cp.setDisabledState()
+	cp.app.QueueUpdate(func() { cp.setDisabledState() })
 }
 
 func (cp *ControlPrimitive) sendCommand(ctx context.Context, commandParameter *commandParameterType) {
@@ -343,15 +343,7 @@ func (cp *ControlPrimitive) getBlockStatusCmdsAndTimeout(block *gcode.Block) (ma
 		}
 		if strings.HasPrefix(block.String(), grblMod.GrblCommandRunHomingCyclePrefix) {
 			timeout = homeCommandTimeout
-			// Grbl stops responding to status report queries while homing. Generating this
-			// virtual status report enables subscribers to process the otherwise unreported
-			//  state.
-			cp.pushMessageCh <- &grblMod.StatusReportPushMessage{
-				Message: "(virtual push message: status report: Home)",
-				MachineState: grblMod.MachineState{
-					State: "Home",
-				},
-			}
+			cp.stateTracker.HomeOverride(true)
 		}
 		matched, err := regexp.MatchString(`^\$[0-9]+=`, block.String())
 		if err != nil {
@@ -430,27 +422,7 @@ func (cp *ControlPrimitive) processCommand(ctx context.Context, command string) 
 			quiet:   cp.quietStatusComms,
 		})
 	}
-}
-
-func (cp *ControlPrimitive) RunSendCommandWorker(ctx context.Context) error {
-	for {
-		select {
-		case <-ctx.Done():
-			err := ctx.Err()
-			if errors.Is(err, context.Canceled) {
-				err = nil
-			}
-			return err
-		case command := <-cp.sendStatusCommandCh:
-			cp.sendCommand(ctx, &commandParameterType{
-				command: command,
-				timeout: defaultCommandTimeout,
-				quiet:   cp.quietStatusComms,
-			})
-		case command := <-cp.sendCommandCh:
-			cp.processCommand(ctx, command)
-		}
-	}
+	cp.stateTracker.HomeOverride(false)
 }
 
 func (cp *ControlPrimitive) queueStatusCommand(
@@ -480,21 +452,6 @@ func (cp *ControlPrimitive) sendRealTimeCommand(
 
 func (cp *ControlPrimitive) QueueRealTimeCommand(rtc grblMod.RealTimeCommand) {
 	cp.sendRealTimeCommandCh <- rtc
-}
-
-func (cp *ControlPrimitive) RunSendRealTimeCommandWorker(ctx context.Context) error {
-	for {
-		select {
-		case <-ctx.Done():
-			err := ctx.Err()
-			if errors.Is(err, context.Canceled) {
-				err = nil
-			}
-			return err
-		case realTimeCommand := <-cp.sendRealTimeCommandCh:
-			cp.sendRealTimeCommand(realTimeCommand)
-		}
-	}
 }
 
 //gocyclo:ignore
@@ -653,19 +610,8 @@ func (cp *ControlPrimitive) processAlarmPushMessage(
 	return tview.Escape(alarmPushMessage.Error().Error()), tcell.ColorRed
 }
 
-func (cp *ControlPrimitive) processStatusReportPushMessage(
-	statusReportPushMessage *grblMod.StatusReportPushMessage,
-) tcell.Color {
-	color := getMachineStateColor(statusReportPushMessage.MachineState.State)
-	if color == tcell.ColorBlack {
-		color = tcell.ColorWhite
-	}
-	cp.setMachineState(statusReportPushMessage.MachineState.State)
-	return color
-}
-
 //gocyclo:ignore
-func (cp *ControlPrimitive) ProcessPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
+func (cp *ControlPrimitive) processPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
 	var color = tcell.ColorGreen
 	var extraInfo string
 
@@ -691,8 +637,7 @@ func (cp *ControlPrimitive) ProcessPushMessage(ctx context.Context, pushMessage 
 		extraInfo, color = cp.processAlarmPushMessage(alarmPushMessage)
 	}
 
-	if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
-		color = cp.processStatusReportPushMessage(statusReportPushMessage)
+	if _, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
 		if cp.quietStatusComms {
 			return
 		}
@@ -724,5 +669,42 @@ func (cp *ControlPrimitive) ProcessPushMessage(ctx context.Context, pushMessage 
 	}
 	if len(extraInfo) > 0 {
 		fmt.Fprintf(cp.pushMessagesTextView, "\n[%s]%s[-]", tcell.ColorWhite, tview.Escape(extraInfo))
+	}
+}
+
+func (cp *ControlPrimitive) Worker(
+	ctx context.Context,
+	pushMessageCh <-chan grblMod.PushMessage,
+	trackedStateCh <-chan *TrackedState,
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			err := ctx.Err()
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
+			return err
+		case pushMessage, ok := <-pushMessageCh:
+			if !ok {
+				return fmt.Errorf("push message channel closed")
+			}
+			cp.processPushMessage(ctx, pushMessage)
+		case trackedState, ok := <-trackedStateCh:
+			if !ok {
+				return fmt.Errorf("tracked state channel closed")
+			}
+			cp.app.QueueUpdate(func() { cp.setState(trackedState.State) })
+		case command := <-cp.sendStatusCommandCh:
+			cp.sendCommand(ctx, &commandParameterType{
+				command: command,
+				timeout: defaultCommandTimeout,
+				quiet:   cp.quietStatusComms,
+			})
+		case command := <-cp.sendCommandCh:
+			cp.processCommand(ctx, command)
+		case realTimeCommand := <-cp.sendRealTimeCommandCh:
+			cp.sendRealTimeCommand(realTimeCommand)
+		}
 	}
 }

@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/rivo/tview"
@@ -29,7 +30,6 @@ type OverridesPrimitive struct {
 	spindleIncr10Button *tview.Button
 	coolantFloodButton  *tview.Button
 	coolantMistButton   *tview.Button
-	machineState        grblMod.MachineState
 }
 
 func NewOverridesPrimitive(
@@ -163,14 +163,14 @@ func NewOverridesPrimitive(
 	overridesFlex.AddItem(coolantOverridesFlex, 5, 0, false)
 	op.Flex = overridesFlex
 
-	op.updateDisabled()
+	op.updateDisabled(grblMod.StateUnknown)
 
 	return op
 }
 
-func (op *OverridesPrimitive) updateDisabled() {
-	switch op.machineState.State {
-	case "Idle":
+func (op *OverridesPrimitive) updateDisabled(state grblMod.State) {
+	switch state {
+	case grblMod.StateIdle:
 		op.feedDecr10Button.SetDisabled(false)
 		op.feedDecr1Button.SetDisabled(false)
 		op.feed100Button.SetDisabled(false)
@@ -187,7 +187,7 @@ func (op *OverridesPrimitive) updateDisabled() {
 		op.spindleIncr10Button.SetDisabled(false)
 		op.coolantFloodButton.SetDisabled(false)
 		op.coolantMistButton.SetDisabled(false)
-	case "Run":
+	case grblMod.StateRun:
 		op.feedDecr10Button.SetDisabled(false)
 		op.feedDecr1Button.SetDisabled(false)
 		op.feed100Button.SetDisabled(false)
@@ -204,7 +204,7 @@ func (op *OverridesPrimitive) updateDisabled() {
 		op.spindleIncr10Button.SetDisabled(false)
 		op.coolantFloodButton.SetDisabled(false)
 		op.coolantMistButton.SetDisabled(false)
-	case "Hold":
+	case grblMod.StateHold:
 		op.feedDecr10Button.SetDisabled(false)
 		op.feedDecr1Button.SetDisabled(false)
 		op.feed100Button.SetDisabled(false)
@@ -221,7 +221,7 @@ func (op *OverridesPrimitive) updateDisabled() {
 		op.spindleIncr10Button.SetDisabled(false)
 		op.coolantFloodButton.SetDisabled(false)
 		op.coolantMistButton.SetDisabled(false)
-	case "Jog":
+	case grblMod.StateJog:
 		op.feedDecr10Button.SetDisabled(false)
 		op.feedDecr1Button.SetDisabled(false)
 		op.feed100Button.SetDisabled(false)
@@ -238,7 +238,7 @@ func (op *OverridesPrimitive) updateDisabled() {
 		op.spindleIncr10Button.SetDisabled(false)
 		op.coolantFloodButton.SetDisabled(true)
 		op.coolantMistButton.SetDisabled(true)
-	case "Alarm", "":
+	case grblMod.StateAlarm, grblMod.StateUnknown:
 		op.feedDecr10Button.SetDisabled(true)
 		op.feedDecr1Button.SetDisabled(true)
 		op.feed100Button.SetDisabled(true)
@@ -255,7 +255,7 @@ func (op *OverridesPrimitive) updateDisabled() {
 		op.spindleIncr10Button.SetDisabled(true)
 		op.coolantFloodButton.SetDisabled(true)
 		op.coolantMistButton.SetDisabled(true)
-	case "Door":
+	case grblMod.StateDoor:
 		op.feedDecr10Button.SetDisabled(false)
 		op.feedDecr1Button.SetDisabled(false)
 		op.feed100Button.SetDisabled(false)
@@ -272,7 +272,7 @@ func (op *OverridesPrimitive) updateDisabled() {
 		op.spindleIncr10Button.SetDisabled(false)
 		op.coolantFloodButton.SetDisabled(true)
 		op.coolantMistButton.SetDisabled(true)
-	case "Check":
+	case grblMod.StateCheck:
 		op.feedDecr10Button.SetDisabled(false)
 		op.feedDecr1Button.SetDisabled(false)
 		op.feed100Button.SetDisabled(false)
@@ -289,7 +289,7 @@ func (op *OverridesPrimitive) updateDisabled() {
 		op.spindleIncr10Button.SetDisabled(false)
 		op.coolantFloodButton.SetDisabled(true)
 		op.coolantMistButton.SetDisabled(true)
-	case "Home":
+	case grblMod.StateHome:
 		op.feedDecr10Button.SetDisabled(false)
 		op.feedDecr1Button.SetDisabled(false)
 		op.feed100Button.SetDisabled(false)
@@ -306,7 +306,7 @@ func (op *OverridesPrimitive) updateDisabled() {
 		op.spindleIncr10Button.SetDisabled(false)
 		op.coolantFloodButton.SetDisabled(true)
 		op.coolantMistButton.SetDisabled(true)
-	case "Sleep":
+	case grblMod.StateSleep:
 		op.feedDecr10Button.SetDisabled(false)
 		op.feedDecr1Button.SetDisabled(false)
 		op.feed100Button.SetDisabled(false)
@@ -324,27 +324,29 @@ func (op *OverridesPrimitive) updateDisabled() {
 		op.coolantFloodButton.SetDisabled(true)
 		op.coolantMistButton.SetDisabled(true)
 	default:
-		panic(fmt.Sprintf("unknown machine state: %#v", op.machineState.State))
+		panic(fmt.Sprintf("unknown machine state: %#v", state))
 	}
 }
 
-func (op *OverridesPrimitive) processStatusReportPushMessage(
-	statusReportPushMessage *grblMod.StatusReportPushMessage,
-) {
-	if op.machineState == statusReportPushMessage.MachineState {
-		return
-	}
-
-	op.machineState = statusReportPushMessage.MachineState
-
-	op.app.QueueUpdateDraw(func() {
-		op.updateDisabled()
-	})
-}
-
-func (op *OverridesPrimitive) ProcessPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
-	if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
-		op.processStatusReportPushMessage(statusReportPushMessage)
-		return
+func (op *OverridesPrimitive) Worker(
+	ctx context.Context,
+	trackedStateCh <-chan *TrackedState,
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			err := ctx.Err()
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
+			return err
+		case trackedState, ok := <-trackedStateCh:
+			if !ok {
+				return fmt.Errorf("tracked state channel closed")
+			}
+			op.app.QueueUpdateDraw(func() {
+				op.updateDisabled(trackedState.State)
+			})
+		}
 	}
 }

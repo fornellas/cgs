@@ -3,6 +3,7 @@ package control
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -18,7 +19,6 @@ type StatusPrimitive struct {
 	app            *tview.Application
 	stateTextView  *tview.TextView
 	statusTextView *tview.TextView
-	machineState   grblMod.MachineState
 }
 
 func NewStatusPrimitive(
@@ -39,6 +39,8 @@ func NewStatusPrimitive(
 	statusFlex.AddItem(sp.stateTextView, 4, 0, false)
 	statusFlex.AddItem(sp.statusTextView, 0, 1, false)
 	sp.Flex = statusFlex
+
+	sp.updateStateTextView(UnknownTrackedState)
 
 	return sp
 }
@@ -71,31 +73,25 @@ func (sp *StatusPrimitive) newStatusTextView() {
 	sp.statusTextView = textView
 }
 
-func (sp *StatusPrimitive) processMessagePushWelcome() {
+func (sp *StatusPrimitive) clearAll() {
 	sp.app.QueueUpdateDraw(func() {
-		sp.machineState = grblMod.MachineState{}
 		sp.stateTextView.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 		sp.stateTextView.Clear()
 		sp.statusTextView.Clear()
 	})
 }
 
-func (sp *StatusPrimitive) updateStateTextView(machineState grblMod.MachineState) {
-	if sp.machineState == machineState {
-		return
-	}
-	sp.machineState = machineState
+func (sp *StatusPrimitive) updateStateTextView(trackedState *TrackedState) {
 
-	stateColor := getMachineStateColor(sp.machineState.State)
+	stateColor := getMachineStateColor(trackedState.State)
 
-	sp.app.QueueUpdateDraw(func() {
-		sp.stateTextView.Clear()
-		sp.stateTextView.SetBackgroundColor(stateColor)
-	})
-	fmt.Fprintf(sp.stateTextView, "%s\n", tview.Escape(string(sp.machineState.State)))
-	subState := sp.machineState.SubStateString()
-	if len(subState) > 0 {
-		fmt.Fprintf(sp.stateTextView, "(%s)\n", tview.Escape(subState))
+	sp.stateTextView.Clear()
+	sp.stateTextView.SetBackgroundColor(stateColor)
+
+	fmt.Fprintf(sp.stateTextView, "%s\n", tview.Escape(string(trackedState.State)))
+
+	if trackedState.SubState != nil {
+		fmt.Fprintf(sp.stateTextView, "(%s)\n", tview.Escape(*trackedState.SubState))
 	}
 }
 
@@ -247,18 +243,36 @@ func (sp *StatusPrimitive) updateStatusTextView(statusReportPushMessage *grblMod
 	})
 }
 
-func (sp *StatusPrimitive) processStatusReportPushMessage(statusReportPushMessage *grblMod.StatusReportPushMessage) {
-	sp.updateStateTextView(statusReportPushMessage.MachineState)
-	sp.updateStatusTextView(statusReportPushMessage)
-}
-
-func (sp *StatusPrimitive) ProcessPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
-	if _, ok := pushMessage.(*grblMod.WelcomePushMessage); ok {
-		sp.processMessagePushWelcome()
-		return
-	}
-	if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
-		sp.processStatusReportPushMessage(statusReportPushMessage)
-		return
+func (sp *StatusPrimitive) Worker(
+	ctx context.Context,
+	pushMessageCh <-chan grblMod.PushMessage,
+	trackedStateCh <-chan *TrackedState,
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			err := ctx.Err()
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
+			return err
+		case pushMessage, ok := <-pushMessageCh:
+			if !ok {
+				return fmt.Errorf("push message channel closed")
+			}
+			if _, ok := pushMessage.(*grblMod.WelcomePushMessage); ok {
+				sp.clearAll()
+			}
+			if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
+				sp.updateStatusTextView(statusReportPushMessage)
+			}
+		case trackedState, ok := <-trackedStateCh:
+			if !ok {
+				return fmt.Errorf("tracked state channel closed")
+			}
+			sp.app.QueueUpdateDraw(func() {
+				sp.updateStateTextView(trackedState)
+			})
+		}
 	}
 }

@@ -2,8 +2,8 @@ package control
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"reflect"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -32,7 +32,6 @@ type RootPrimitive struct {
 	helpButton         *tview.Button
 	holdButton         *tview.Button
 	resumeButton       *tview.Button
-	machineState       *grblMod.MachineState
 }
 
 func NewRootPrimitive(
@@ -218,29 +217,10 @@ func (rp *RootPrimitive) newRootFlex() {
 	rp.Flex = rootFlex
 }
 
-func (rp *RootPrimitive) setMachineState(
-	machineState *grblMod.MachineState,
-) {
-	if reflect.DeepEqual(rp.machineState, machineState) {
-		return
-	}
-	rp.machineState = machineState
-
+func (rp *RootPrimitive) processTrackedState(trackedState *TrackedState) {
 	rp.app.QueueUpdateDraw(func() {
-		if rp.machineState == nil {
-			rp.homeButton.SetDisabled(true)
-			rp.unlockButton.SetDisabled(true)
-			rp.resetButton.SetDisabled(true)
-			rp.checkButton.SetDisabled(true)
-			rp.doorButton.SetDisabled(true)
-			rp.sleepButton.SetDisabled(true)
-			rp.helpButton.SetDisabled(true)
-			rp.holdButton.SetDisabled(true)
-			rp.resumeButton.SetDisabled(true)
-			return
-		}
-		switch rp.machineState.State {
-		case "Idle":
+		switch trackedState.State {
+		case grblMod.StateIdle:
 			rp.homeButton.SetDisabled(false)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(false)
@@ -250,7 +230,7 @@ func (rp *RootPrimitive) setMachineState(
 			rp.helpButton.SetDisabled(false)
 			rp.holdButton.SetDisabled(false)
 			rp.resumeButton.SetDisabled(true)
-		case "Run":
+		case grblMod.StateRun:
 			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(false)
@@ -260,7 +240,7 @@ func (rp *RootPrimitive) setMachineState(
 			rp.helpButton.SetDisabled(true)
 			rp.holdButton.SetDisabled(false)
 			rp.resumeButton.SetDisabled(true)
-		case "Hold":
+		case grblMod.StateHold:
 			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(false)
@@ -270,7 +250,7 @@ func (rp *RootPrimitive) setMachineState(
 			rp.helpButton.SetDisabled(true)
 			rp.holdButton.SetDisabled(true)
 			rp.resumeButton.SetDisabled(false)
-		case "Jog":
+		case grblMod.StateJog:
 			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(false)
@@ -280,7 +260,7 @@ func (rp *RootPrimitive) setMachineState(
 			rp.helpButton.SetDisabled(true)
 			rp.holdButton.SetDisabled(false)
 			rp.resumeButton.SetDisabled(true)
-		case "Alarm":
+		case grblMod.StateAlarm:
 			rp.homeButton.SetDisabled(false)
 			rp.unlockButton.SetDisabled(false)
 			rp.resetButton.SetDisabled(false)
@@ -290,7 +270,10 @@ func (rp *RootPrimitive) setMachineState(
 			rp.helpButton.SetDisabled(false)
 			rp.holdButton.SetDisabled(true)
 			rp.resumeButton.SetDisabled(true)
-		case "Door":
+			if trackedState.Error != nil {
+				rp.infoTextView.SetText(fmt.Sprintf("[%s]%s[-]", tcell.ColorRed, tview.Escape(trackedState.Error.Error())))
+			}
+		case grblMod.StateDoor:
 			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(false)
@@ -300,7 +283,7 @@ func (rp *RootPrimitive) setMachineState(
 			rp.helpButton.SetDisabled(true)
 			rp.holdButton.SetDisabled(true)
 			rp.resumeButton.SetDisabled(false)
-		case "Check":
+		case grblMod.StateCheck:
 			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(false)
@@ -310,7 +293,7 @@ func (rp *RootPrimitive) setMachineState(
 			rp.helpButton.SetDisabled(false)
 			rp.holdButton.SetDisabled(true)
 			rp.resumeButton.SetDisabled(true)
-		case "Home":
+		case grblMod.StateHome:
 			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(false)
@@ -320,7 +303,7 @@ func (rp *RootPrimitive) setMachineState(
 			rp.helpButton.SetDisabled(true)
 			rp.holdButton.SetDisabled(true)
 			rp.resumeButton.SetDisabled(true)
-		case "Sleep":
+		case grblMod.StateSleep:
 			rp.homeButton.SetDisabled(true)
 			rp.unlockButton.SetDisabled(true)
 			rp.resetButton.SetDisabled(false)
@@ -330,25 +313,20 @@ func (rp *RootPrimitive) setMachineState(
 			rp.helpButton.SetDisabled(true)
 			rp.holdButton.SetDisabled(true)
 			rp.resumeButton.SetDisabled(true)
+		case grblMod.StateUnknown:
+			rp.homeButton.SetDisabled(true)
+			rp.unlockButton.SetDisabled(true)
+			rp.resetButton.SetDisabled(true)
+			rp.checkButton.SetDisabled(true)
+			rp.doorButton.SetDisabled(true)
+			rp.sleepButton.SetDisabled(true)
+			rp.helpButton.SetDisabled(true)
+			rp.holdButton.SetDisabled(true)
+			rp.resumeButton.SetDisabled(true)
+			rp.infoTextView.SetText("")
 		default:
-			panic(fmt.Errorf("unknown state: %s", rp.machineState.State))
+			panic(fmt.Errorf("unknown state: %s", trackedState.State))
 		}
-	})
-}
-
-func (rp *RootPrimitive) processMessagePushWelcome() {
-	rp.setMachineState(nil)
-	rp.app.QueueUpdateDraw(func() {
-		rp.infoTextView.SetText("")
-	})
-}
-
-func (rp *RootPrimitive) processAlarmPushMessage(
-	alarmPushMessage *grblMod.AlarmPushMessage,
-) {
-	rp.setMachineState(nil)
-	rp.app.QueueUpdateDraw(func() {
-		rp.infoTextView.SetText(fmt.Sprintf("[%s]%s[-]", tcell.ColorRed, tview.Escape(alarmPushMessage.Error().Error())))
 	})
 }
 
@@ -378,27 +356,31 @@ func (rp *RootPrimitive) processFeedbackPushMessage(
 	}
 }
 
-func (rp *RootPrimitive) processStatusReportPushMessage(
-	statusReportPushMessage *grblMod.StatusReportPushMessage,
-) {
-	rp.setMachineState(&statusReportPushMessage.MachineState)
-}
-
-func (rp *RootPrimitive) ProcessPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
-	if _, ok := pushMessage.(*grblMod.WelcomePushMessage); ok {
-		rp.processMessagePushWelcome()
-		return
-	}
-	if alarmPushmessage, ok := pushMessage.(*grblMod.AlarmPushMessage); ok {
-		rp.processAlarmPushMessage(alarmPushmessage)
-		return
-	}
-	if feedbackPushMessage, ok := pushMessage.(*grblMod.FeedbackPushMessage); ok {
-		rp.processFeedbackPushMessage(feedbackPushMessage)
-		return
-	}
-	if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
-		rp.processStatusReportPushMessage(statusReportPushMessage)
-		return
+func (rp *RootPrimitive) Worker(
+	ctx context.Context,
+	pushMessageCh <-chan grblMod.PushMessage,
+	trackedStateCh <-chan *TrackedState,
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			err := ctx.Err()
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
+			return err
+		case pushMessage, ok := <-pushMessageCh:
+			if !ok {
+				return fmt.Errorf("push message channel closed")
+			}
+			if feedbackPushMessage, ok := pushMessage.(*grblMod.FeedbackPushMessage); ok {
+				rp.processFeedbackPushMessage(feedbackPushMessage)
+			}
+		case trackedState, ok := <-trackedStateCh:
+			if !ok {
+				return fmt.Errorf("tracked state channel closed")
+			}
+			rp.processTrackedState(trackedState)
+		}
 	}
 }

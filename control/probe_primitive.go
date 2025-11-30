@@ -3,6 +3,7 @@ package control
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/rivo/tview"
@@ -56,6 +57,8 @@ func NewProbePrimitive(
 	rootFlex.AddItem(pp.straightFlex, 0, 1, false)
 	rootFlex.AddItem(anfleFlex, 0, 1, false)
 	pp.Flex = rootFlex
+
+	// TODO set disabled state
 
 	return pp
 }
@@ -160,7 +163,30 @@ func (pp *ProbePrimitive) newStraight() {
 	pp.straightFlex = straightFlex
 }
 
-func (pp *ProbePrimitive) ProcessPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
-	// TODO set last probing cycle status from g-code param message
-	// TODO reset last probing cycle status on welcome
+func (pp *ProbePrimitive) Worker(
+	ctx context.Context,
+	pushMessageCh <-chan grblMod.PushMessage,
+	trackedStateCh <-chan *TrackedState,
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			err := ctx.Err()
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
+			return err
+		case _, ok := <-pushMessageCh:
+			if !ok {
+				return fmt.Errorf("push message channel closed")
+			}
+			// TODO set last probing cycle status from g-code param message
+			// TODO reset last probing cycle status on welcome
+		case _, ok := <-trackedStateCh:
+			if !ok {
+				return fmt.Errorf("tracked state channel closed")
+			}
+			// TODO enable / disabled
+		}
+	}
 }

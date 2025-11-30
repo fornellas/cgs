@@ -51,7 +51,7 @@ type JoggingPrimitive struct {
 	paramsJogBlock             string
 	paramsCancelButton         *tview.Button
 	// Messages
-	machineState grblMod.MachineState
+	state grblMod.State
 	// Feed rate
 	xMaxFeedRate *float64
 	yMaxFeedRate *float64
@@ -68,6 +68,7 @@ func NewJoggingPrimitive(
 	jp := &JoggingPrimitive{
 		app:              app,
 		controlPrimitive: controlPrimitive,
+		state:            grblMod.StateUnknown,
 	}
 
 	joystickFlex := jp.newJoystickFlex()
@@ -270,8 +271,8 @@ func (jp *JoggingPrimitive) getParamsJogBlock() (string, error) {
 
 func (jp *JoggingPrimitive) updateDisabled() {
 	jp.mu.Lock()
-	switch jp.machineState.State {
-	case "Idle":
+	switch jp.state {
+	case grblMod.StateIdle:
 		// Joystick
 		jogDisabled := !jp.joystickJogOk
 		jp.xMinusButton.SetDisabled(jogDisabled)
@@ -302,7 +303,7 @@ func (jp *JoggingPrimitive) updateDisabled() {
 			jp.jogParametersButton.SetDisabled(true)
 		}
 		jp.paramsCancelButton.SetDisabled(true)
-	case "Jog":
+	case grblMod.StateJog:
 		// Joystick
 		jp.xMinusButton.SetDisabled(true)
 		jp.xPlusButton.SetDisabled(true)
@@ -324,7 +325,7 @@ func (jp *JoggingPrimitive) updateDisabled() {
 		jp.machineCoordinatesCheckbox.SetDisabled(true)
 		jp.jogParametersButton.SetDisabled(true)
 		jp.paramsCancelButton.SetDisabled(false)
-	case "Run", "Hold", "Alarm", "Door", "Check", "Home", "Sleep", "":
+	case grblMod.StateRun, grblMod.StateHold, grblMod.StateAlarm, grblMod.StateDoor, grblMod.StateCheck, grblMod.StateHome, grblMod.StateSleep, grblMod.StateUnknown:
 		// Joystick
 		jp.xMinusButton.SetDisabled(true)
 		jp.xPlusButton.SetDisabled(true)
@@ -347,7 +348,7 @@ func (jp *JoggingPrimitive) updateDisabled() {
 		jp.jogParametersButton.SetDisabled(true)
 		jp.paramsCancelButton.SetDisabled(true)
 	default:
-		panic(fmt.Sprintf("unknown machine state: %#v", jp.machineState.State))
+		panic(fmt.Sprintf("unknown machine state: %#v", jp.state))
 	}
 	jp.mu.Unlock()
 }
@@ -550,13 +551,9 @@ func (jp *JoggingPrimitive) processGcodeStatePushMessage(
 	})
 }
 
-func (jp *JoggingPrimitive) setMachineState(machineState grblMod.MachineState) {
+func (jp *JoggingPrimitive) setState(state grblMod.State) {
 	jp.mu.Lock()
-	if jp.machineState == machineState {
-		jp.mu.Unlock()
-		return
-	}
-	jp.machineState = machineState
+	jp.state = state
 	jp.mu.Unlock()
 
 	jp.app.QueueUpdateDraw(func() {
@@ -564,13 +561,7 @@ func (jp *JoggingPrimitive) setMachineState(machineState grblMod.MachineState) {
 	})
 }
 
-func (jp *JoggingPrimitive) processStatusReportPushMessage(
-	statusReportPushMessage *grblMod.StatusReportPushMessage,
-) {
-	jp.setMachineState(statusReportPushMessage.MachineState)
-}
-
-func (jp *JoggingPrimitive) ProcessPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
+func (jp *JoggingPrimitive) processPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
 	if _, ok := pushMessage.(*grblMod.WelcomePushMessage); ok {
 		jp.processMessagePushWelcome()
 		return
@@ -583,8 +574,31 @@ func (jp *JoggingPrimitive) ProcessPushMessage(ctx context.Context, pushMessage 
 		jp.processGcodeStatePushMessage(gcodeStatePushMessage)
 		return
 	}
-	if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
-		jp.processStatusReportPushMessage(statusReportPushMessage)
-		return
+}
+
+func (jp *JoggingPrimitive) Worker(
+	ctx context.Context,
+	pushMessageCh <-chan grblMod.PushMessage,
+	trackedStateCh <-chan *TrackedState,
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			err := ctx.Err()
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
+			return err
+		case pushMessage, ok := <-pushMessageCh:
+			if !ok {
+				return fmt.Errorf("push message channel closed")
+			}
+			jp.processPushMessage(ctx, pushMessage)
+		case trackedState, ok := <-trackedStateCh:
+			if !ok {
+				return fmt.Errorf("tracked state channel closed")
+			}
+			jp.setState(trackedState.State)
+		}
 	}
 }

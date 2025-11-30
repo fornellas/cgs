@@ -2,10 +2,10 @@ package control
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/rivo/tview"
-
-	grblMod "github.com/fornellas/cgs/grbl"
 )
 
 type HeightMapPrimitive struct {
@@ -37,8 +37,27 @@ func NewHeightMapPrimitive(
 	rootFlex.SetDirection(tview.FlexRow)
 	sp.Flex = rootFlex
 
+	// TODO set disabled state
+
 	return sp
 }
 
-func (hm *HeightMapPrimitive) ProcessPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
+func (hm *HeightMapPrimitive) Worker(
+	ctx context.Context, trackedStateCh <-chan *TrackedState,
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			err := ctx.Err()
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
+			return err
+		case _, ok := <-trackedStateCh:
+			if !ok {
+				return fmt.Errorf("tracked state channel closed")
+			}
+			// TODO
+		}
+	}
 }

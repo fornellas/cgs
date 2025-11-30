@@ -2,46 +2,68 @@ package control
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"reflect"
 	"sync"
 
+	brokerMod "github.com/fornellas/cgs/broker"
 	grblMod "github.com/fornellas/cgs/grbl"
 )
 
-// TrackedState is the virtual Grbl state tracked by StateTrackerPushMessageProcessor.
+// TrackedState is the virtual Grbl state tracked by StateTracker.
 type TrackedState struct {
 	State    grblMod.State
 	SubState *string
 	Error    error
 }
 
-// StateTracker implements [PushMessageProcessor] and keeps track of Grbl state,
-// handling corner cases where [grblMod.StatusReportPushMessage] isn't enough / does not work.
+var UnknownTrackedState = &TrackedState{
+	State: grblMod.StateUnknown,
+}
+
+// StateTracker keeps track of Grbl state, handling corner cases where
+// [grblMod.StatusReportPushMessage] isn't enough / does not work (ie: $H, Alarm push message).
 type StateTracker struct {
+	*brokerMod.Broker[*TrackedState]
+
 	mu sync.Mutex
 
 	homeOverride     bool
 	machineState     *grblMod.MachineState
 	alarmPushMessage *grblMod.AlarmPushMessage
 
-	lastTrackedState *TrackedState
-
-	subscribers map[string]chan *TrackedState
+	lastPublishedTrackedState *TrackedState
 }
 
-func (s *StateTracker) getTrackedState() *TrackedState {
-	if s.alarmPushMessage != nil {
+func NewStateTracker() *StateTracker {
+	return &StateTracker{
+		Broker: brokerMod.NewBroker[*TrackedState](),
+	}
+}
+
+func (st *StateTracker) getTrackedState() *TrackedState {
+	if st.homeOverride {
 		return &TrackedState{
-			State: grblMod.StateAlarm,
-			Error: s.alarmPushMessage.Error(),
+			State: grblMod.StateHome,
 		}
 	}
 
-	if s.machineState != nil {
-		subState := s.machineState.SubStateString()
+	if st.alarmPushMessage != nil {
 		return &TrackedState{
-			State:    s.machineState.State,
-			SubState: &subState,
+			State: grblMod.StateAlarm,
+			Error: st.alarmPushMessage.Error(),
+		}
+	}
+
+	if st.machineState != nil {
+		var subState *string
+		if subStateString := st.machineState.SubStateString(); subStateString != "" {
+			subState = &subStateString
+		}
+		return &TrackedState{
+			State:    st.machineState.State,
+			SubState: subState,
 		}
 	}
 
@@ -50,62 +72,62 @@ func (s *StateTracker) getTrackedState() *TrackedState {
 	}
 }
 
-func (s *StateTracker) publish() {
-	trackedState := s.getTrackedState()
-	if reflect.DeepEqual(s.lastTrackedState, trackedState) {
+func (st *StateTracker) publish() {
+	trackedState := st.getTrackedState()
+	if reflect.DeepEqual(st.lastPublishedTrackedState, trackedState) {
 		return
 	}
 
-	for _, trackedStateCh := range s.subscribers {
-		go func() { trackedStateCh <- trackedState }()
-	}
+	st.Broker.Publish(trackedState)
 
-	s.lastTrackedState = trackedState
+	st.lastPublishedTrackedState = trackedState
 }
 
 // Grbl stops responding to status report queries while homing. This enable overriding the Home
 // state while home is ongoing.
-func (s *StateTracker) HomeOverride(homeOverride bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.homeOverride = homeOverride
-	s.publish()
+func (st *StateTracker) HomeOverride(homeOverride bool) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	st.homeOverride = homeOverride
+	st.publish()
 }
 
-func (s *StateTracker) ProcessPushMessage(
-	ctx context.Context, pushMessage grblMod.PushMessage,
-) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if _, ok := pushMessage.(*grblMod.WelcomePushMessage); ok {
-		s.homeOverride = false
-		s.machineState = nil
-		s.alarmPushMessage = nil
-		s.lastTrackedState = nil
-	}
-	if alarmPushMessage, ok := pushMessage.(*grblMod.AlarmPushMessage); ok {
-		s.alarmPushMessage = alarmPushMessage
-	}
-	if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
-		s.machineState = &statusReportPushMessage.MachineState
-	}
-	s.publish()
-}
+// Worker processes push messages from Grbl and updates the tracked state accordingly.
+// The worker runs until ctx is canceled or the push message channel is closed.
+// It publishes state changes via the Broker and returns any error encountered.
+func (st *StateTracker) Worker(ctx context.Context, pushMessageCh <-chan grblMod.PushMessage) error {
+	for {
+		select {
+		case <-ctx.Done():
+			err := ctx.Err()
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
+			st.Broker.Close()
+			return err
+		case pushMessage, ok := <-pushMessageCh:
+			if !ok {
+				return fmt.Errorf("push message channel closed")
+			}
 
-// Adds a new subscriber to state changes
-func (s *StateTracker) Subscribe(name string) <-chan *TrackedState {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+			st.mu.Lock()
 
-	trackedStateCh := make(chan *TrackedState, 10)
+			if _, ok := pushMessage.(*grblMod.WelcomePushMessage); ok {
+				st.homeOverride = false
+				st.machineState = nil
+				st.alarmPushMessage = nil
+				st.lastPublishedTrackedState = nil
+			}
+			if alarmPushMessage, ok := pushMessage.(*grblMod.AlarmPushMessage); ok {
+				st.alarmPushMessage = alarmPushMessage
+			}
+			if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
+				st.machineState = &statusReportPushMessage.MachineState
+			}
 
-	s.subscribers[name] = trackedStateCh
+			st.publish()
 
-	return trackedStateCh
-}
-
-func (s *StateTracker) Close() {
-	for _, trackedStateCh := range s.subscribers {
-		close(trackedStateCh)
+			st.mu.Unlock()
+		}
 	}
 }

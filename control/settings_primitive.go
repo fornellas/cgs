@@ -3,6 +3,7 @@ package control
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -89,7 +90,7 @@ type SettingsPrimitive struct {
 	restoreGcodeParametersButton *tview.Button
 	restoreAllButton             *tview.Button
 	// Messages
-	machineState grblMod.MachineState
+	state grblMod.State
 
 	mu               sync.Mutex
 	skipQueueCommand bool
@@ -553,7 +554,7 @@ func (sp *SettingsPrimitive) processSettingPushMessage(settingPushMessage *grblM
 
 func (sp *SettingsPrimitive) updateDisabled() {
 	sp.mu.Lock()
-	disabled := sp.machineState.State != "Idle"
+	disabled := sp.state != grblMod.StateIdle
 
 	// Settings
 	sp.stepPulse.SetDisabled(disabled)
@@ -610,13 +611,9 @@ func (sp *SettingsPrimitive) updateDisabled() {
 	sp.mu.Unlock()
 }
 
-func (sp *SettingsPrimitive) setMachineState(machineState grblMod.MachineState) {
-	if sp.machineState == machineState {
-		return
-	}
-
+func (sp *SettingsPrimitive) setState(state grblMod.State) {
 	sp.mu.Lock()
-	sp.machineState = machineState
+	sp.state = state
 	sp.mu.Unlock()
 
 	sp.app.QueueUpdateDraw(func() {
@@ -624,31 +621,40 @@ func (sp *SettingsPrimitive) setMachineState(machineState grblMod.MachineState) 
 	})
 }
 
-func (sp *SettingsPrimitive) processStatusReportPushMessage(
-	statusReportPushMessage *grblMod.StatusReportPushMessage,
-) {
-	sp.setMachineState(statusReportPushMessage.MachineState)
-}
-
-func (sp *SettingsPrimitive) ProcessPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
-	if _, ok := pushMessage.(*grblMod.WelcomePushMessage); ok {
-		sp.processMessagePushWelcome()
-		return
-	}
-	if versionPushMessage, ok := pushMessage.(*grblMod.VersionPushMessage); ok {
-		sp.processVersionPushMessage(versionPushMessage)
-		return
-	}
-	if compileTimeOptionsPushMessage, ok := pushMessage.(*grblMod.CompileTimeOptionsPushMessage); ok {
-		sp.processCompileTimeOptionsPushMessage(compileTimeOptionsPushMessage)
-		return
-	}
-	if settingPushMessage, ok := pushMessage.(*grblMod.SettingPushMessage); ok {
-		sp.processSettingPushMessage(settingPushMessage)
-		return
-	}
-	if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
-		sp.processStatusReportPushMessage(statusReportPushMessage)
-		return
+func (sp *SettingsPrimitive) Worker(
+	ctx context.Context,
+	pushMessageCh <-chan grblMod.PushMessage,
+	trackedStateCh <-chan *TrackedState,
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			err := ctx.Err()
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
+			return err
+		case pushMessage, ok := <-pushMessageCh:
+			if !ok {
+				return fmt.Errorf("push message channel closed")
+			}
+			if _, ok := pushMessage.(*grblMod.WelcomePushMessage); ok {
+				sp.processMessagePushWelcome()
+			}
+			if versionPushMessage, ok := pushMessage.(*grblMod.VersionPushMessage); ok {
+				sp.processVersionPushMessage(versionPushMessage)
+			}
+			if compileTimeOptionsPushMessage, ok := pushMessage.(*grblMod.CompileTimeOptionsPushMessage); ok {
+				sp.processCompileTimeOptionsPushMessage(compileTimeOptionsPushMessage)
+			}
+			if settingPushMessage, ok := pushMessage.(*grblMod.SettingPushMessage); ok {
+				sp.processSettingPushMessage(settingPushMessage)
+			}
+		case trackedState, ok := <-trackedStateCh:
+			if !ok {
+				return fmt.Errorf("tracked state channel closed")
+			}
+			sp.setState(trackedState.State)
+		}
 	}
 }

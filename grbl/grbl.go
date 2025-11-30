@@ -198,7 +198,7 @@ func (g *Grbl) waitForWelcomeMessage(ctx context.Context) error {
 // Disconnect() must be called when the connection isn't needed anymore.
 //
 //gocyclo:ignore
-func (g *Grbl) Connect(ctx context.Context) (chan PushMessage, error) {
+func (g *Grbl) Connect(ctx context.Context) (<-chan PushMessage, error) {
 	ctx, logger := log.MustWithGroup(ctx, "Grbl")
 	mode := &serial.Mode{
 		BaudRate: 115200,
