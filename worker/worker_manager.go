@@ -39,6 +39,9 @@ func (c *WorkerManager) StartWorker(name string, fn func(context.Context) error)
 		logger.Debug("Starting")
 		err := fn(ctx)
 		logger.Debug("Finished", "err", err)
+		if errors.Is(err, context.Canceled) {
+			err = nil
+		}
 		errCh <- err
 		c.cancelFunc()
 	}()

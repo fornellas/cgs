@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/rivo/tview"
@@ -48,11 +47,7 @@ func (hm *HeightMapPrimitive) Worker(
 	for {
 		select {
 		case <-ctx.Done():
-			err := ctx.Err()
-			if errors.Is(err, context.Canceled) {
-				err = nil
-			}
-			return err
+			return ctx.Err()
 		case _, ok := <-trackedStateCh:
 			if !ok {
 				return fmt.Errorf("tracked state channel closed")

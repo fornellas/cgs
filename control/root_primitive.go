@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/gdamore/tcell/v2"
@@ -364,11 +363,7 @@ func (rp *RootPrimitive) Worker(
 	for {
 		select {
 		case <-ctx.Done():
-			err := ctx.Err()
-			if errors.Is(err, context.Canceled) {
-				err = nil
-			}
-			return err
+			return ctx.Err()
 		case pushMessage, ok := <-pushMessageCh:
 			if !ok {
 				return fmt.Errorf("push message channel closed")

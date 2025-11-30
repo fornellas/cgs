@@ -584,11 +584,7 @@ func (jp *JoggingPrimitive) Worker(
 	for {
 		select {
 		case <-ctx.Done():
-			err := ctx.Err()
-			if errors.Is(err, context.Canceled) {
-				err = nil
-			}
-			return err
+			return ctx.Err()
 		case pushMessage, ok := <-pushMessageCh:
 			if !ok {
 				return fmt.Errorf("push message channel closed")

@@ -40,11 +40,7 @@ func (c *Control) statusQueryWorker(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			err := ctx.Err()
-			if errors.Is(err, context.Canceled) {
-				err = nil
-			}
-			return err
+			return ctx.Err()
 		case <-time.After(200 * time.Millisecond):
 			if err := c.grbl.SendRealTimeCommand(grblMod.RealTimeCommandStatusReportQuery); err != nil {
 				err := fmt.Errorf("failed to send periodic status query real-time command: %w", err)
