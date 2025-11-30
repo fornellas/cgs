@@ -107,7 +107,7 @@ func NewSettingsPrimitive(
 
 	newSettingInputField := func(key, label string, width int) *tview.InputField {
 		field := tview.NewInputField()
-		field.SetLabel(label + " ")
+		field.SetLabel(fmt.Sprintf("%s[%s]$%s[-] ", label, gcodeColor, key))
 		if width > 0 {
 			field.SetFieldWidth(width)
 		}
@@ -122,7 +122,7 @@ func NewSettingsPrimitive(
 
 	newSettingCheckbox := func(key, label string) *tview.Checkbox {
 		cb := tview.NewCheckbox()
-		cb.SetLabel(label + " ")
+		cb.SetLabel(fmt.Sprintf("%s[%s]$%s[-] ", label, gcodeColor, key))
 		cb.SetChangedFunc(func(checked bool) {
 			if sp.skipQueueCommand {
 				return
@@ -159,12 +159,13 @@ func NewSettingsPrimitive(
 		return x, y, z
 	}
 
-	newSettingMaskContainer := func(label string, x, y, z *tview.Checkbox) tview.Primitive {
+	newSettingMaskContainer := func(key, label string, x, y, z *tview.Checkbox) tview.Primitive {
 		flex := tview.NewFlex()
 		flex.SetDirection(tview.FlexColumn)
 		labelView := tview.NewTextView()
-		labelView.SetText(label)
-		flex.AddItem(labelView, len(label)+1, 0, false)
+		labelView.SetText(fmt.Sprintf("%s[%s]$%s[-] ", label, gcodeColor, key))
+		labelView.SetDynamicColors(true)
+		flex.AddItem(labelView, len(label)+1+len(key)+1, 0, false)
 		flex.AddItem(x, 4, 0, false)
 		flex.AddItem(y, 4, 0, false)
 		flex.AddItem(z, 4, 0, false)
@@ -188,9 +189,9 @@ func NewSettingsPrimitive(
 	sp.limitPinsInvert = newSettingCheckbox("5", "Limit pins invert")
 	sp.probePinInvert = newSettingCheckbox("6", "Probe pin invert")
 	statusReportMachinePosition := tview.NewCheckbox()
-	statusReportMachinePosition.SetLabel("Status Report: Machine Position ")
+	statusReportMachinePosition.SetLabel(fmt.Sprintf("Status Report: Machine Position[%s]$10[-] ", gcodeColor))
 	statusReportBufferData := tview.NewCheckbox()
-	statusReportBufferData.SetLabel("Status Report: Buffer Data ")
+	statusReportBufferData.SetLabel(fmt.Sprintf("Status Report: Buffer Data[%s]$10[-] ", gcodeColor))
 	updateStatusReportMask := func() {
 		if sp.skipQueueCommand {
 			return
@@ -238,11 +239,11 @@ func NewSettingsPrimitive(
 	// Settings
 	mainSettings := NewScrollContainer()
 	mainSettings.SetBorder(true)
-	mainSettings.SetTitle("Settings")
+	mainSettings.SetTitle(fmt.Sprintf("Settings[%s]$$[-]", gcodeColor))
 	mainSettings.AddPrimitive(sp.stepPulse, 1)
 	mainSettings.AddPrimitive(sp.stepIdleDelay, 1)
-	mainSettings.AddPrimitive(newSettingMaskContainer("Step port invert", sp.stepPortInvertX, sp.stepPortInvertY, sp.stepPortInvertZ), 1)
-	mainSettings.AddPrimitive(newSettingMaskContainer("Direction port invert", sp.directionPortInvertX, sp.directionPortInvertY, sp.directionPortInvertZ), 1)
+	mainSettings.AddPrimitive(newSettingMaskContainer("2", "Step port invert", sp.stepPortInvertX, sp.stepPortInvertY, sp.stepPortInvertZ), 1)
+	mainSettings.AddPrimitive(newSettingMaskContainer("3", "Direction port invert", sp.directionPortInvertX, sp.directionPortInvertY, sp.directionPortInvertZ), 1)
 	mainSettings.AddPrimitive(sp.stepEnableInvert, 1)
 	mainSettings.AddPrimitive(sp.limitPinsInvert, 1)
 	mainSettings.AddPrimitive(sp.probePinInvert, 1)
@@ -254,7 +255,7 @@ func NewSettingsPrimitive(
 	mainSettings.AddPrimitive(sp.softLimits, 1)
 	mainSettings.AddPrimitive(sp.hardLimits, 1)
 	mainSettings.AddPrimitive(sp.homingCycle, 1)
-	mainSettings.AddPrimitive(newSettingMaskContainer("Homing dir invert", sp.homingDirInvertX, sp.homingDirInvertY, sp.homingDirInvertZ), 1)
+	mainSettings.AddPrimitive(newSettingMaskContainer("23", "Homing dir invert", sp.homingDirInvertX, sp.homingDirInvertY, sp.homingDirInvertZ), 1)
 	mainSettings.AddPrimitive(sp.homingFeed, 1)
 	mainSettings.AddPrimitive(sp.homingSeek, 1)
 	mainSettings.AddPrimitive(sp.homingDebounce, 1)
@@ -283,7 +284,7 @@ func NewSettingsPrimitive(
 	startupLinesFlex := tview.NewFlex()
 	startupLinesFlex.SetDirection(tview.FlexRow)
 	startupLinesFlex.SetBorder(true)
-	startupLinesFlex.SetTitle("Startup Lines")
+	startupLinesFlex.SetTitle(fmt.Sprintf("Startup Lines[%s]$N[-]", gcodeColor))
 	startupLinesFlex.AddItem(sp.startupLine0InputField, 0, 1, false)
 	startupLinesFlex.AddItem(sp.startupLine1InputField, 0, 1, false)
 
@@ -305,17 +306,17 @@ func NewSettingsPrimitive(
 	buildInfoFlex.AddPrimitive(sp.compileTimeOptionsTextView, 10)
 
 	// Restore Defaults: Buttons
-	restoreSettingsButton := tview.NewButton("Settings")
+	restoreSettingsButton := tview.NewButton(fmt.Sprintf("Settings[%s]$RST=$[-]", gcodeColor))
 	restoreSettingsButton.SetSelectedFunc(func() {
 		sp.controlPrimitive.QueueCommand(grblMod.GrblCommandRestoreGrblSettingsToDefaults)
 	})
 	sp.restoreSettingsButton = restoreSettingsButton
-	restoreGcodeParametersButton := tview.NewButton("G-Code Parameters")
+	restoreGcodeParametersButton := tview.NewButton(fmt.Sprintf("G-Code Parameters[%s]$RST=#[-]", gcodeColor))
 	restoreGcodeParametersButton.SetSelectedFunc(func() {
 		sp.controlPrimitive.QueueCommand(grblMod.GrblCommandRestoreGcodeParametersToDefaults)
 	})
 	sp.restoreGcodeParametersButton = restoreGcodeParametersButton
-	restoreAllButton := tview.NewButton("All")
+	restoreAllButton := tview.NewButton(fmt.Sprintf("All[%s]$RST=*[-]", gcodeColor))
 	restoreAllButton.SetSelectedFunc(func() {
 		sp.controlPrimitive.QueueCommand(grblMod.GrblCommandRestoreAllToDefaults)
 	})
