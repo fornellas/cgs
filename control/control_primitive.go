@@ -605,7 +605,7 @@ func (cp *ControlPrimitive) processAlarmPushMessage(
 }
 
 //gocyclo:ignore
-func (cp *ControlPrimitive) processPushMessage(ctx context.Context, pushMessage grblMod.PushMessage) {
+func (cp *ControlPrimitive) processPushMessage(pushMessage grblMod.PushMessage) {
 	var color = tcell.ColorGreen
 	var extraInfo string
 
@@ -679,7 +679,7 @@ func (cp *ControlPrimitive) Worker(
 			if !ok {
 				return fmt.Errorf("push message channel closed")
 			}
-			cp.processPushMessage(ctx, pushMessage)
+			cp.processPushMessage(pushMessage)
 		case trackedState, ok := <-trackedStateCh:
 			if !ok {
 				return fmt.Errorf("tracked state channel closed")
