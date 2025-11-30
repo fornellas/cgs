@@ -64,10 +64,9 @@ var RootCmd = &cobra.Command{
 			}
 			debugFileHandler := log.NewTerminalTreeHandler(logDebugFile, &log.TerminalHandlerOptions{
 				HandlerOptions: slog.HandlerOptions{
-					AddSource: true,
-					Level:     slog.LevelDebug,
+					Level: slog.LevelDebug,
 				},
-				NoColor: true,
+				ForceColor: true,
 			}).WithGroup(getCmdChainStr(cmd))
 			logDebugFileLogger = slog.New(debugFileHandler)
 
