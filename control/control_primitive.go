@@ -100,10 +100,10 @@ func NewControlPrimitive(
 	cp.commandsTextView = commandsTextView
 
 	// Push Messages
-	pushMessagesTextView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
+	pushMessagesTextView := tview.NewTextView()
+	pushMessagesTextView.SetDynamicColors(true)
+	pushMessagesTextView.SetScrollable(true)
+	pushMessagesTextView.SetWrap(true)
 	pushMessagesTextView.SetBorder(true).SetTitle("Push Messages")
 	pushMessagesTextView.SetChangedFunc(func() {
 		cp.app.QueueUpdate(func() {
@@ -117,10 +117,10 @@ func NewControlPrimitive(
 	cp.pushMessagesTextView = pushMessagesTextView
 
 	// G-Code Parser
-	gcodeParserTextView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
+	gcodeParserTextView := tview.NewTextView()
+	gcodeParserTextView.SetDynamicColors(true)
+	gcodeParserTextView.SetScrollable(true)
+	gcodeParserTextView.SetWrap(true)
 	gcodeParserTextView.SetBorder(true).SetTitle("G-Code Parser")
 	gcodeParserTextView.SetChangedFunc(func() {
 		cp.app.QueueUpdate(func() {
@@ -133,10 +133,10 @@ func NewControlPrimitive(
 	cp.gcodeParserTextView = gcodeParserTextView
 
 	// G-Code Parameters
-	gcodeParamsTextView := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
+	gcodeParamsTextView := tview.NewTextView()
+	gcodeParamsTextView.SetDynamicColors(true)
+	gcodeParamsTextView.SetScrollable(true)
+	gcodeParamsTextView.SetWrap(true)
 	gcodeParamsTextView.SetBorder(true).SetTitle("G-Code Parameters")
 	gcodeParamsTextView.SetChangedFunc(func() {
 		cp.app.QueueUpdate(func() {
