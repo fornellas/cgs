@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -99,12 +98,8 @@ func (st *StateTracker) Worker(ctx context.Context, pushMessageCh <-chan grblMod
 	for {
 		select {
 		case <-ctx.Done():
-			err := ctx.Err()
-			if errors.Is(err, context.Canceled) {
-				err = nil
-			}
 			st.Broker.Close()
-			return err
+			return ctx.Err()
 		case pushMessage, ok := <-pushMessageCh:
 			if !ok {
 				return fmt.Errorf("push message channel closed")

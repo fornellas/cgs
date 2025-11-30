@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	brokerMod "github.com/fornellas/cgs/broker"
@@ -23,12 +22,8 @@ func (s *PushMessageBroker) Worker(ctx context.Context, pushMessageCh <-chan grb
 	for {
 		select {
 		case <-ctx.Done():
-			err := ctx.Err()
-			if errors.Is(err, context.Canceled) {
-				err = nil
-			}
 			s.Broker.Close()
-			return err
+			return ctx.Err()
 		case pushMessage, ok := <-pushMessageCh:
 			if !ok {
 				return fmt.Errorf("push message channel closed")
