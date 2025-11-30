@@ -36,11 +36,6 @@ type commandParameterType struct {
 	quiet   bool
 }
 
-var syncCommand = &commandParameterType{
-	command: "G4 P0.01",
-	quiet:   true,
-}
-
 type ControlPrimitive struct {
 	*tview.Flex
 	grbl                   *grblMod.Grbl
@@ -323,7 +318,7 @@ func (cp *ControlPrimitive) extractRealTimeCommands(command string) ([]grblMod.R
 }
 
 //gocyclo:ignore
-func (cp *ControlPrimitive) getBlockStatusCmdsAndTimeout(block *gcode.Block) (map[string]bool, time.Duration) {
+func (cp *ControlPrimitive) getStatusCmdsAndTimeout(block *gcode.Block) (map[string]bool, time.Duration) {
 	statusCommands := map[string]bool{}
 	var timeout time.Duration
 	if block.IsSystem() {
@@ -405,7 +400,7 @@ func (cp *ControlPrimitive) processCommand(ctx context.Context, command string) 
 	if len(blocks) > 0 {
 		block := blocks[0]
 		var timeout time.Duration
-		statusCommands, timeout = cp.getBlockStatusCmdsAndTimeout(block)
+		statusCommands, timeout = cp.getStatusCmdsAndTimeout(block)
 		if timeout > 0 {
 			commandParameter.timeout = timeout
 		}
@@ -414,7 +409,6 @@ func (cp *ControlPrimitive) processCommand(ctx context.Context, command string) 
 	cp.DisableCommandInput(true)
 	defer cp.DisableCommandInput(false)
 	cp.sendCommand(ctx, commandParameter)
-	cp.sendCommand(ctx, syncCommand)
 	for command := range statusCommands {
 		cp.sendCommand(ctx, &commandParameterType{
 			command: command,
