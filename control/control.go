@@ -212,6 +212,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 			return nil
 		}
 		if event.Key() == tcell.KeyCtrlC {
+			appLogger.Info("Exiting")
 			workerManager.Cancel()
 			return nil
 		}
