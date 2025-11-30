@@ -11,6 +11,8 @@ import (
 	iFmt "github.com/fornellas/cgs/internal/fmt"
 )
 
+var gcodeColor = tcell.NewRGBColor(111, 170, 210)
+
 const coordinateWidth = len("20000.0000") + 1
 const feedWidth = len("20000") + 1
 

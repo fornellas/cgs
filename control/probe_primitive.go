@@ -10,8 +10,8 @@ import (
 	grblMod "github.com/fornellas/cgs/grbl"
 )
 
-var probeTowardPieceText = "Toward piece[lightblue]G38.2[-]"
-var probeFromPieceText = "From piece[lightblue]G38.4[-]"
+var probeTowardPieceText = fmt.Sprintf("Toward piece[%s]G38.2[-]", gcodeColor)
+var probeFromPieceText = fmt.Sprintf("From piece[%s]G38.4[-]", gcodeColor)
 
 type ProbePrimitive struct {
 	*tview.Flex

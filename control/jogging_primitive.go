@@ -15,11 +15,11 @@ import (
 	grblMod "github.com/fornellas/cgs/grbl"
 )
 
-var unitInchesText = "Inches[lightblue]G20[-]"
-var unitMillimetersText = "Millimeters[lightblue]G21[-]"
+var unitInchesText = fmt.Sprintf("Inches[%s]G20[-]", gcodeColor)
+var unitMillimetersText = fmt.Sprintf("Millimeters[%s]G21[-]", gcodeColor)
 var unitOptions = []string{unitInchesText, unitMillimetersText}
-var distanceModeOptionAbsoluteText = "Absolute[lightblue]G90[-]"
-var distanceModeOptionIncrementalText = "Incremental[lightblue]G91[-]"
+var distanceModeOptionAbsoluteText = fmt.Sprintf("Absolute[%s]G90[-]", gcodeColor)
+var distanceModeOptionIncrementalText = fmt.Sprintf("Incremental[%s]G91[-]", gcodeColor)
 var distanceModeOptions = []string{distanceModeOptionAbsoluteText, distanceModeOptionIncrementalText}
 
 type JoggingPrimitive struct {

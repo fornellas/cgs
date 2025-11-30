@@ -58,7 +58,7 @@ func NewRootPrimitive(
 	}
 
 	getButtonText := func(name, command string) string {
-		return fmt.Sprintf("%s[lightblue]%s[-]", name, command)
+		return fmt.Sprintf("%s[%s]%s[-]", tview.Escape(name), gcodeColor, tview.Escape(command))
 	}
 
 	rp.newInfoTextView()
