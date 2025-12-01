@@ -28,7 +28,9 @@ func (s *PushMessageBroker) Worker(ctx context.Context, pushMessageCh <-chan grb
 			if !ok {
 				return fmt.Errorf("push message channel closed")
 			}
-			s.Broker.Publish(pushMessage)
+			if err := s.Broker.Publish(pushMessage); err != nil {
+				return err
+			}
 		}
 	}
 }

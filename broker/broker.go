@@ -1,6 +1,9 @@
 package broker
 
-import "sync"
+import (
+	"errors"
+	"sync"
+)
 
 // Broken implement a simple fan-out message broker.
 type Broker[T any] struct {
@@ -28,19 +31,29 @@ func (b *Broker[T]) Subscribe(name string, size int) <-chan T {
 }
 
 // Publish sends a message to all registered subscribers asynchronously.
-func (b *Broker[T]) Publish(t T) {
+func (b *Broker[T]) Publish(t T) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	if len(b.subscribers) == 0 {
+		return errors.New("no subscribers")
+	}
+
 	for _, ch := range b.subscribers {
 		go func() { ch <- t }()
 	}
+
+	return nil
 }
 
 // Close closes all subscriber channels, signaling that no more messages will be published.
 func (b *Broker[T]) Close() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
 	for _, ch := range b.subscribers {
 		close(ch)
 	}
+
+	b.subscribers = make(map[string]chan T)
 }

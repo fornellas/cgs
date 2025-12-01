@@ -71,24 +71,28 @@ func (st *StateTracker) getTrackedState() *TrackedState {
 	}
 }
 
-func (st *StateTracker) publish() {
+func (st *StateTracker) publish() error {
 	trackedState := st.getTrackedState()
 	if reflect.DeepEqual(st.lastPublishedTrackedState, trackedState) {
-		return
+		return nil
 	}
 
-	st.Broker.Publish(trackedState)
+	if err := st.Broker.Publish(trackedState); err != nil {
+		return err
+	}
 
 	st.lastPublishedTrackedState = trackedState
+
+	return nil
 }
 
 // Grbl stops responding to status report queries while homing. This enable overriding the Home
 // state while home is ongoing.
-func (st *StateTracker) HomeOverride(homeOverride bool) {
+func (st *StateTracker) HomeOverride(homeOverride bool) error {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	st.homeOverride = homeOverride
-	st.publish()
+	return st.publish()
 }
 
 // Worker processes push messages from Grbl and updates the tracked state accordingly.
@@ -120,7 +124,10 @@ func (st *StateTracker) Worker(ctx context.Context, pushMessageCh <-chan grblMod
 				st.machineState = &statusReportPushMessage.MachineState
 			}
 
-			st.publish()
+			if err := st.publish(); err != nil {
+				st.mu.Unlock()
+				return err
+			}
 
 			st.mu.Unlock()
 		}
