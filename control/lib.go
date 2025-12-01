@@ -99,6 +99,6 @@ func getMachineStateColor(state grblMod.State) tcell.Color {
 	case grblMod.StateSleep:
 		return tcell.ColorDarkBlue
 	default:
-		return tcell.ColorWhite
+		return tcell.ColorDarkOrange
 	}
 }
