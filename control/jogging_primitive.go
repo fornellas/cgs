@@ -50,6 +50,8 @@ type JoggingPrimitive struct {
 	jogParametersButton        *tview.Button
 	paramsJogBlock             string
 	paramsCancelButton         *tview.Button
+	// Status
+	statusTextView *tview.TextView
 	// Messages
 	state grblMod.State
 	// Feed rate
@@ -75,12 +77,24 @@ func NewJoggingPrimitive(
 
 	parametersFlex := jp.newParametersFlex()
 
+	actionsFlex := tview.NewFlex()
+	actionsFlex.SetDirection(tview.FlexColumn)
+	actionsFlex.AddItem(joystickFlex, 0, 1, false)
+	actionsFlex.AddItem(parametersFlex, 0, 1, false)
+
+	statusTextView := tview.NewTextView()
+	statusTextView.SetBorder(true)
+	statusTextView.SetTitle("Status")
+	statusTextView.SetDynamicColors(true)
+	jp.statusTextView = statusTextView
+
 	joggingFlex := tview.NewFlex()
 	joggingFlex.SetBorder(true)
 	joggingFlex.SetTitle("Jogging")
-	joggingFlex.SetDirection(tview.FlexColumn)
-	joggingFlex.AddItem(joystickFlex, 0, 1, false)
-	joggingFlex.AddItem(parametersFlex, 0, 1, false)
+	joggingFlex.SetDirection(tview.FlexRow)
+	joggingFlex.AddItem(actionsFlex, 0, 1, false)
+	joggingFlex.AddItem(statusTextView, 3, 0, false)
+
 	jp.Flex = joggingFlex
 
 	jp.updateDisabled()
@@ -127,7 +141,13 @@ func (jp *JoggingPrimitive) newJoystickFlex() *tview.Flex {
 			return
 		}
 		fmt.Fprintf(&buf, "F%.4f%s%.4f%sG91", feed, axis, distance, unitWord)
-		jp.controlPrimitive.QueueCommand(grblMod.GetGrblCommandRunJoggingMotion(buf.String()))
+		go func() {
+			jp.statusTextView.SetText("")
+			err = <-jp.controlPrimitive.QueueCommand(grblMod.GetGrblCommandRunJoggingMotion(buf.String()))
+			if err != nil {
+				fmt.Fprintf(jp.statusTextView, "[%s]%s[-]", tcell.ColorRed, tview.Escape(err.Error()))
+			}
+		}()
 	}
 
 	xMinusButton := tview.NewButton("-X")
@@ -424,9 +444,15 @@ func (jp *JoggingPrimitive) newParametersFlex() *tview.Flex {
 
 	jp.jogParametersButton = tview.NewButton("Jog")
 	jp.jogParametersButton.SetSelectedFunc(func() {
-		jp.mu.Lock()
-		jp.controlPrimitive.QueueCommand(jp.paramsJogBlock)
-		jp.mu.Unlock()
+		go func() {
+			jp.mu.Lock()
+			jp.statusTextView.SetText("")
+			err := <-jp.controlPrimitive.QueueCommand(jp.paramsJogBlock)
+			if err != nil {
+				fmt.Fprintf(jp.statusTextView, "[%s]%s[-]", tcell.ColorRed, tview.Escape(err.Error()))
+			}
+			jp.mu.Unlock()
+		}()
 	})
 
 	jp.paramsCancelButton = tview.NewButton("Cancel")

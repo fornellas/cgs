@@ -143,7 +143,7 @@ func (pp *ProbePrimitive) newStraight() {
 		}
 		fmt.Fprintf(&buf, "F%s", feedRate)
 
-		pp.controlPrimitive.QueueCommand(buf.String())
+		pp.controlPrimitive.QueueCommandIgnoreResponse(buf.String())
 	})
 	pp.straightProbeButton = straightProbeButton
 

@@ -36,6 +36,11 @@ type commandParameterType struct {
 	quiet   bool
 }
 
+type queuedCommandType struct {
+	command string
+	errCh   chan<- error
+}
+
 type ControlPrimitive struct {
 	*tview.Flex
 	grbl                   *grblMod.Grbl
@@ -43,7 +48,7 @@ type ControlPrimitive struct {
 	stateTracker           *StateTracker
 	quietStatusComms       bool
 	sendStatusCommandCh    chan string
-	sendCommandCh          chan string
+	sendCommandCh          chan *queuedCommandType
 	sendRealTimeCommandCh  chan grblMod.RealTimeCommand
 	commandsTextView       *tview.TextView
 	pushMessagesTextView   *tview.TextView
@@ -71,7 +76,7 @@ func NewControlPrimitive(
 		stateTracker:           stateTracker,
 		quietStatusComms:       quietStatusComms,
 		sendStatusCommandCh:    make(chan string, 10),
-		sendCommandCh:          make(chan string, 10),
+		sendCommandCh:          make(chan *queuedCommandType, 10),
 		sendRealTimeCommandCh:  make(chan grblMod.RealTimeCommand, 10),
 		commandInputHistoryIdx: -1,
 		state:                  grblMod.StateUnknown,
@@ -155,7 +160,7 @@ func NewControlPrimitive(
 			if command == "" {
 				return
 			}
-			cp.QueueCommand(command)
+			cp.QueueCommandIgnoreResponse(command)
 			cp.commandInputHistory = append([]string{command}, cp.commandInputHistory...)
 			cp.commandInputHistoryIdx = -1
 			commandInputField.SetText("")
@@ -265,7 +270,7 @@ func (cp *ControlPrimitive) DisableCommandInput(disabled bool) {
 	cp.app.QueueUpdateDraw(func() { cp.setDisabledState() })
 }
 
-func (cp *ControlPrimitive) sendCommand(ctx context.Context, commandParameter *commandParameterType) {
+func (cp *ControlPrimitive) sendCommand(ctx context.Context, commandParameter *commandParameterType) error {
 	if !commandParameter.quiet {
 		fmt.Fprintf(cp.commandsTextView, "\n[%s]%s[-]", tcell.ColorWhite, tview.Escape(commandParameter.command))
 	}
@@ -287,14 +292,16 @@ func (cp *ControlPrimitive) sendCommand(ctx context.Context, commandParameter *c
 		} else {
 			fmt.Fprintf(cp.commandsTextView, "\n[%s]Send command failed: %#v: %s[-]", tcell.ColorRed, tview.Escape(commandParameter.command), tview.Escape(err.Error()))
 		}
-		return
+		return err
 	}
 
 	if commandParameter.quiet {
-		return
+		return nil
 	}
 
 	fmt.Fprintf(cp.commandsTextView, "\n[%s]ok[-]", tcell.ColorGreen)
+
+	return nil
 }
 
 func (cp *ControlPrimitive) extractRealTimeCommands(command string) ([]grblMod.RealTimeCommand, string, error) {
@@ -370,23 +377,25 @@ func (cp *ControlPrimitive) getStatusCmdsAndTimeout(block *gcode.Block) (map[str
 	return statusCommands, timeout
 }
 
-func (cp *ControlPrimitive) processCommand(ctx context.Context, command string) {
-	realTimeCommands, command, err := cp.extractRealTimeCommands(command)
+func (cp *ControlPrimitive) processCommand(ctx context.Context, command string) error {
+	var err error
+	var realTimeCommands []grblMod.RealTimeCommand
+	realTimeCommands, command, err = cp.extractRealTimeCommands(command)
 	if err != nil {
 		fmt.Fprintf(cp.commandsTextView, "\n[%s]%s[-]", tcell.ColorRed, tview.Escape(err.Error()))
-		return
+		return err
 	}
 	for _, realTimeCommand := range realTimeCommands {
 		cp.sendRealTimeCommand(realTimeCommand)
 	}
 	if len(command) == 0 {
-		return
+		return nil
 	}
 
 	blocks, err := gcode.NewParser(strings.NewReader(command)).Blocks()
 	if err != nil {
 		fmt.Fprintf(cp.commandsTextView, "\n[%s]Failed to parse: %s[-]", tcell.ColorRed, tview.Escape(err.Error()))
-		return
+		return err
 	}
 	if len(blocks) > 1 {
 		panic("bug: expected single block")
@@ -408,7 +417,8 @@ func (cp *ControlPrimitive) processCommand(ctx context.Context, command string) 
 
 	cp.DisableCommandInput(true)
 	defer cp.DisableCommandInput(false)
-	cp.sendCommand(ctx, commandParameter)
+
+	err = cp.sendCommand(ctx, commandParameter)
 	for command := range statusCommands {
 		cp.sendCommand(ctx, &commandParameterType{
 			command: command,
@@ -417,18 +427,26 @@ func (cp *ControlPrimitive) processCommand(ctx context.Context, command string) 
 		})
 	}
 	cp.stateTracker.HomeOverride(false)
+	return err
 }
 
-func (cp *ControlPrimitive) queueStatusCommand(
-	command string,
-) {
+func (cp *ControlPrimitive) queueStatusCommand(command string) {
 	cp.sendStatusCommandCh <- command
 }
 
-func (cp *ControlPrimitive) QueueCommand(
-	command string,
-) {
-	cp.sendCommandCh <- command
+func (cp *ControlPrimitive) QueueCommandIgnoreResponse(command string) {
+	cp.sendCommandCh <- &queuedCommandType{
+		command: command,
+	}
+}
+
+func (cp *ControlPrimitive) QueueCommand(command string) <-chan error {
+	errCh := make(chan error, 1)
+	cp.sendCommandCh <- &queuedCommandType{
+		command: command,
+		errCh:   errCh,
+	}
+	return errCh
 }
 
 func (cp *ControlPrimitive) sendRealTimeCommand(
@@ -691,8 +709,11 @@ func (cp *ControlPrimitive) Worker(
 				timeout: defaultCommandTimeout,
 				quiet:   cp.quietStatusComms,
 			})
-		case command := <-cp.sendCommandCh:
-			cp.processCommand(ctx, command)
+		case queuedCommand := <-cp.sendCommandCh:
+			err := cp.processCommand(ctx, queuedCommand.command)
+			if queuedCommand.errCh != nil {
+				queuedCommand.errCh <- err
+			}
 		case realTimeCommand := <-cp.sendRealTimeCommandCh:
 			cp.sendRealTimeCommand(realTimeCommand)
 		}

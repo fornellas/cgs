@@ -63,25 +63,25 @@ func NewRootPrimitive(
 
 	rp.newInfoTextView()
 	rp.homeButton = tview.NewButton(getButtonText("Home", grblMod.GrblCommandRunHomingCycle)).SetSelectedFunc(func() {
-		rp.controlPrimitive.QueueCommand(grblMod.GrblCommandRunHomingCycle)
+		rp.controlPrimitive.QueueCommandIgnoreResponse(grblMod.GrblCommandRunHomingCycle)
 	}).SetDisabled(true)
 	rp.unlockButton = tview.NewButton(getButtonText("Unlock", grblMod.GrblCommandKillAlarmLock)).SetSelectedFunc(func() {
-		rp.controlPrimitive.QueueCommand(grblMod.GrblCommandKillAlarmLock)
+		rp.controlPrimitive.QueueCommandIgnoreResponse(grblMod.GrblCommandKillAlarmLock)
 	}).SetDisabled(true)
 	rp.resetButton = tview.NewButton(getButtonText("Reset", "^X")).SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSoftReset)
 	}).SetDisabled(true)
 	rp.checkButton = tview.NewButton(getButtonText("Check", grblMod.GrblCommandCheckGcodeMode)).SetSelectedFunc(func() {
-		rp.controlPrimitive.QueueCommand(grblMod.GrblCommandCheckGcodeMode)
+		rp.controlPrimitive.QueueCommandIgnoreResponse(grblMod.GrblCommandCheckGcodeMode)
 	}).SetDisabled(true)
 	rp.doorButton = tview.NewButton(getButtonText("Door", fmt.Sprintf("0x%x", int(grblMod.RealTimeCommandSafetyDoor)))).SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandSafetyDoor)
 	}).SetDisabled(true)
 	rp.sleepButton = tview.NewButton(getButtonText("Sleep", grblMod.GrblCommandEnableSleepMode)).SetSelectedFunc(func() {
-		rp.controlPrimitive.QueueCommand(grblMod.GrblCommandEnableSleepMode)
+		rp.controlPrimitive.QueueCommandIgnoreResponse(grblMod.GrblCommandEnableSleepMode)
 	}).SetDisabled(true)
 	rp.helpButton = tview.NewButton(getButtonText("Help", grblMod.GrblCommandHelp)).SetSelectedFunc(func() {
-		rp.controlPrimitive.QueueCommand(grblMod.GrblCommandHelp)
+		rp.controlPrimitive.QueueCommandIgnoreResponse(grblMod.GrblCommandHelp)
 	}).SetDisabled(true)
 	rp.holdButton = tview.NewButton(getButtonText("Hold", string(grblMod.RealTimeCommandFeedHold))).SetSelectedFunc(func() {
 		rp.controlPrimitive.QueueRealTimeCommand(grblMod.RealTimeCommandFeedHold)
