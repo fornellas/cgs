@@ -13,7 +13,7 @@ import (
 	"github.com/rivo/tview"
 
 	grblMod "github.com/fornellas/cgs/grbl"
-	"github.com/fornellas/cgs/worker"
+	"github.com/fornellas/cgs/worker_manager"
 )
 
 type ControlOptions struct {
@@ -85,7 +85,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	}
 
 	// WorkerManager
-	workerManager := worker.NewWorkerManager(appCtx)
+	workerManager := worker_manager.NewWorkerManager(appCtx)
 
 	subscriberChSize := 50
 
