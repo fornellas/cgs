@@ -62,7 +62,7 @@ var RootCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
-			debugFileHandler := log.NewTerminalTreeHandler(logDebugFile, &log.TerminalHandlerOptions{
+			debugFileHandler := log.NewTerminalLineHandler(logDebugFile, &log.TerminalHandlerOptions{
 				HandlerOptions: slog.HandlerOptions{
 					Level: slog.LevelDebug,
 				},
