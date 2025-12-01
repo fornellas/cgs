@@ -31,6 +31,25 @@ G Commands
                 X, Y, Z: coordinates
                 F: feed rate
             G80 Cancel Motion Modes
+        Plane Select
+            G17 Plane Select XY
+            G18 Plane Select ZX
+            G19 Plane Select YZ
+        Distance Mode
+            G90 Distance Mode Absolute
+            G91 Distance Mode Incremental
+        Feed Rate Mode
+            G93 Feed Rate Mode Inverse Time
+                F: feed rate
+            G94 Feed Rate Mode Units per Minute
+                F: feed rate
+        Units Mode
+            G20 Units Inches
+            G21 Units Millimeters
+        Tool Length Offset
+            G43.1 Dynamic Tool Length Offset
+                Z: offset value
+            G49 Cancel Tool Length Compensation
         Coordinate System Select
             G54 Select coordinate system 1 (EEPROM)
             G55 Select coordinate system 2 (EEPROM)
@@ -41,29 +60,10 @@ G Commands
             G59.1 Select coordinate system 7
             G59.2 Select coordinate system 8
             G59.3 Select coordinate system 9
-        Plane Select
-            G17 Plane Select XY
-            G18 Plane Select ZX
-            G19 Plane Select YZ
-        Distance Mode
-            G90 Distance Mode Absolute
-            G91 Distance Mode Incremental
         Arc IJK Distance Mode
             G91.1 Arc Distance Mode Absolute
-        Feed Rate Mode
-            G93 Feed Rate Mode Inverse Time
-                F: feed rate
-            G94 Feed Rate Mode Units per Minute
-                F: feed rate
-        Units Mode
-            G20 Units Inches
-            G21 Units Millimeters
         Cutter Radius Compensation
             G40 Compensation Off
-        Tool Length Offset
-            G43.1 Dynamic Tool Length Offset
-                Z: offset value
-            G49 Cancel Tool Length Compensation
     Non-Modal Commands
         G4 Dwell
             P: dwell time (seconds)
