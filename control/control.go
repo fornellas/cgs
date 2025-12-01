@@ -85,19 +85,19 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	}
 
 	// WorkerManager
-	workerManager := worker_manager.NewWorkerManager(appCtx)
+	workerManager := worker_manager.NewWorkerManager()
 
 	subscriberChSize := 50
 
 	// Push Message Broker
 	pushMessageBroker := NewPushMessageBroker()
-	workerManager.StartWorker("PushMessageBroker", func(ctx context.Context) error {
+	workerManager.AddWorker("PushMessageBroker", func(ctx context.Context) error {
 		return pushMessageBroker.Worker(ctx, grblPushMessageCh)
 	})
 
 	// StateTracker
 	stateTracker := NewStateTracker()
-	workerManager.StartWorker("StateTracker", func(ctx context.Context) error {
+	workerManager.AddWorker("StateTracker", func(ctx context.Context) error {
 		return stateTracker.Worker(
 			ctx, pushMessageBroker.Subscribe("StateTracker", subscriberChSize),
 		)
@@ -105,7 +105,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	// StatusPrimitive
 	statusPrimitive := NewStatusPrimitive(appCtx, c.grbl, app)
-	workerManager.StartWorker("StatusPrimitive", func(ctx context.Context) error {
+	workerManager.AddWorker("StatusPrimitive", func(ctx context.Context) error {
 		return statusPrimitive.Worker(
 			ctx,
 			pushMessageBroker.Subscribe("StatusPrimitive", subscriberChSize),
@@ -118,7 +118,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		appCtx, c.grbl, app, stateTracker,
 		!c.options.DisplayStatusComms,
 	)
-	workerManager.StartWorker("ControlPrimitive.Worker", func(ctx context.Context) error {
+	workerManager.AddWorker("ControlPrimitive.Worker", func(ctx context.Context) error {
 		return controlPrimitive.Worker(
 			ctx,
 			pushMessageBroker.Subscribe("ControlPrimitive", subscriberChSize),
@@ -128,7 +128,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	// JoggingPrimitive
 	joggingPrimitive := NewJoggingPrimitive(appCtx, app, controlPrimitive)
-	workerManager.StartWorker("JoggingPrimitive", func(ctx context.Context) error {
+	workerManager.AddWorker("JoggingPrimitive", func(ctx context.Context) error {
 		return joggingPrimitive.Worker(
 			ctx,
 			pushMessageBroker.Subscribe("JoggingPrimitive", subscriberChSize),
@@ -138,7 +138,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	// ProbePrimitive
 	probePrimitive := NewProbePrimitive(appCtx, app, controlPrimitive)
-	workerManager.StartWorker("ProbePrimitive", func(ctx context.Context) error {
+	workerManager.AddWorker("ProbePrimitive", func(ctx context.Context) error {
 		return probePrimitive.Worker(
 			ctx,
 			pushMessageBroker.Subscribe("ProbePrimitive", subscriberChSize),
@@ -148,7 +148,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	// OverridesPrimitive
 	overridesPrimitive := NewOverridesPrimitive(appCtx, app, controlPrimitive)
-	workerManager.StartWorker("OverridesPrimitive", func(ctx context.Context) error {
+	workerManager.AddWorker("OverridesPrimitive", func(ctx context.Context) error {
 		return overridesPrimitive.Worker(
 			ctx,
 			stateTracker.Subscribe("OverridesPrimitive", subscriberChSize),
@@ -157,14 +157,14 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	// StreamPrimitive
 	heightMapPrimitive := NewHeightMapPrimitive(appCtx, app, controlPrimitive)
-	workerManager.StartWorker("HeightMapPrimitive", func(ctx context.Context) error {
+	workerManager.AddWorker("HeightMapPrimitive", func(ctx context.Context) error {
 		return heightMapPrimitive.Worker(
 			ctx,
 			stateTracker.Subscribe("HeightMapPrimitive", subscriberChSize),
 		)
 	})
 	streamPrimitive := NewStreamPrimitive(appCtx, app, controlPrimitive, heightMapPrimitive)
-	workerManager.StartWorker("StreamPrimitive", func(ctx context.Context) error {
+	workerManager.AddWorker("StreamPrimitive", func(ctx context.Context) error {
 		return streamPrimitive.Worker(
 			ctx,
 			stateTracker.Subscribe("StreamPrimitive", subscriberChSize),
@@ -173,7 +173,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	// SettingsPrimitive
 	settingsPrimitive := NewSettingsPrimitive(appCtx, app, controlPrimitive)
-	workerManager.StartWorker("SettingsPrimitive", func(ctx context.Context) error {
+	workerManager.AddWorker("SettingsPrimitive", func(ctx context.Context) error {
 		return settingsPrimitive.Worker(
 			ctx,
 			pushMessageBroker.Subscribe("SettingsPrimitive", subscriberChSize),
@@ -193,7 +193,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		settingsPrimitive,
 		logsPrimitive,
 	)
-	workerManager.StartWorker("RootPrimitive", func(ctx context.Context) error {
+	workerManager.AddWorker("RootPrimitive", func(ctx context.Context) error {
 		return rootPrimitive.Worker(
 			ctx,
 			pushMessageBroker.Subscribe("RootPrimitive", subscriberChSize),
@@ -203,7 +203,10 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	app.SetRoot(rootPrimitive, true)
 
 	// Status Query
-	workerManager.StartWorker("Control.statusQueryWorker", c.statusQueryWorker)
+	workerManager.AddWorker("Control.statusQueryWorker", c.statusQueryWorker)
+
+	// Start
+	workerManager.Start(appCtx)
 
 	// App Input
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -213,7 +216,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		}
 		if event.Key() == tcell.KeyCtrlC {
 			appLogger.Info("Exiting")
-			workerManager.Cancel()
+			workerManager.Cancel(appCtx)
 			return nil
 		}
 		return event
@@ -224,7 +227,15 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	exitMu.Lock()
 	go func() {
 		logger := log.MustLogger(appCtx)
-		err = errors.Join(err, workerManager.Wait())
+		for name, workerErr := range workerManager.Wait(appCtx) {
+			if errors.Is(workerErr, context.Canceled) {
+				workerErr = nil
+			}
+			if workerErr != nil {
+				workerErr = fmt.Errorf("%s: %w", name, workerErr)
+			}
+			err = errors.Join(err, workerErr)
+		}
 		logger.Info("Disconnecting")
 		err = errors.Join(err, c.grbl.Disconnect(appCtx))
 		logger.Info("Stopping App")
@@ -235,7 +246,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	defer func() {
 		logger := log.MustLogger(appCtx)
 		logger.Info("Stopping all workers")
-		workerManager.Cancel()
+		workerManager.Cancel(appCtx)
 	}()
 
 	if runErr := app.Run(); runErr != nil {
