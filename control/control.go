@@ -58,8 +58,8 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	// Context & Logging
 	consoleCtx, consoleLogger := log.MustWithGroup(ctx, "Control")
 	logsPrimitive := NewLogsPrimitive(app)
-	appHandler := &EnabledOverrideHandler{
-		Handler: log.NewTerminalTreeHandler(
+	appHandler := NewEnabledOverrideHandler(
+		log.NewTerminalTreeHandler(
 			tview.ANSIWriter(logsPrimitive),
 			&log.TerminalHandlerOptions{
 				// tview.TextView does not handle emojis correctly: drawing is corrupted.
@@ -67,8 +67,8 @@ func (c *Control) Run(ctx context.Context) (err error) {
 				ForceColor:        true,
 			},
 		),
-		EnabledHandler: consoleLogger.Handler(),
-	}
+		consoleLogger.Handler(),
+	)
 	appHandlers := []slog.Handler{
 		appHandler,
 	}
