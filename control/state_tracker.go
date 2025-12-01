@@ -117,11 +117,19 @@ func (st *StateTracker) Worker(ctx context.Context, pushMessageCh <-chan grblMod
 				st.alarmPushMessage = nil
 				st.lastPublishedTrackedState = nil
 			}
+
 			if alarmPushMessage, ok := pushMessage.(*grblMod.AlarmPushMessage); ok {
 				st.alarmPushMessage = alarmPushMessage
 			}
+
 			if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
 				st.machineState = &statusReportPushMessage.MachineState
+			}
+
+			if feedbackPushMessage, ok := pushMessage.(*grblMod.FeedbackPushMessage); ok {
+				if feedbackPushMessage.Text() == "Caution: Unlocked" {
+					st.alarmPushMessage = nil
+				}
 			}
 
 			if err := st.publish(); err != nil {
