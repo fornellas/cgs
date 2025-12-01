@@ -1,9 +1,6 @@
 Bug
-    Fix sync command G4 sometimes failing when jogging: "g-code locked out during alarm or jog state"
-    Fix: sometimes status messages stop coming through and no command works anymore.
     InputFields
         When it looses focus, the entered value is not applied
-    When one of the workers fail, UI hangs, it does not exit
 Features
     Panels
         Probe
