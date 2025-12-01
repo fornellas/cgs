@@ -23,6 +23,7 @@ type ProbePrimitive struct {
 	straightYInputField             *tview.InputField
 	straightZInputField             *tview.InputField
 	straightFeedRateInputField      *tview.InputField
+	straightOvershootTextView       *tview.TextView
 	straightProbeButton             *tview.Button
 	straightFlex                    *tview.Flex
 }
@@ -111,6 +112,11 @@ func (pp *ProbePrimitive) newStraight() {
 	})
 	pp.straightFeedRateInputField = straightFeedRateInputField
 
+	// Overshoot
+	straightOvershootTextView := tview.NewTextView()
+	straightOvershootTextView.SetLabel("Overshoot ")
+	pp.straightOvershootTextView = straightOvershootTextView
+
 	// Probe
 	straightProbeButton := tview.NewButton("Probe")
 	straightProbeButton.SetSelectedFunc(func() {
@@ -157,6 +163,7 @@ func (pp *ProbePrimitive) newStraight() {
 	straightFlex.AddItem(straightYInputField, 1, 0, false)
 	straightFlex.AddItem(straightZInputField, 1, 0, false)
 	straightFlex.AddItem(straightFeedRateInputField, 1, 0, false)
+	straightFlex.AddItem(straightOvershootTextView, 1, 0, false)
 	straightFlex.AddItem(straightProbeButton, 3, 0, false)
 	// TODO probe result
 	pp.straightFlex = straightFlex
