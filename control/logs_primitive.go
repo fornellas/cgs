@@ -23,7 +23,7 @@ func NewLogsPrimitive(
 	logsTextView.SetScrollable(true)
 	logsTextView.SetWrap(true)
 	logsTextView.SetChangedFunc(func() {
-		lp.app.QueueUpdate(func() {
+		lp.app.QueueUpdateDraw(func() {
 			logsTextView.ScrollToEnd()
 		})
 	})

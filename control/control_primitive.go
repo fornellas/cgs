@@ -84,7 +84,7 @@ func NewControlPrimitive(
 		SetWrap(true)
 	commandsTextView.SetBorder(true).SetTitle("Commands")
 	commandsTextView.SetChangedFunc(func() {
-		cp.app.QueueUpdate(func() {
+		cp.app.QueueUpdateDraw(func() {
 			text := commandsTextView.GetText(false)
 			if len(text) > 0 && text[0] == '\n' {
 				commandsTextView.SetText(text[1:])
@@ -101,7 +101,7 @@ func NewControlPrimitive(
 	pushMessagesTextView.SetWrap(true)
 	pushMessagesTextView.SetBorder(true).SetTitle("Push Messages")
 	pushMessagesTextView.SetChangedFunc(func() {
-		cp.app.QueueUpdate(func() {
+		cp.app.QueueUpdateDraw(func() {
 			text := pushMessagesTextView.GetText(false)
 			if len(text) > 0 && text[0] == '\n' {
 				pushMessagesTextView.SetText(text[1:])
@@ -118,7 +118,7 @@ func NewControlPrimitive(
 	gcodeParserTextView.SetWrap(true)
 	gcodeParserTextView.SetBorder(true).SetTitle("G-Code Parser")
 	gcodeParserTextView.SetChangedFunc(func() {
-		cp.app.QueueUpdate(func() {
+		cp.app.QueueUpdateDraw(func() {
 			text := gcodeParserTextView.GetText(false)
 			if len(text) > 0 && text[len(text)-1] == '\n' {
 				gcodeParserTextView.SetText(text[:len(text)-1])
@@ -134,7 +134,7 @@ func NewControlPrimitive(
 	gcodeParamsTextView.SetWrap(true)
 	gcodeParamsTextView.SetBorder(true).SetTitle("G-Code Parameters")
 	gcodeParamsTextView.SetChangedFunc(func() {
-		cp.app.QueueUpdate(func() {
+		cp.app.QueueUpdateDraw(func() {
 			text := gcodeParamsTextView.GetText(false)
 			if len(text) > 0 && text[len(text)-1] == '\n' {
 				gcodeParamsTextView.SetText(text[:len(text)-1])
@@ -262,7 +262,7 @@ func (cp *ControlPrimitive) DisableCommandInput(disabled bool) {
 	cp.mu.Lock()
 	cp.disableCommandInput = disabled
 	cp.mu.Unlock()
-	cp.app.QueueUpdate(func() { cp.setDisabledState() })
+	cp.app.QueueUpdateDraw(func() { cp.setDisabledState() })
 }
 
 func (cp *ControlPrimitive) sendCommand(ctx context.Context, commandParameter *commandParameterType) {
@@ -506,7 +506,7 @@ func (cp *ControlPrimitive) processGcodeStatePushMessage(
 		fmt.Fprintf(&buf, "Speed: %s\n", sprintSpeed(*gcodeStatePushMessage.SpindleSpeed))
 	}
 
-	cp.app.QueueUpdate(func() {
+	cp.app.QueueUpdateDraw(func() {
 		if buf.String() == cp.gcodeParserTextView.GetText(false) {
 			return
 		}
@@ -579,7 +579,7 @@ func (cp *ControlPrimitive) processGcodeParamPushMessage() tcell.Color {
 		}
 	}
 
-	cp.app.QueueUpdate(func() {
+	cp.app.QueueUpdateDraw(func() {
 		if buf.String() == cp.gcodeParamsTextView.GetText(false) {
 			return
 		}
@@ -590,7 +590,7 @@ func (cp *ControlPrimitive) processGcodeParamPushMessage() tcell.Color {
 }
 
 func (cp *ControlPrimitive) processWelcomePushMessage() {
-	cp.app.QueueUpdate(func() {
+	cp.app.QueueUpdateDraw(func() {
 		cp.gcodeParserTextView.Clear()
 		cp.gcodeParamsTextView.Clear()
 	})
@@ -684,7 +684,7 @@ func (cp *ControlPrimitive) Worker(
 			if !ok {
 				return fmt.Errorf("tracked state channel closed")
 			}
-			cp.app.QueueUpdate(func() { cp.setState(trackedState.State) })
+			cp.app.QueueUpdateDraw(func() { cp.setState(trackedState.State) })
 		case command := <-cp.sendStatusCommandCh:
 			cp.sendCommand(ctx, &commandParameterType{
 				command: command,
