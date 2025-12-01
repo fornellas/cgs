@@ -36,6 +36,11 @@ type commandParameterType struct {
 	quiet   bool
 }
 
+var syncCommand = &commandParameterType{
+	command: "G4 P0.01",
+	quiet:   true,
+}
+
 type queuedCommandType struct {
 	command string
 	errCh   chan<- error
@@ -419,6 +424,7 @@ func (cp *ControlPrimitive) processCommand(ctx context.Context, command string) 
 	defer cp.DisableCommandInput(false)
 
 	err = cp.sendCommand(ctx, commandParameter)
+	cp.sendCommand(ctx, syncCommand)
 	for command := range statusCommands {
 		cp.sendCommand(ctx, &commandParameterType{
 			command: command,
