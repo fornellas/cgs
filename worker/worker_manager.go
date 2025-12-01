@@ -32,10 +32,10 @@ func NewWorkerManager(ctx context.Context) *WorkerManager {
 // StartWorker starts a new worker with the given name and function.
 // The worker function receives the manager's context.
 // When the worker function returns, the manager's context is cancelled (which impacts all workers).
-func (c *WorkerManager) StartWorker(name string, fn func(context.Context) error) {
+func (wm *WorkerManager) StartWorker(name string, fn func(context.Context) error) {
+	ctx, logger := log.MustWithGroupAttrs(wm.ctx, "Worker", "name", name)
 	errCh := make(chan error, 1)
 	go func() {
-		ctx, logger := log.MustWithGroup(c.ctx, name)
 		logger.Debug("Starting")
 		err := fn(ctx)
 		logger.Debug("Finished", "err", err)
@@ -43,24 +43,27 @@ func (c *WorkerManager) StartWorker(name string, fn func(context.Context) error)
 			err = nil
 		}
 		errCh <- err
-		c.cancelFunc()
+		wm.cancelFunc()
 	}()
-	c.workers = append([]worker{{name: name, errCh: errCh}}, c.workers...)
+	wm.workers = append([]worker{{name: name, errCh: errCh}}, wm.workers...)
 }
 
 // Cancel cancels the manager's context, causing all workers to exit.
-func (c *WorkerManager) Cancel() {
-	c.cancelFunc()
+func (wm *WorkerManager) Cancel() {
+	wm.cancelFunc()
 }
 
 // Wait blocks until all workers have completed and returns any errors that occurred.
-func (c *WorkerManager) Wait(ctx context.Context) (err error) {
-	logger := log.MustLogger(ctx)
-	for _, worker := range c.workers {
-		logger.Debug("Waiting", "worker", worker.name)
-		err = errors.Join(err, <-worker.errCh)
+func (wm *WorkerManager) Wait() (err error) {
+	_, logger := log.MustWithGroup(wm.ctx, "Wait")
+	for _, worker := range wm.workers {
+		wLogger := logger.With("name", worker.name)
+		wLogger.Debug("Waiting")
+		wErr := <-worker.errCh
+		wLogger.Debug("Result", "err", wErr)
+		err = errors.Join(err, wErr)
 	}
 	logger.Debug("All workers finished")
-	c.workers = nil
+	wm.workers = nil
 	return
 }

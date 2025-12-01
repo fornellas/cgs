@@ -224,7 +224,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	exitMu.Lock()
 	go func() {
 		logger := log.MustLogger(appCtx)
-		err = errors.Join(err, workerManager.Wait(appCtx))
+		err = errors.Join(err, workerManager.Wait())
 		logger.Info("Disconnecting")
 		err = errors.Join(err, c.grbl.Disconnect(appCtx))
 		logger.Info("Stopping App")
