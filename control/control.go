@@ -136,7 +136,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		)
 	})
 
-	// probePrimitive
+	// ProbePrimitive
 	probePrimitive := NewProbePrimitive(appCtx, app, controlPrimitive)
 	workerManager.StartWorker("ProbePrimitive", func(ctx context.Context) error {
 		return probePrimitive.Worker(
@@ -171,7 +171,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		)
 	})
 
-	// settingsPrimitive
+	// SettingsPrimitive
 	settingsPrimitive := NewSettingsPrimitive(appCtx, app, controlPrimitive)
 	workerManager.StartWorker("SettingsPrimitive", func(ctx context.Context) error {
 		return settingsPrimitive.Worker(
