@@ -213,6 +213,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 		}
 		if event.Key() == tcell.KeyCtrlC {
 			appLogger.Info("Exiting")
+			appHandler.Disable()
 			workerManager.Cancel()
 			return nil
 		}
@@ -235,6 +236,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	defer func() {
 		logger := log.MustLogger(appCtx)
 		logger.Info("Stopping all workers")
+		appHandler.Disable()
 		workerManager.Cancel()
 	}()
 
