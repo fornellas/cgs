@@ -48,7 +48,7 @@ func (wm *WorkerManager) Start(ctx context.Context) {
 func (wm *WorkerManager) Cancel(ctx context.Context) {
 	logger := log.MustLogger(ctx).WithGroup("Worker Manager > Cancel")
 	if len(wm.workers) == 0 {
-		panic("bug: attempty to cancel without any workers")
+		return
 	}
 	worker := wm.workers[0]
 	logger = logger.With("name", worker.name)
