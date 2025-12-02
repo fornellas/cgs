@@ -48,6 +48,9 @@ type ModalGroup struct {
 
 	// Coolant (Group 8)
 	Coolant []*Word
+
+	// Override Control (Grbl specific - M56)
+	// OverrideControl *Block
 }
 
 func (m *ModalGroup) Copy() *ModalGroup {
