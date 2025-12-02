@@ -14,6 +14,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
+	iFmt "github.com/fornellas/cgs/internal/fmt"
+
 	"github.com/fornellas/cgs/gcode"
 	grblMod "github.com/fornellas/cgs/grbl"
 	"github.com/fornellas/cgs/worker_manager"
@@ -90,8 +92,11 @@ type ControlPrimitive struct {
 	gcodeParserModalGroupsCoolantFloodCheckbok *tview.Checkbox
 	gcodeParserModalGroupsCoolantOff           *tview.Button
 
-	gcodeParserTextView *tview.TextView
-	gcodeParserFlex     *tview.Flex
+	gcodeParserStateToolInputField         *tview.InputField
+	gcodeParserStateSpindleSpeedInputField *tview.InputField
+	gcodeParserStateFeedRateInputField     *tview.InputField
+
+	gcodeParserFlex *tview.Flex
 
 	gcodeParamsTextView *tview.TextView
 
@@ -213,6 +218,7 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 	cp.gcodeParserModalGroupsToolLengthOffsetInputField = tview.NewInputField()
 	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetLabel(fmt.Sprintf("Tool Length Offset%s:", sprintGcodeWord("G43.1")))
 	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetAcceptanceFunc(acceptUFloat)
+	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetFieldWidth(coordinateWidth)
 	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetDoneFunc(func(key tcell.Key) {
 		if cp.skipQueueCommand {
 			return
@@ -303,29 +309,50 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 	gcodeParserModalGroupsFlex.AddPrimitive(cp.gcodeParserModalGroupsSpindleDropDown, 1)
 	gcodeParserModalGroupsFlex.AddPrimitive(coolantFlex, 1)
 
-	// TextView
-	gcodeParserTextView := tview.NewTextView()
-	gcodeParserTextView.SetDynamicColors(true)
-	gcodeParserTextView.SetScrollable(true)
-	gcodeParserTextView.SetWrap(true)
-	gcodeParserTextView.SetBorder(true)
-	gcodeParserTextView.SetTitle("G-Code: Parser State")
-	gcodeParserTextView.SetChangedFunc(func() {
-		cp.app.QueueUpdateDraw(func() {
-			text := gcodeParserTextView.GetText(false)
-			if len(text) > 0 && text[len(text)-1] == '\n' {
-				gcodeParserTextView.SetText(text[:len(text)-1])
-			}
-		})
+	// Parser State Flex
+	cp.gcodeParserStateToolInputField = tview.NewInputField()
+	cp.gcodeParserStateToolInputField.SetLabel("Tool:")
+	cp.gcodeParserStateToolInputField.SetAcceptanceFunc(acceptUFloat)
+	cp.gcodeParserStateToolInputField.SetFieldWidth(2)
+	cp.gcodeParserStateToolInputField.SetDoneFunc(func(key tcell.Key) {
+		if cp.skipQueueCommand {
+			return
+		}
+		cp.QueueCommand(fmt.Sprintf("T%s", cp.gcodeParserStateToolInputField.GetText()))
 	})
-	cp.gcodeParserTextView = gcodeParserTextView
+	cp.gcodeParserStateSpindleSpeedInputField = tview.NewInputField()
+	cp.gcodeParserStateSpindleSpeedInputField.SetLabel("Spindle Speed:")
+	cp.gcodeParserStateSpindleSpeedInputField.SetAcceptanceFunc(acceptUFloat)
+	cp.gcodeParserStateSpindleSpeedInputField.SetFieldWidth(spindleSpeedWidth)
+	cp.gcodeParserStateSpindleSpeedInputField.SetDoneFunc(func(key tcell.Key) {
+		if cp.skipQueueCommand {
+			return
+		}
+		cp.QueueCommand(fmt.Sprintf("S%s", cp.gcodeParserStateSpindleSpeedInputField.GetText()))
+	})
+	cp.gcodeParserStateFeedRateInputField = tview.NewInputField()
+	cp.gcodeParserStateFeedRateInputField.SetLabel("Feed Rate:")
+	cp.gcodeParserStateFeedRateInputField.SetAcceptanceFunc(acceptUFloat)
+	cp.gcodeParserStateFeedRateInputField.SetFieldWidth(feedWidth)
+	cp.gcodeParserStateFeedRateInputField.SetDoneFunc(func(key tcell.Key) {
+		if cp.skipQueueCommand {
+			return
+		}
+		cp.QueueCommand(fmt.Sprintf("F%s", cp.gcodeParserStateFeedRateInputField.GetText()))
+	})
+	gcodeParserStateFlex := NewScrollContainer()
+	gcodeParserStateFlex.SetBorder(true)
+	gcodeParserStateFlex.SetTitle("G-Code: Parser State")
+	gcodeParserStateFlex.AddPrimitive(cp.gcodeParserStateToolInputField, 1)
+	gcodeParserStateFlex.AddPrimitive(cp.gcodeParserStateSpindleSpeedInputField, 1)
+	gcodeParserStateFlex.AddPrimitive(cp.gcodeParserStateFeedRateInputField, 1)
 
 	// Flex
 	gcodeParserFlex := tview.NewFlex()
 	gcodeParserFlex.SetBorder(false)
 	gcodeParserFlex.SetDirection(tview.FlexRow)
 	gcodeParserFlex.AddItem(gcodeParserModalGroupsFlex, 15, 0, false)
-	gcodeParserFlex.AddItem(gcodeParserTextView, 5, 0, false)
+	gcodeParserFlex.AddItem(gcodeParserStateFlex, 5, 0, false)
 
 	cp.gcodeParserFlex = gcodeParserFlex
 }
@@ -486,8 +513,7 @@ func (cp *ControlPrimitive) setDisabledState() {
 			panic(fmt.Errorf("unknown state: %s", cp.state))
 		}
 	}
-
-	cp.commandInputField.SetDisabled(disabled)
+	// G-Code: Modal Groups
 	cp.gcodeParserModalGroupsMotionDropDown.SetDisabled(disabled)
 	cp.gcodeParserModalGroupsPlaneSelectionDropDown.SetDisabled(disabled)
 	cp.gcodeParserModalGroupsDistanceModeDropDown.SetDisabled(disabled)
@@ -500,6 +526,12 @@ func (cp *ControlPrimitive) setDisabledState() {
 	cp.gcodeParserModalGroupsCoolantMistCheckbok.SetDisabled(disabled)
 	cp.gcodeParserModalGroupsCoolantFloodCheckbok.SetDisabled(disabled)
 	cp.gcodeParserModalGroupsCoolantOff.SetDisabled(disabled)
+	// G-Code: Parser State
+	cp.gcodeParserStateToolInputField.SetDisabled(disabled)
+	cp.gcodeParserStateSpindleSpeedInputField.SetDisabled(disabled)
+	cp.gcodeParserStateFeedRateInputField.SetDisabled(disabled)
+	// Command
+	cp.commandInputField.SetDisabled(disabled)
 }
 
 func (cp *ControlPrimitive) setState(state grblMod.State) {
@@ -727,75 +759,69 @@ func (cp *ControlPrimitive) QueueRealTimeCommand(rtc grblMod.RealTimeCommand) {
 func (cp *ControlPrimitive) processGcodeStatePushMessage(
 	gcodeStatePushMessage *grblMod.GcodeStatePushMessage,
 ) tcell.Color {
-	var buf bytes.Buffer
-
 	cp.app.QueueUpdateDraw(func() {
 		cp.skipQueueCommand = true
 		defer func() { cp.skipQueueCommand = false }()
 
+		// G-Code: Modal Groups
 		if modalGroup := gcodeStatePushMessage.ModalGroup; modalGroup != nil {
-			if modalGroup.Motion != nil {
+			setDropDownFn := func(modalWord *gcode.Word, words []string, dropDown *tview.DropDown) {
 				index := -1
-				for i, word := range cp.gcodeParserModalGroupsMotionWords {
-					if word == modalGroup.Motion.NormalizedString() {
+				for i, word := range words {
+					if word == modalWord.NormalizedString() {
 						index = i
 					}
 				}
-				cp.gcodeParserModalGroupsMotionDropDown.SetCurrentOption(index)
+				dropDown.SetCurrentOption(index)
+			}
+			if modalGroup.Motion != nil {
+				setDropDownFn(
+					modalGroup.Motion,
+					cp.gcodeParserModalGroupsMotionWords,
+					cp.gcodeParserModalGroupsMotionDropDown,
+				)
 			}
 			if modalGroup.PlaneSelection != nil {
-				index := -1
-				for i, word := range cp.gcodeParserModalGroupsPlaneSelectionWords {
-					if word == modalGroup.PlaneSelection.NormalizedString() {
-						index = i
-					}
-				}
-				cp.gcodeParserModalGroupsPlaneSelectionDropDown.SetCurrentOption(index)
+				setDropDownFn(
+					modalGroup.PlaneSelection,
+					cp.gcodeParserModalGroupsPlaneSelectionWords,
+					cp.gcodeParserModalGroupsPlaneSelectionDropDown,
+				)
 			}
 			if modalGroup.DistanceMode != nil {
-				index := -1
-				for i, word := range cp.gcodeParserModalGroupsDistanceModeWords {
-					if word == modalGroup.DistanceMode.NormalizedString() {
-						index = i
-					}
-				}
-				cp.gcodeParserModalGroupsDistanceModeDropDown.SetCurrentOption(index)
+				setDropDownFn(
+					modalGroup.DistanceMode,
+					cp.gcodeParserModalGroupsDistanceModeWords,
+					cp.gcodeParserModalGroupsDistanceModeDropDown,
+				)
 			}
 			if modalGroup.FeedRateMode != nil {
-				index := -1
-				for i, word := range cp.gcodeParserModalGroupsFeedRateModeWords {
-					if word == modalGroup.FeedRateMode.NormalizedString() {
-						index = i
-					}
-				}
-				cp.gcodeParserModalGroupsFeedRateModeDropDown.SetCurrentOption(index)
+				setDropDownFn(
+					modalGroup.FeedRateMode,
+					cp.gcodeParserModalGroupsFeedRateModeWords,
+					cp.gcodeParserModalGroupsFeedRateModeDropDown,
+				)
 			}
 			if modalGroup.Units != nil {
-				index := -1
-				for i, word := range cp.gcodeParserModalGroupsUnitsWords {
-					if word == modalGroup.Units.NormalizedString() {
-						index = i
-					}
-				}
-				cp.gcodeParserModalGroupsUnitsDropDown.SetCurrentOption(index)
+				setDropDownFn(
+					modalGroup.Units,
+					cp.gcodeParserModalGroupsUnitsWords,
+					cp.gcodeParserModalGroupsUnitsDropDown,
+				)
 			}
 			if modalGroup.CoordinateSystemSelect != nil {
-				index := -1
-				for i, word := range cp.gcodeParserModalGroupsCoordinateSystemSelectWords {
-					if word == modalGroup.CoordinateSystemSelect.NormalizedString() {
-						index = i
-					}
-				}
-				cp.gcodeParserModalGroupsCoordinateSystemSelectDropDown.SetCurrentOption(index)
+				setDropDownFn(
+					modalGroup.CoordinateSystemSelect,
+					cp.gcodeParserModalGroupsCoordinateSystemSelectWords,
+					cp.gcodeParserModalGroupsCoordinateSystemSelectDropDown,
+				)
 			}
 			if modalGroup.Spindle != nil {
-				index := -1
-				for i, word := range cp.gcodeParserModalGroupsSpindleWords {
-					if word == modalGroup.Spindle.NormalizedString() {
-						index = i
-					}
-				}
-				cp.gcodeParserModalGroupsSpindleDropDown.SetCurrentOption(index)
+				setDropDownFn(
+					modalGroup.Spindle,
+					cp.gcodeParserModalGroupsSpindleWords,
+					cp.gcodeParserModalGroupsSpindleDropDown,
+				)
 			}
 			cp.gcodeParserModalGroupsCoolantMistCheckbok.SetChecked(false)
 			cp.gcodeParserModalGroupsCoolantFloodCheckbok.SetChecked(false)
@@ -811,23 +837,23 @@ func (cp *ControlPrimitive) processGcodeStatePushMessage(
 				}
 			}
 		}
-	})
 
-	if gcodeStatePushMessage.Tool != nil {
-		fmt.Fprintf(&buf, "Tool: %s\n", sprintTool(*gcodeStatePushMessage.Tool))
-	}
-	if gcodeStatePushMessage.FeedRate != nil && *gcodeStatePushMessage.FeedRate != 0 {
-		fmt.Fprintf(&buf, "Feed Rate: %s\n", sprintFeed(*gcodeStatePushMessage.FeedRate))
-	}
-	if gcodeStatePushMessage.SpindleSpeed != nil && *gcodeStatePushMessage.SpindleSpeed != 0 {
-		fmt.Fprintf(&buf, "Speed: %s\n", sprintSpeed(*gcodeStatePushMessage.SpindleSpeed))
-	}
-
-	cp.app.QueueUpdateDraw(func() {
-		if buf.String() == cp.gcodeParserTextView.GetText(false) {
-			return
+		// G-Code: Parser State
+		if gcodeStatePushMessage.Tool != nil {
+			cp.gcodeParserStateToolInputField.SetText(
+				iFmt.SprintFloat(*gcodeStatePushMessage.Tool, 4),
+			)
 		}
-		cp.gcodeParserTextView.SetText(buf.String())
+		if gcodeStatePushMessage.SpindleSpeed != nil {
+			cp.gcodeParserStateSpindleSpeedInputField.SetText(
+				iFmt.SprintFloat(*gcodeStatePushMessage.SpindleSpeed, 4),
+			)
+		}
+		if gcodeStatePushMessage.FeedRate != nil {
+			cp.gcodeParserStateFeedRateInputField.SetText(
+				iFmt.SprintFloat(*gcodeStatePushMessage.FeedRate, 4),
+			)
+		}
 	})
 
 	return tcell.ColorGreen
@@ -910,8 +936,9 @@ func (cp *ControlPrimitive) processGcodeParamPushMessage() tcell.Color {
 
 func (cp *ControlPrimitive) processWelcomePushMessage() {
 	cp.app.QueueUpdateDraw(func() {
-		cp.gcodeParserTextView.Clear()
+		// G-Code Parameters
 		cp.gcodeParamsTextView.Clear()
+		// G-Code: Modal Groups
 		cp.skipQueueCommand = true
 		cp.gcodeParserModalGroupsMotionDropDown.SetCurrentOption(-1)
 		cp.gcodeParserModalGroupsPlaneSelectionDropDown.SetCurrentOption(-1)
@@ -924,6 +951,10 @@ func (cp *ControlPrimitive) processWelcomePushMessage() {
 		cp.gcodeParserModalGroupsSpindleDropDown.SetCurrentOption(-1)
 		cp.gcodeParserModalGroupsCoolantMistCheckbok.SetChecked(false)
 		cp.gcodeParserModalGroupsCoolantFloodCheckbok.SetChecked(false)
+		// G-Code: Parser State
+		cp.gcodeParserStateToolInputField.SetText("")
+		cp.gcodeParserStateSpindleSpeedInputField.SetText("")
+		cp.gcodeParserStateFeedRateInputField.SetText("")
 		cp.skipQueueCommand = false
 	})
 	fmt.Fprintf(cp.pushMessagesTextView, "\n[%s]Soft-Reset detected[-]", tcell.ColorOrange)

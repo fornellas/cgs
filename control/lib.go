@@ -15,6 +15,7 @@ var gcodeColor = tcell.NewRGBColor(30, 106, 157)
 
 const coordinateWidth = len("20000.0000") + 1
 const feedWidth = len("20000") + 1
+const spindleSpeedWidth = len("10000.000") + 1
 
 func acceptFloat(textToCheck string, lastChar rune) bool {
 	if len(textToCheck) > 0 && textToCheck[0] == '-' {
@@ -67,10 +68,6 @@ func sprintFeed(value float64) string {
 }
 
 func sprintSpeed(value float64) string {
-	return sprintFloat(value, 0)
-}
-
-func sprintTool(value float64) string {
 	return sprintFloat(value, 0)
 }
 
