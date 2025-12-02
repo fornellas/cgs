@@ -113,7 +113,8 @@ func NewControlPrimitive(
 }
 
 func (cp *ControlPrimitive) newGcodeParserFlex() {
-	// G-Code Parser Modal Group Motion
+
+	// Modal Group Motion
 	gcodeParserModalGroupsMotionDropDown := tview.NewDropDown()
 	gcodeParserModalGroupsMotionDropDown.SetLabel("Motion")
 	gcodeParserModalGroupsMotionDropDown.SetOptions([]string{
@@ -128,14 +129,14 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 		"G38.5 Straight Probe From Piece",
 	}, nil)
 
-	// G-Code Parser Modal Groups Flex
+	// Modal Groups Flex
 	gcodeParserModalGroupsFlex := tview.NewFlex()
 	gcodeParserModalGroupsFlex.SetBorder(true)
 	gcodeParserModalGroupsFlex.SetTitle("Modal Groups")
 	gcodeParserModalGroupsFlex.SetDirection(tview.FlexRow)
 	gcodeParserModalGroupsFlex.AddItem(gcodeParserModalGroupsMotionDropDown, 1, 0, false)
 
-	// G-Code Parser TextView
+	// TextView
 	gcodeParserTextView := tview.NewTextView()
 	gcodeParserTextView.SetDynamicColors(true)
 	gcodeParserTextView.SetScrollable(true)
@@ -150,7 +151,7 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 	})
 	cp.gcodeParserTextView = gcodeParserTextView
 
-	// G-Code Parser Flex
+	// Flex
 	gcodeParserFlex := tview.NewFlex()
 	gcodeParserFlex.SetBorder(true)
 	gcodeParserFlex.SetTitle("G-Code Parser")
