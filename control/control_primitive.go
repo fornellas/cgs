@@ -911,8 +911,9 @@ func (cp *ControlPrimitive) processGcodeParamPushMessage() tcell.Color {
 		fmt.Fprintf(&buf, "  %s:%s\n", sprintGcodeWord("G92"), sprintCoordinatesSingleLine(params.CoordinateOffset, " "))
 	}
 	if params.ToolLengthOffset != nil {
-		// TODO update g-code parser
-		fmt.Fprintf(&buf, "Tool Length Offset:%s\n", sprintCoordinate(*params.ToolLengthOffset))
+		cp.app.QueueUpdateDraw(func() {
+			cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetText(iFmt.SprintFloat(*params.ToolLengthOffset, 4))
+		})
 	}
 	if params.Probe != nil {
 		// TODO move to Probe tab
