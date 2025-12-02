@@ -256,8 +256,10 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 	)
 
 	// Coolant
+	coolantTextView := tview.NewTextView()
+	coolantTextView.SetLabel("Coolant:")
 	cp.gcodeParserModalGroupsCoolantMistCheckbok = tview.NewCheckbox()
-	cp.gcodeParserModalGroupsCoolantMistCheckbok.SetLabel("Mist")
+	cp.gcodeParserModalGroupsCoolantMistCheckbok.SetLabel(fmt.Sprintf("Mist%s", sprintGcodeWord("M7")))
 	cp.gcodeParserModalGroupsCoolantMistCheckbok.SetChangedFunc(func(checked bool) {
 		if cp.skipQueueCommand {
 			return
@@ -265,17 +267,23 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 		cp.QueueCommand("M7")
 	})
 	cp.gcodeParserModalGroupsCoolantFloodCheckbok = tview.NewCheckbox()
-	cp.gcodeParserModalGroupsCoolantFloodCheckbok.SetLabel("Flood")
+	cp.gcodeParserModalGroupsCoolantFloodCheckbok.SetLabel(fmt.Sprintf("Flood%s", sprintGcodeWord("M8")))
 	cp.gcodeParserModalGroupsCoolantFloodCheckbok.SetChangedFunc(func(checked bool) {
 		if cp.skipQueueCommand {
 			return
 		}
 		cp.QueueCommand("M8")
 	})
-	cp.gcodeParserModalGroupsCoolantOff = tview.NewButton("Off")
+	cp.gcodeParserModalGroupsCoolantOff = tview.NewButton(fmt.Sprintf("Off%s", sprintGcodeWord("M9")))
 	cp.gcodeParserModalGroupsCoolantOff.SetSelectedFunc(func() {
 		cp.QueueCommand("M9")
 	})
+	coolantFlex := tview.NewFlex()
+	coolantFlex.SetDirection(tview.FlexColumn)
+	coolantFlex.AddItem(coolantTextView, 0, 1, false)
+	coolantFlex.AddItem(cp.gcodeParserModalGroupsCoolantMistCheckbok, 0, 1, false)
+	coolantFlex.AddItem(cp.gcodeParserModalGroupsCoolantFloodCheckbok, 0, 1, false)
+	coolantFlex.AddItem(cp.gcodeParserModalGroupsCoolantOff, 0, 1, false)
 
 	// Modal Groups Flex
 	gcodeParserModalGroupsFlex := NewScrollContainer()
@@ -293,7 +301,7 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 	gcodeParserModalGroupsFlex.AddPrimitive(gcodeParserModalGroupsControlModeDropDown, 1)
 	gcodeParserModalGroupsFlex.AddPrimitive(cp.gcodeParserModalGroupsStoppingCheckbox, 1)
 	gcodeParserModalGroupsFlex.AddPrimitive(cp.gcodeParserModalGroupsSpindleDropDown, 1)
-	// TODO add flex for Coolant all in the same line
+	gcodeParserModalGroupsFlex.AddPrimitive(coolantFlex, 1)
 
 	// TextView
 	gcodeParserTextView := tview.NewTextView()
@@ -499,6 +507,7 @@ func (cp *ControlPrimitive) setState(state grblMod.State) {
 	cp.mu.Lock()
 	cp.state = state
 	cp.mu.Unlock()
+	// TODO set g-code parser stopping state
 	cp.setDisabledState()
 }
 
@@ -764,9 +773,6 @@ func (cp *ControlPrimitive) processGcodeStatePushMessage(
 			}
 			cp.gcodeParserModalGroupsUnitsDropDown.SetCurrentOption(index)
 		}
-		if modalGroup.ToolLengthOffset != nil {
-			// FIXME not reported here, needs to come from $#
-		}
 		if modalGroup.CoordinateSystemSelect != nil {
 			index := -1
 			for i, word := range cp.gcodeParserModalGroupsCoordinateSystemSelectWords {
@@ -775,9 +781,6 @@ func (cp *ControlPrimitive) processGcodeStatePushMessage(
 				}
 			}
 			cp.gcodeParserModalGroupsCoordinateSystemSelectDropDown.SetCurrentOption(index)
-		}
-		if modalGroup.Stopping != nil {
-			// FIXME never reported back, need to manually track sent gcodes
 		}
 		if modalGroup.Spindle != nil {
 			index := -1
@@ -868,9 +871,11 @@ func (cp *ControlPrimitive) processGcodeParamPushMessage() tcell.Color {
 		fmt.Fprintf(&buf, "  %s:%s\n", sprintGcodeWord("G92"), sprintCoordinatesSingleLine(params.CoordinateOffset, " "))
 	}
 	if params.ToolLengthOffset != nil {
+		// TODO update g-code parser
 		fmt.Fprintf(&buf, "Tool Length Offset:%s\n", sprintCoordinate(*params.ToolLengthOffset))
 	}
 	if params.Probe != nil {
+		// TODO move to Probe tab
 		fmt.Fprintf(&buf, "Last Probing Cycle\n")
 		if params.Probe.Successful {
 			fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(&params.Probe.Coordinates, " "))
