@@ -31,7 +31,7 @@ func (wm *WorkerManager) Start(ctx context.Context) {
 	ctx, logger := log.MustWithGroup(ctx, "Worker Manager > Workers")
 	logger.Debug("Starting workers")
 	for i := range wm.workers {
-		workerCtx, workerLogger := log.MustWithAttrs(ctx, "worker", wm.workers[i].name)
+		workerCtx, workerLogger := log.MustWithGroup(ctx, wm.workers[i].name)
 		workerCtx, wm.workers[i].cancelFunc = context.WithCancel(workerCtx)
 		wm.workers[i].errCh = make(chan error, 1)
 		go func() {
@@ -60,7 +60,7 @@ func (wm *WorkerManager) Wait(ctx context.Context) map[string]error {
 	logger.Debug("Waiting for all workers")
 	errMap := map[string]error{}
 	for i, worker := range wm.workers {
-		workerLogger := logger.With("name", worker.name)
+		workerLogger := logger.WithGroup(worker.name)
 		if i > 0 {
 			workerLogger.Debug("Cancelling")
 			worker.cancelFunc()
