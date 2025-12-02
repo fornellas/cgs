@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -184,7 +183,9 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 	gcodeParserModalGroupsArcIjkDistanceModeDropDown := newModalGroupDropDown(
 		"Arc IJK Distance Mode", []string{"G91.1"},
 	)
+	cp.skipQueueCommand = true
 	gcodeParserModalGroupsArcIjkDistanceModeDropDown.SetCurrentOption(0)
+	cp.skipQueueCommand = false
 	gcodeParserModalGroupsArcIjkDistanceModeDropDown.SetDisabled(true)
 
 	// Feed Rate Mode
@@ -203,7 +204,9 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 	gcodeParserModalGroupsCutterDiameterCompensationDropDown := newModalGroupDropDown(
 		"Cutter Diameter Compensation", []string{"G40"},
 	)
+	cp.skipQueueCommand = true
 	gcodeParserModalGroupsCutterDiameterCompensationDropDown.SetCurrentOption(0)
+	cp.skipQueueCommand = false
 	gcodeParserModalGroupsCutterDiameterCompensationDropDown.SetDisabled(true)
 
 	// Tool Length Offset
@@ -214,11 +217,7 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 		if cp.skipQueueCommand {
 			return
 		}
-		z, err := strconv.ParseFloat(text, 64)
-		if err != nil {
-			panic(fmt.Sprintf("bug: SetAcceptanceFunc should have prevented bad floats: %#v", text))
-		}
-		cp.QueueCommand(fmt.Sprintf("G43.1 Z%s", sprintCoordinate(z)))
+		cp.QueueCommand(fmt.Sprintf("G43.1 Z%s", text))
 	})
 
 	// Coordinate System Select
@@ -231,7 +230,9 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 	gcodeParserModalGroupsControlModeDropDown := newModalGroupDropDown(
 		"Control Mode", []string{"G61"},
 	)
+	cp.skipQueueCommand = true
 	gcodeParserModalGroupsControlModeDropDown.SetCurrentOption(0)
+	cp.skipQueueCommand = false
 	gcodeParserModalGroupsControlModeDropDown.SetDisabled(true)
 
 	// Stopping
@@ -318,7 +319,7 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 	gcodeParserFlex.SetTitle("G-Code Parser")
 	gcodeParserFlex.SetDirection(tview.FlexRow)
 	gcodeParserFlex.AddItem(gcodeParserModalGroupsFlex, 0, 1, false)
-	gcodeParserFlex.AddItem(gcodeParserTextView, 0, 1, false)
+	gcodeParserFlex.AddItem(gcodeParserTextView, 5, 0, false)
 
 	cp.gcodeParserFlex = gcodeParserFlex
 }
