@@ -724,80 +724,89 @@ func (cp *ControlPrimitive) processGcodeStatePushMessage(
 ) tcell.Color {
 	var buf bytes.Buffer
 
-	cp.skipQueueCommand = true
-	defer func() { cp.skipQueueCommand = false }()
+	cp.app.QueueUpdateDraw(func() {
+		cp.skipQueueCommand = true
+		defer func() { cp.skipQueueCommand = false }()
 
-	if modalGroup := gcodeStatePushMessage.ModalGroup; modalGroup != nil {
-		if modalGroup.Motion != nil {
-			index := -1
-			for i, word := range cp.gcodeParserModalGroupsMotionWords {
-				if word == modalGroup.Motion.NormalizedString() {
-					index = i
+		if modalGroup := gcodeStatePushMessage.ModalGroup; modalGroup != nil {
+			if modalGroup.Motion != nil {
+				index := -1
+				for i, word := range cp.gcodeParserModalGroupsMotionWords {
+					if word == modalGroup.Motion.NormalizedString() {
+						index = i
+					}
+				}
+				cp.gcodeParserModalGroupsMotionDropDown.SetCurrentOption(index)
+			}
+			if modalGroup.PlaneSelection != nil {
+				index := -1
+				for i, word := range cp.gcodeParserModalGroupsPlaneSelectionWords {
+					if word == modalGroup.PlaneSelection.NormalizedString() {
+						index = i
+					}
+				}
+				cp.gcodeParserModalGroupsPlaneSelectionDropDown.SetCurrentOption(index)
+			}
+			if modalGroup.DistanceMode != nil {
+				index := -1
+				for i, word := range cp.gcodeParserModalGroupsDistanceModeWords {
+					if word == modalGroup.DistanceMode.NormalizedString() {
+						index = i
+					}
+				}
+				cp.gcodeParserModalGroupsDistanceModeDropDown.SetCurrentOption(index)
+			}
+			if modalGroup.FeedRateMode != nil {
+				index := -1
+				for i, word := range cp.gcodeParserModalGroupsFeedRateModeWords {
+					if word == modalGroup.FeedRateMode.NormalizedString() {
+						index = i
+					}
+				}
+				cp.gcodeParserModalGroupsFeedRateModeDropDown.SetCurrentOption(index)
+			}
+			if modalGroup.Units != nil {
+				index := -1
+				for i, word := range cp.gcodeParserModalGroupsUnitsWords {
+					if word == modalGroup.Units.NormalizedString() {
+						index = i
+					}
+				}
+				cp.gcodeParserModalGroupsUnitsDropDown.SetCurrentOption(index)
+			}
+			if modalGroup.CoordinateSystemSelect != nil {
+				index := -1
+				for i, word := range cp.gcodeParserModalGroupsCoordinateSystemSelectWords {
+					if word == modalGroup.CoordinateSystemSelect.NormalizedString() {
+						index = i
+					}
+				}
+				cp.gcodeParserModalGroupsCoordinateSystemSelectDropDown.SetCurrentOption(index)
+			}
+			if modalGroup.Spindle != nil {
+				index := -1
+				for i, word := range cp.gcodeParserModalGroupsSpindleWords {
+					if word == modalGroup.Spindle.NormalizedString() {
+						index = i
+					}
+				}
+				cp.gcodeParserModalGroupsSpindleDropDown.SetCurrentOption(index)
+			}
+			cp.gcodeParserModalGroupsCoolantMistCheckbok.SetChecked(false)
+			cp.gcodeParserModalGroupsCoolantFloodCheckbok.SetChecked(false)
+			for _, word := range modalGroup.Coolant {
+				switch word.NormalizedString() {
+				case "M7":
+					cp.gcodeParserModalGroupsCoolantMistCheckbok.SetChecked(true)
+				case "M8":
+					cp.gcodeParserModalGroupsCoolantFloodCheckbok.SetChecked(true)
+				case "M9":
+				default:
+					panic(fmt.Sprintf("bug: unexpected word: %#v", word.NormalizedString()))
 				}
 			}
-			cp.gcodeParserModalGroupsMotionDropDown.SetCurrentOption(index)
 		}
-		if modalGroup.PlaneSelection != nil {
-			index := -1
-			for i, word := range cp.gcodeParserModalGroupsPlaneSelectionWords {
-				if word == modalGroup.PlaneSelection.NormalizedString() {
-					index = i
-				}
-			}
-			cp.gcodeParserModalGroupsPlaneSelectionDropDown.SetCurrentOption(index)
-		}
-		if modalGroup.DistanceMode != nil {
-			index := -1
-			for i, word := range cp.gcodeParserModalGroupsDistanceModeWords {
-				if word == modalGroup.DistanceMode.NormalizedString() {
-					index = i
-				}
-			}
-			cp.gcodeParserModalGroupsDistanceModeDropDown.SetCurrentOption(index)
-		}
-		if modalGroup.FeedRateMode != nil {
-			index := -1
-			for i, word := range cp.gcodeParserModalGroupsFeedRateModeWords {
-				if word == modalGroup.FeedRateMode.NormalizedString() {
-					index = i
-				}
-			}
-			cp.gcodeParserModalGroupsFeedRateModeDropDown.SetCurrentOption(index)
-		}
-		if modalGroup.Units != nil {
-			index := -1
-			for i, word := range cp.gcodeParserModalGroupsUnitsWords {
-				if word == modalGroup.Units.NormalizedString() {
-					index = i
-				}
-			}
-			cp.gcodeParserModalGroupsUnitsDropDown.SetCurrentOption(index)
-		}
-		if modalGroup.CoordinateSystemSelect != nil {
-			index := -1
-			for i, word := range cp.gcodeParserModalGroupsCoordinateSystemSelectWords {
-				if word == modalGroup.CoordinateSystemSelect.NormalizedString() {
-					index = i
-				}
-			}
-			cp.gcodeParserModalGroupsCoordinateSystemSelectDropDown.SetCurrentOption(index)
-		}
-		if modalGroup.Spindle != nil {
-			index := -1
-			for i, word := range cp.gcodeParserModalGroupsSpindleWords {
-				if word == modalGroup.Spindle.NormalizedString() {
-					index = i
-				}
-			}
-			cp.gcodeParserModalGroupsSpindleDropDown.SetCurrentOption(index)
-		}
-		// for _, word := range modalGroup.Coolant {
-		// TODO
-		// cp.gcodeParserModalGroupsCoolantMistCheckbok
-		// cp.gcodeParserModalGroupsCoolantFloodCheckbok
-		// cp.gcodeParserModalGroupsCoolantOff
-		// }
-	}
+	})
 
 	if gcodeStatePushMessage.Tool != nil {
 		fmt.Fprintf(&buf, "Tool: %s\n", sprintTool(*gcodeStatePushMessage.Tool))
