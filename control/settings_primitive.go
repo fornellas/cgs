@@ -163,7 +163,7 @@ func NewSettingsPrimitive(
 		flex := tview.NewFlex()
 		flex.SetDirection(tview.FlexColumn)
 		labelView := tview.NewTextView()
-		labelView.SetText(fmt.Sprintf("%s[%s]$%s[-]:", label, gcodeColor, key))
+		labelView.SetLabel(fmt.Sprintf("%s[%s]$%s[-]:", label, gcodeColor, key))
 		labelView.SetDynamicColors(true)
 		flex.AddItem(labelView, len(label)+1+len(key)+1, 0, false)
 		flex.AddItem(x, 4, 0, false)
