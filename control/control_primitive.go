@@ -242,7 +242,6 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 		if cp.skipQueueCommand {
 			return
 		}
-		// TODO check state
 		if checked {
 			cp.QueueCommand("M0")
 		} else {
