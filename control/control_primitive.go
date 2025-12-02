@@ -67,6 +67,9 @@ type ControlPrimitive struct {
 	gcodeParserModalGroupsPlaneSelectionWords    []string
 	gcodeParserModalGroupsPlaneSelectionDropDown *tview.DropDown
 
+	gcodeParserModalGroupsDistanceModeWords    []string
+	gcodeParserModalGroupsDistanceModeDropDown *tview.DropDown
+
 	gcodeParserTextView *tview.TextView
 	gcodeParserFlex     *tview.Flex
 
@@ -138,13 +141,23 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 		return dropDown
 	}
 
-	// Modal Group Motion
+	// Motion
 	cp.gcodeParserModalGroupsMotionWords = []string{"G0", "G1", "G2", "G3", "G38.2", "G38.3", "G38.4", "G38.5", "G80"}
-	cp.gcodeParserModalGroupsMotionDropDown = newModalGroupDropDown("Motion", cp.gcodeParserModalGroupsMotionWords)
+	cp.gcodeParserModalGroupsMotionDropDown = newModalGroupDropDown(
+		"Motion", cp.gcodeParserModalGroupsMotionWords,
+	)
 
-	// Modal Plane selection
+	// Plane selection
 	cp.gcodeParserModalGroupsPlaneSelectionWords = []string{"G17", "G18", "G19"}
-	cp.gcodeParserModalGroupsPlaneSelectionDropDown = newModalGroupDropDown("Plane Selection", cp.gcodeParserModalGroupsPlaneSelectionWords)
+	cp.gcodeParserModalGroupsPlaneSelectionDropDown = newModalGroupDropDown(
+		"Plane Selection", cp.gcodeParserModalGroupsPlaneSelectionWords,
+	)
+
+	// Distance Mode
+	cp.gcodeParserModalGroupsDistanceModeWords = []string{"G90", "G91"}
+	cp.gcodeParserModalGroupsDistanceModeDropDown = newModalGroupDropDown(
+		"Distance Mode", cp.gcodeParserModalGroupsDistanceModeWords,
+	)
 
 	// Modal Groups Flex
 	gcodeParserModalGroupsFlex := tview.NewFlex()
@@ -153,6 +166,7 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 	gcodeParserModalGroupsFlex.SetDirection(tview.FlexRow)
 	gcodeParserModalGroupsFlex.AddItem(cp.gcodeParserModalGroupsMotionDropDown, 1, 0, false)
 	gcodeParserModalGroupsFlex.AddItem(cp.gcodeParserModalGroupsPlaneSelectionDropDown, 1, 0, false)
+	gcodeParserModalGroupsFlex.AddItem(cp.gcodeParserModalGroupsDistanceModeDropDown, 1, 0, false)
 
 	// TextView
 	gcodeParserTextView := tview.NewTextView()
@@ -342,6 +356,7 @@ func (cp *ControlPrimitive) setDisabledState() {
 	cp.commandInputField.SetDisabled(disabled)
 	cp.gcodeParserModalGroupsMotionDropDown.SetDisabled(disabled)
 	cp.gcodeParserModalGroupsPlaneSelectionDropDown.SetDisabled(disabled)
+	cp.gcodeParserModalGroupsDistanceModeDropDown.SetDisabled(disabled)
 }
 
 func (cp *ControlPrimitive) setState(state grblMod.State) {
@@ -587,7 +602,13 @@ func (cp *ControlPrimitive) processGcodeStatePushMessage(
 			cp.gcodeParserModalGroupsPlaneSelectionDropDown.SetCurrentOption(index)
 		}
 		if modalGroup.DistanceMode != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.DistanceMode.NormalizedString()), modalGroup.DistanceMode.Name())
+			index := -1
+			for i, word := range cp.gcodeParserModalGroupsDistanceModeWords {
+				if word == modalGroup.DistanceMode.NormalizedString() {
+					index = i
+				}
+			}
+			cp.gcodeParserModalGroupsDistanceModeDropDown.SetCurrentOption(index)
 		}
 		if modalGroup.FeedRateMode != nil {
 			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.FeedRateMode.NormalizedString()), modalGroup.FeedRateMode.Name())
@@ -714,6 +735,11 @@ func (cp *ControlPrimitive) processWelcomePushMessage() {
 	cp.app.QueueUpdateDraw(func() {
 		cp.gcodeParserTextView.Clear()
 		cp.gcodeParamsTextView.Clear()
+		cp.skipQueueCommand = true
+		cp.gcodeParserModalGroupsMotionDropDown.SetCurrentOption(-1)
+		cp.gcodeParserModalGroupsPlaneSelectionDropDown.SetCurrentOption(-1)
+		cp.gcodeParserModalGroupsDistanceModeDropDown.SetCurrentOption(-1)
+		cp.skipQueueCommand = false
 	})
 	fmt.Fprintf(cp.pushMessagesTextView, "\n[%s]Soft-Reset detected[-]", tcell.ColorOrange)
 	cp.sendStatusCommands()
