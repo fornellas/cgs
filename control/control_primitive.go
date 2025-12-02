@@ -564,12 +564,14 @@ func (cp *ControlPrimitive) processGcodeStatePushMessage(
 		if modalGroup.CutterDiameterCompensation != nil {
 			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.CutterDiameterCompensation.NormalizedString()), modalGroup.CutterDiameterCompensation.Name())
 		}
+		// FIXME not reported here, needs to come from $#
 		if modalGroup.ToolLengthOffset != nil {
 			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.ToolLengthOffset.NormalizedString()), "Tool Length Offset")
 		}
 		if modalGroup.CoordinateSystemSelect != nil {
 			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.CoordinateSystemSelect.NormalizedString()), modalGroup.CoordinateSystemSelect.Name())
 		}
+		// FIXME never reported back, need to manually track sent gcodes
 		if modalGroup.Stopping != nil {
 			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.Stopping.NormalizedString()), modalGroup.Stopping.Name())
 		}

@@ -19,7 +19,6 @@ type ModalGroup struct {
 	// Distance Mode (Group 3)
 	DistanceMode *Word
 
-	// FIXME set to only supported mode
 	// Arc IJK Distance Mode (Group 4)
 	ArcIjkDistanceMode *Word
 
@@ -29,22 +28,18 @@ type ModalGroup struct {
 	// Units (Group 6)
 	Units *Word
 
-	// FIXME set to only supported mode
 	// Cutter Diameter Compensation (Group 7)
 	CutterDiameterCompensation *Word
 
-	// FIXME only reported by $#
 	// Tool Length Offset (Group 8)
 	ToolLengthOffset *Block
 
 	// Coordinate System Select (Group 12)
 	CoordinateSystemSelect *Word
 
-	// FIXME set to only supported mode
 	// Control Mode (Group 13)
 	ControlMode *Word
 
-	// FIXME never reported back
 	// Stopping (Group 4)
 	Stopping *Word
 
