@@ -483,7 +483,9 @@ func (cp *ControlPrimitive) processCommand(ctx context.Context, command string) 
 	defer cp.DisableCommandInput(false)
 
 	err = cp.sendCommand(ctx, commandParameter)
-	cp.sendCommand(ctx, syncCommand)
+	if len(statusCommands) > 0 {
+		cp.sendCommand(ctx, syncCommand)
+	}
 	for command := range statusCommands {
 		cp.sendCommand(ctx, &commandParameterType{
 			command: command,
