@@ -288,7 +288,7 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 	// Modal Groups Flex
 	gcodeParserModalGroupsFlex := NewScrollContainer()
 	gcodeParserModalGroupsFlex.SetBorder(true)
-	gcodeParserModalGroupsFlex.SetTitle("Modal Groups")
+	gcodeParserModalGroupsFlex.SetTitle("G-Code: Modal Groups")
 	gcodeParserModalGroupsFlex.AddPrimitive(cp.gcodeParserModalGroupsMotionDropDown, 1)
 	gcodeParserModalGroupsFlex.AddPrimitive(cp.gcodeParserModalGroupsPlaneSelectionDropDown, 1)
 	gcodeParserModalGroupsFlex.AddPrimitive(cp.gcodeParserModalGroupsDistanceModeDropDown, 1)
@@ -309,7 +309,7 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 	gcodeParserTextView.SetScrollable(true)
 	gcodeParserTextView.SetWrap(true)
 	gcodeParserTextView.SetBorder(true)
-	gcodeParserTextView.SetTitle("LEGACY")
+	gcodeParserTextView.SetTitle("G-Code: Parser State")
 	gcodeParserTextView.SetChangedFunc(func() {
 		cp.app.QueueUpdateDraw(func() {
 			text := gcodeParserTextView.GetText(false)
@@ -322,10 +322,9 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 
 	// Flex
 	gcodeParserFlex := tview.NewFlex()
-	gcodeParserFlex.SetBorder(true)
-	gcodeParserFlex.SetTitle("G-Code Parser")
+	gcodeParserFlex.SetBorder(false)
 	gcodeParserFlex.SetDirection(tview.FlexRow)
-	gcodeParserFlex.AddItem(gcodeParserModalGroupsFlex, 0, 1, false)
+	gcodeParserFlex.AddItem(gcodeParserModalGroupsFlex, 15, 0, false)
 	gcodeParserFlex.AddItem(gcodeParserTextView, 5, 0, false)
 
 	cp.gcodeParserFlex = gcodeParserFlex
