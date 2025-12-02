@@ -4,7 +4,7 @@ $G (Prints gcode parser state)
         G1 Coordinated Motion at Feed Rate
         G2 Coordinated Helical Motion at Feed Rate (Clockwise arc)
         G3 Coordinated Helical Motion at Feed Rate (Counter-clockwise arc)
-        G33 (not in grbr?)
+        G33 (not in grbr)
         G38.2 Probe toward workpiece, stop on contact, signal error if failure
             X, Y, Z: coordinates
             F: feed rate
@@ -17,18 +17,18 @@ $G (Prints gcode parser state)
         G38.5 Probe away from workpiece, stop on loss of contact
             X, Y, Z: coordinates
             F: feed rate
-        G73 (not in grbr?)
-        G76 (not in grbr?)
+        G73 (not in grbr)
+        G76 (not in grbr)
         G80 Cancel Motion Modes
-        G81 (not in grbr?)
-        G82 (not in grbr?)
-        G83 (not in grbr?)
-        G84 (not in grbr?)
-        G85 (not in grbr?)
-        G86 (not in grbr?)
-        G87 (not in grbr?)
-        G88 (not in grbr?)
-        G89 (not in grbr?)
+        G81 (not in grbr)
+        G82 (not in grbr)
+        G83 (not in grbr)
+        G84 (not in grbr)
+        G85 (not in grbr)
+        G86 (not in grbr)
+        G87 (not in grbr)
+        G88 (not in grbr)
+        G89 (not in grbr)
     Coordinate System Selection
         G54 Select coordinate system 1
         G55 Select coordinate system 2
@@ -36,9 +36,9 @@ $G (Prints gcode parser state)
         G57 Select coordinate system 4
         G58 Select coordinate system 5
         G59 Select coordinate system 6
-        G59.1 Select coordinate system 7
-        G59.2 Select coordinate system 8
-        G59.3 Select coordinate system 9
+        G59.1 Select coordinate system 7 (not in grbr)
+        G59.2 Select coordinate system 8 (not in grbr)
+        G59.3 Select coordinate system 9 (not in grbr)
     Plane selection
         G17 Plane Select XY
         G18 Plane Select ZX
@@ -59,8 +59,8 @@ $G (Prints gcode parser state)
         M4 Spindle on (counter-clockwise)
         M5 Spindle stop
     Coolant
-        M7 (not in grbl?)
-        M8 Coolant on
+        M7 Mist coolant on
+        M8 Floot Coolant on
         M9 Coolant off
         Special case: M7 and M8 may be active at the same time
     Active Tool
