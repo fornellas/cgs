@@ -65,7 +65,7 @@ func NewProbePrimitive(
 func (pp *ProbePrimitive) newStraight() {
 	// Move Orientation
 	straightMoveOrientationDropdown := tview.NewDropDown()
-	straightMoveOrientationDropdown.SetLabel("Move Orientation ")
+	straightMoveOrientationDropdown.SetLabel("Move Orientation:")
 	straightMoveOrientationDropdown.SetOptions([]string{probeTowardPieceText, probeFromPieceText}, func(text string, index int) {
 		// TODO
 	})
@@ -75,7 +75,7 @@ func (pp *ProbePrimitive) newStraight() {
 	// x
 	straightXInputField := tview.NewInputField()
 	straightXInputField.SetFieldWidth(coordinateWidth)
-	straightXInputField.SetLabel("X ")
+	straightXInputField.SetLabel("X:")
 	straightXInputField.SetAcceptanceFunc(acceptFloat)
 	straightXInputField.SetChangedFunc(func(string) {
 		// TODO
@@ -84,7 +84,7 @@ func (pp *ProbePrimitive) newStraight() {
 
 	// y
 	straightYInputField := tview.NewInputField()
-	straightYInputField.SetLabel("Y ")
+	straightYInputField.SetLabel("Y:")
 	straightYInputField.SetFieldWidth(coordinateWidth)
 	straightYInputField.SetAcceptanceFunc(acceptFloat)
 	straightYInputField.SetChangedFunc(func(string) {
@@ -94,7 +94,7 @@ func (pp *ProbePrimitive) newStraight() {
 
 	// z
 	straightZInputField := tview.NewInputField()
-	straightZInputField.SetLabel("Z ")
+	straightZInputField.SetLabel("Z:")
 	straightZInputField.SetFieldWidth(coordinateWidth)
 	straightZInputField.SetAcceptanceFunc(acceptFloat)
 	straightZInputField.SetChangedFunc(func(string) {
@@ -104,7 +104,7 @@ func (pp *ProbePrimitive) newStraight() {
 
 	// Feed rate
 	straightFeedRateInputField := tview.NewInputField()
-	straightFeedRateInputField.SetLabel("Feed rate ")
+	straightFeedRateInputField.SetLabel("Feed rate:")
 	straightFeedRateInputField.SetFieldWidth(feedWidth)
 	straightFeedRateInputField.SetAcceptanceFunc(acceptUFloat)
 	straightFeedRateInputField.SetChangedFunc(func(string) {
@@ -114,7 +114,7 @@ func (pp *ProbePrimitive) newStraight() {
 
 	// Overshoot
 	straightOvershootTextView := tview.NewTextView()
-	straightOvershootTextView.SetLabel("Overshoot ")
+	straightOvershootTextView.SetLabel("Overshoot:")
 	pp.straightOvershootTextView = straightOvershootTextView
 
 	// Probe

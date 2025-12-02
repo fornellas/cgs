@@ -127,7 +127,7 @@ func NewControlPrimitive(
 func (cp *ControlPrimitive) newGcodeParserFlex() {
 	newModalGroupDropDown := func(name string, words []string) *tview.DropDown {
 		dropDown := tview.NewDropDown()
-		dropDown.SetLabel(name + " ")
+		dropDown.SetLabel(name + ":")
 		texts := []string{}
 		for _, word := range words {
 			texts = append(texts, fmt.Sprintf("%s%s", tview.Escape(gcode.WordName(word)), sprintGcodeWord(word)))
