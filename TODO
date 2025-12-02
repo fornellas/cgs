@@ -62,3 +62,5 @@ Features
         Codebase
             Add internal/
             Add line limits to various TextView
+    Refactor
+        https://github.com/gcla/gowid
