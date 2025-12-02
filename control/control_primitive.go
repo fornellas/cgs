@@ -16,6 +16,7 @@ import (
 
 	"github.com/fornellas/cgs/gcode"
 	grblMod "github.com/fornellas/cgs/grbl"
+	"github.com/fornellas/cgs/worker_manager"
 )
 
 var defaultCommandTimeout = 1 * time.Second
@@ -748,10 +749,9 @@ func (cp *ControlPrimitive) processPushMessage(pushMessage grblMod.PushMessage) 
 	}
 }
 
-func (cp *ControlPrimitive) Worker(
+func (cp *ControlPrimitive) pushMessageWorker(
 	ctx context.Context,
 	pushMessageCh <-chan grblMod.PushMessage,
-	trackedStateCh <-chan *TrackedState,
 ) error {
 	for {
 		select {
@@ -762,24 +762,95 @@ func (cp *ControlPrimitive) Worker(
 				return fmt.Errorf("push message channel closed")
 			}
 			cp.processPushMessage(pushMessage)
+		}
+	}
+}
+
+func (cp *ControlPrimitive) trackedStateWorker(
+	ctx context.Context,
+	trackedStateCh <-chan *TrackedState,
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case trackedState, ok := <-trackedStateCh:
 			if !ok {
 				return fmt.Errorf("tracked state channel closed")
 			}
 			cp.app.QueueUpdateDraw(func() { cp.setState(trackedState.State) })
+		}
+	}
+}
+
+func (cp *ControlPrimitive) sendStatusCommandWorker(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case command := <-cp.sendStatusCommandCh:
 			cp.sendCommand(ctx, &commandParameterType{
 				command: command,
 				timeout: defaultCommandTimeout,
 				quiet:   cp.quietStatusComms,
 			})
+		}
+	}
+}
+
+func (cp *ControlPrimitive) sendCommandWorker(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case queuedCommand := <-cp.sendCommandCh:
 			err := cp.processCommand(ctx, queuedCommand.command)
 			if queuedCommand.errCh != nil {
 				queuedCommand.errCh <- err
 			}
+		}
+	}
+}
+
+func (cp *ControlPrimitive) sendRealTimeCommandWorker(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case realTimeCommand := <-cp.sendRealTimeCommandCh:
 			cp.sendRealTimeCommand(realTimeCommand)
 		}
 	}
+}
+
+func (cp *ControlPrimitive) Worker(
+	ctx context.Context,
+	pushMessageCh <-chan grblMod.PushMessage,
+	trackedStateCh <-chan *TrackedState,
+) error {
+	workerManager := worker_manager.NewWorkerManager()
+
+	workerManager.AddWorker("Control.pushMessageWorker", func(ctx context.Context) error {
+		return cp.pushMessageWorker(ctx, pushMessageCh)
+	})
+	workerManager.AddWorker("Control.trackedStateWorker", func(ctx context.Context) error {
+		return cp.trackedStateWorker(ctx, trackedStateCh)
+	})
+	workerManager.AddWorker("Control.sendStatusCommandWorker", cp.sendStatusCommandWorker)
+	workerManager.AddWorker("Control.sendCommandWorker", cp.sendCommandWorker)
+	workerManager.AddWorker("Control.sendRealTimeCommandWorker", cp.sendRealTimeCommandWorker)
+
+	workerManager.Start(ctx)
+
+	var err error
+	for name, workerErr := range workerManager.Wait(ctx) {
+		if errors.Is(workerErr, context.Canceled) {
+			workerErr = nil
+		}
+		if workerErr != nil {
+			workerErr = fmt.Errorf("%s: %w", name, workerErr)
+		}
+		err = errors.Join(err, workerErr)
+	}
+	return err
 }
