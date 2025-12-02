@@ -44,7 +44,7 @@ type ModalGroup struct {
 	Stopping *Word
 
 	// Spindle (Group 7)
-	SpindleTurning *Word
+	Spindle *Word
 
 	// Coolant (Group 8)
 	Coolant []*Word
@@ -84,7 +84,7 @@ func (m *ModalGroup) UpdateFromWord(word *Word) error {
 	case "M0", "M1", "M2", "M30":
 		m.Stopping = word
 	case "M3", "M4", "M5":
-		m.SpindleTurning = word
+		m.Spindle = word
 	case "M7", "M8":
 		skip := false
 		for _, w := range m.Coolant {
@@ -149,7 +149,7 @@ var DefaultModalGroup ModalGroup = ModalGroup{
 	CoordinateSystemSelect:     NewWord('G', 54),
 	ControlMode:                NewWord('G', 61),
 	Stopping:                   nil,
-	SpindleTurning:             NewWord('M', 5),
+	Spindle:                    NewWord('M', 5),
 	Coolant:                    []*Word{NewWord('M', 9)},
 }
 

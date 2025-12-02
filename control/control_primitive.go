@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -69,6 +70,26 @@ type ControlPrimitive struct {
 
 	gcodeParserModalGroupsDistanceModeWords    []string
 	gcodeParserModalGroupsDistanceModeDropDown *tview.DropDown
+
+	gcodeParserModalGroupsFeedRateModeWords    []string
+	gcodeParserModalGroupsFeedRateModeDropDown *tview.DropDown
+
+	gcodeParserModalGroupsUnitsWords    []string
+	gcodeParserModalGroupsUnitsDropDown *tview.DropDown
+
+	gcodeParserModalGroupsToolLengthOffsetInputField *tview.InputField
+
+	gcodeParserModalGroupsCoordinateSystemSelectWords    []string
+	gcodeParserModalGroupsCoordinateSystemSelectDropDown *tview.DropDown
+
+	gcodeParserModalGroupsStoppingCheckbox *tview.Checkbox
+
+	gcodeParserModalGroupsSpindleWords    []string
+	gcodeParserModalGroupsSpindleDropDown *tview.DropDown
+
+	gcodeParserModalGroupsCoolantMistCheckbok  *tview.Checkbox
+	gcodeParserModalGroupsCoolantFloodCheckbok *tview.Checkbox
+	gcodeParserModalGroupsCoolantOff           *tview.Button
 
 	gcodeParserTextView *tview.TextView
 	gcodeParserFlex     *tview.Flex
@@ -166,15 +187,113 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 	gcodeParserModalGroupsArcIjkDistanceModeDropDown.SetCurrentOption(0)
 	gcodeParserModalGroupsArcIjkDistanceModeDropDown.SetDisabled(true)
 
+	// Feed Rate Mode
+	cp.gcodeParserModalGroupsFeedRateModeWords = []string{"G93", "G94"}
+	cp.gcodeParserModalGroupsFeedRateModeDropDown = newModalGroupDropDown(
+		"Feed Rate Mode", cp.gcodeParserModalGroupsFeedRateModeWords,
+	)
+
+	// Units
+	cp.gcodeParserModalGroupsUnitsWords = []string{"G20", "G21"}
+	cp.gcodeParserModalGroupsUnitsDropDown = newModalGroupDropDown(
+		"Units", cp.gcodeParserModalGroupsUnitsWords,
+	)
+
+	// Cutter Diameter Compensation
+	gcodeParserModalGroupsCutterDiameterCompensationDropDown := newModalGroupDropDown(
+		"Cutter Diameter Compensation", []string{"G40"},
+	)
+	gcodeParserModalGroupsCutterDiameterCompensationDropDown.SetCurrentOption(0)
+	gcodeParserModalGroupsCutterDiameterCompensationDropDown.SetDisabled(true)
+
+	// Tool Length Offset
+	cp.gcodeParserModalGroupsToolLengthOffsetInputField = tview.NewInputField()
+	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetLabel(fmt.Sprintf("Tool Length Offset%s:", sprintGcodeWord("G43.1")))
+	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetAcceptanceFunc(acceptUFloat)
+	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetChangedFunc(func(text string) {
+		if cp.skipQueueCommand {
+			return
+		}
+		z, err := strconv.ParseFloat(text, 64)
+		if err != nil {
+			panic(fmt.Sprintf("bug: SetAcceptanceFunc should have prevented bad floats: %#v", text))
+		}
+		cp.QueueCommand(fmt.Sprintf("G43.1 Z%s", sprintCoordinate(z)))
+	})
+
+	// Coordinate System Select
+	cp.gcodeParserModalGroupsCoordinateSystemSelectWords = []string{"G54", "G55", "G56", "G57", "G58", "G59"}
+	cp.gcodeParserModalGroupsCoordinateSystemSelectDropDown = newModalGroupDropDown(
+		"Coordinate System Select", cp.gcodeParserModalGroupsCoordinateSystemSelectWords,
+	)
+
+	// Control Mode
+	gcodeParserModalGroupsControlModeDropDown := newModalGroupDropDown(
+		"Control Mode", []string{"G61"},
+	)
+	gcodeParserModalGroupsControlModeDropDown.SetCurrentOption(0)
+	gcodeParserModalGroupsControlModeDropDown.SetDisabled(true)
+
+	// Stopping
+	cp.gcodeParserModalGroupsStoppingCheckbox = tview.NewCheckbox()
+	cp.gcodeParserModalGroupsStoppingCheckbox.SetLabel(fmt.Sprintf("%s%s", tview.Escape(gcode.WordName("M0")), sprintGcodeWord("M0")))
+	cp.gcodeParserModalGroupsStoppingCheckbox.SetChangedFunc(func(checked bool) {
+		if cp.skipQueueCommand {
+			return
+		}
+		// TODO check state
+		if checked {
+			cp.QueueCommand("M0")
+		} else {
+			cp.QueueRealTimeCommand(grblMod.RealTimeCommandCycleStartResume)
+		}
+	})
+
+	// Spindle
+	cp.gcodeParserModalGroupsSpindleWords = []string{"M3", "M4", "M5"}
+	cp.gcodeParserModalGroupsSpindleDropDown = newModalGroupDropDown(
+		"Spindle", cp.gcodeParserModalGroupsSpindleWords,
+	)
+
+	// Coolant
+	cp.gcodeParserModalGroupsCoolantMistCheckbok = tview.NewCheckbox()
+	cp.gcodeParserModalGroupsCoolantMistCheckbok.SetLabel("Mist")
+	cp.gcodeParserModalGroupsCoolantMistCheckbok.SetChangedFunc(func(checked bool) {
+		if cp.skipQueueCommand {
+			return
+		}
+		cp.QueueCommand("M7")
+	})
+	cp.gcodeParserModalGroupsCoolantFloodCheckbok = tview.NewCheckbox()
+	cp.gcodeParserModalGroupsCoolantFloodCheckbok.SetLabel("Flood")
+	cp.gcodeParserModalGroupsCoolantFloodCheckbok.SetChangedFunc(func(checked bool) {
+		if cp.skipQueueCommand {
+			return
+		}
+		cp.QueueCommand("M8")
+	})
+	cp.gcodeParserModalGroupsCoolantOff = tview.NewButton("Off")
+	cp.gcodeParserModalGroupsCoolantOff.SetSelectedFunc(func() {
+		cp.QueueCommand("M9")
+	})
+
 	// Modal Groups Flex
-	gcodeParserModalGroupsFlex := tview.NewFlex()
+	gcodeParserModalGroupsFlex := NewScrollContainer()
 	gcodeParserModalGroupsFlex.SetBorder(true)
 	gcodeParserModalGroupsFlex.SetTitle("Modal Groups")
-	gcodeParserModalGroupsFlex.SetDirection(tview.FlexRow)
-	gcodeParserModalGroupsFlex.AddItem(cp.gcodeParserModalGroupsMotionDropDown, 1, 0, false)
-	gcodeParserModalGroupsFlex.AddItem(cp.gcodeParserModalGroupsPlaneSelectionDropDown, 1, 0, false)
-	gcodeParserModalGroupsFlex.AddItem(cp.gcodeParserModalGroupsDistanceModeDropDown, 1, 0, false)
-	gcodeParserModalGroupsFlex.AddItem(gcodeParserModalGroupsArcIjkDistanceModeDropDown, 1, 0, false)
+	gcodeParserModalGroupsFlex.AddPrimitive(cp.gcodeParserModalGroupsMotionDropDown, 1)
+	gcodeParserModalGroupsFlex.AddPrimitive(cp.gcodeParserModalGroupsPlaneSelectionDropDown, 1)
+	gcodeParserModalGroupsFlex.AddPrimitive(cp.gcodeParserModalGroupsDistanceModeDropDown, 1)
+	gcodeParserModalGroupsFlex.AddPrimitive(gcodeParserModalGroupsArcIjkDistanceModeDropDown, 1)
+	gcodeParserModalGroupsFlex.AddPrimitive(cp.gcodeParserModalGroupsFeedRateModeDropDown, 1)
+	gcodeParserModalGroupsFlex.AddPrimitive(cp.gcodeParserModalGroupsUnitsDropDown, 1)
+	gcodeParserModalGroupsFlex.AddPrimitive(gcodeParserModalGroupsCutterDiameterCompensationDropDown, 1)
+	gcodeParserModalGroupsFlex.AddPrimitive(cp.gcodeParserModalGroupsToolLengthOffsetInputField, 1)
+	gcodeParserModalGroupsFlex.AddPrimitive(cp.gcodeParserModalGroupsCoordinateSystemSelectDropDown, 1)
+	gcodeParserModalGroupsFlex.AddPrimitive(gcodeParserModalGroupsControlModeDropDown, 1)
+	gcodeParserModalGroupsFlex.AddPrimitive(cp.gcodeParserModalGroupsStoppingCheckbox, 1)
+	gcodeParserModalGroupsFlex.AddPrimitive(cp.gcodeParserModalGroupsSpindleDropDown, 1)
+	// TODO add flex for Coolant all in the same line
 
 	// TextView
 	gcodeParserTextView := tview.NewTextView()
@@ -259,7 +378,7 @@ func (cp *ControlPrimitive) newPushMessagesTextView() {
 
 func (cp *ControlPrimitive) newCommandInputField() {
 	commandInputField := tview.NewInputField()
-	commandInputField.SetLabel("Command ")
+	commandInputField.SetLabel("Command:")
 	commandInputField.SetDoneFunc(func(key tcell.Key) {
 		switch key {
 		case tcell.KeyEscape:
@@ -365,6 +484,15 @@ func (cp *ControlPrimitive) setDisabledState() {
 	cp.gcodeParserModalGroupsMotionDropDown.SetDisabled(disabled)
 	cp.gcodeParserModalGroupsPlaneSelectionDropDown.SetDisabled(disabled)
 	cp.gcodeParserModalGroupsDistanceModeDropDown.SetDisabled(disabled)
+	cp.gcodeParserModalGroupsFeedRateModeDropDown.SetDisabled(disabled)
+	cp.gcodeParserModalGroupsUnitsDropDown.SetDisabled(disabled)
+	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetDisabled(disabled)
+	cp.gcodeParserModalGroupsCoordinateSystemSelectDropDown.SetDisabled(disabled)
+	cp.gcodeParserModalGroupsStoppingCheckbox.SetDisabled(disabled)
+	cp.gcodeParserModalGroupsSpindleDropDown.SetDisabled(disabled)
+	cp.gcodeParserModalGroupsCoolantMistCheckbok.SetDisabled(disabled)
+	cp.gcodeParserModalGroupsCoolantFloodCheckbok.SetDisabled(disabled)
+	cp.gcodeParserModalGroupsCoolantOff.SetDisabled(disabled)
 }
 
 func (cp *ControlPrimitive) setState(state grblMod.State) {
@@ -619,31 +747,53 @@ func (cp *ControlPrimitive) processGcodeStatePushMessage(
 			cp.gcodeParserModalGroupsDistanceModeDropDown.SetCurrentOption(index)
 		}
 		if modalGroup.FeedRateMode != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.FeedRateMode.NormalizedString()), modalGroup.FeedRateMode.Name())
+			index := -1
+			for i, word := range cp.gcodeParserModalGroupsFeedRateModeWords {
+				if word == modalGroup.FeedRateMode.NormalizedString() {
+					index = i
+				}
+			}
+			cp.gcodeParserModalGroupsFeedRateModeDropDown.SetCurrentOption(index)
 		}
 		if modalGroup.Units != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(gcodeStatePushMessage.ModalGroup.Units.NormalizedString()), gcodeStatePushMessage.ModalGroup.Units.Name())
+			index := -1
+			for i, word := range cp.gcodeParserModalGroupsUnitsWords {
+				if word == modalGroup.Units.NormalizedString() {
+					index = i
+				}
+			}
+			cp.gcodeParserModalGroupsUnitsDropDown.SetCurrentOption(index)
 		}
-		if modalGroup.CutterDiameterCompensation != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.CutterDiameterCompensation.NormalizedString()), modalGroup.CutterDiameterCompensation.Name())
-		}
-		// FIXME not reported here, needs to come from $#
 		if modalGroup.ToolLengthOffset != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.ToolLengthOffset.NormalizedString()), "Tool Length Offset")
+			// FIXME not reported here, needs to come from $#
 		}
 		if modalGroup.CoordinateSystemSelect != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.CoordinateSystemSelect.NormalizedString()), modalGroup.CoordinateSystemSelect.Name())
+			index := -1
+			for i, word := range cp.gcodeParserModalGroupsCoordinateSystemSelectWords {
+				if word == modalGroup.CoordinateSystemSelect.NormalizedString() {
+					index = i
+				}
+			}
+			cp.gcodeParserModalGroupsCoordinateSystemSelectDropDown.SetCurrentOption(index)
 		}
-		// FIXME never reported back, need to manually track sent gcodes
 		if modalGroup.Stopping != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.Stopping.NormalizedString()), modalGroup.Stopping.Name())
+			// FIXME never reported back, need to manually track sent gcodes
 		}
-		if modalGroup.SpindleTurning != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.SpindleTurning.NormalizedString()), modalGroup.SpindleTurning.Name())
+		if modalGroup.Spindle != nil {
+			index := -1
+			for i, word := range cp.gcodeParserModalGroupsSpindleWords {
+				if word == modalGroup.Spindle.NormalizedString() {
+					index = i
+				}
+			}
+			cp.gcodeParserModalGroupsSpindleDropDown.SetCurrentOption(index)
 		}
-		for _, word := range modalGroup.Coolant {
-			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(word.NormalizedString()), word.Name())
-		}
+		// for _, word := range modalGroup.Coolant {
+		// TODO
+		// cp.gcodeParserModalGroupsCoolantMistCheckbok
+		// cp.gcodeParserModalGroupsCoolantFloodCheckbok
+		// cp.gcodeParserModalGroupsCoolantOff
+		// }
 	}
 
 	if gcodeStatePushMessage.Tool != nil {
@@ -747,6 +897,14 @@ func (cp *ControlPrimitive) processWelcomePushMessage() {
 		cp.gcodeParserModalGroupsMotionDropDown.SetCurrentOption(-1)
 		cp.gcodeParserModalGroupsPlaneSelectionDropDown.SetCurrentOption(-1)
 		cp.gcodeParserModalGroupsDistanceModeDropDown.SetCurrentOption(-1)
+		cp.gcodeParserModalGroupsFeedRateModeDropDown.SetCurrentOption(-1)
+		cp.gcodeParserModalGroupsUnitsDropDown.SetCurrentOption(-1)
+		cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetText("")
+		cp.gcodeParserModalGroupsCoordinateSystemSelectDropDown.SetCurrentOption(-1)
+		cp.gcodeParserModalGroupsStoppingCheckbox.SetChecked(false)
+		cp.gcodeParserModalGroupsSpindleDropDown.SetCurrentOption(-1)
+		cp.gcodeParserModalGroupsCoolantMistCheckbok.SetChecked(false)
+		cp.gcodeParserModalGroupsCoolantFloodCheckbok.SetChecked(false)
 		cp.skipQueueCommand = false
 	})
 	fmt.Fprintf(cp.pushMessagesTextView, "\n[%s]Soft-Reset detected[-]", tcell.ColorOrange)
