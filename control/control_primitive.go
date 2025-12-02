@@ -561,14 +561,14 @@ func (cp *ControlPrimitive) processGcodeStatePushMessage(
 		if modalGroup.Units != nil {
 			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(gcodeStatePushMessage.ModalGroup.Units.NormalizedString()), gcodeStatePushMessage.ModalGroup.Units.Name())
 		}
-		if modalGroup.CutterRadiusCompensation != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.CutterRadiusCompensation.NormalizedString()), modalGroup.CutterRadiusCompensation.Name())
+		if modalGroup.CutterDiameterCompensation != nil {
+			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.CutterDiameterCompensation.NormalizedString()), modalGroup.CutterDiameterCompensation.Name())
 		}
 		if modalGroup.ToolLengthOffset != nil {
 			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.ToolLengthOffset.NormalizedString()), modalGroup.ToolLengthOffset.Name())
 		}
-		if modalGroup.CoordinateSystemSelection != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.CoordinateSystemSelection.NormalizedString()), modalGroup.CoordinateSystemSelection.Name())
+		if modalGroup.CoordinateSystemSelect != nil {
+			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.CoordinateSystemSelect.NormalizedString()), modalGroup.CoordinateSystemSelect.Name())
 		}
 		if modalGroup.Stopping != nil {
 			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.Stopping.NormalizedString()), modalGroup.Stopping.Name())

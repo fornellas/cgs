@@ -9,53 +9,49 @@ import (
 // See https://www.linuxcnc.org/docs/2.4/html/gcode_overview.html#sec:Modal-Groups and
 // https://github.com/gnea/grbl/wiki/Grbl-v1.1-Commands
 type ModalGroup struct {
-	// Motion ("Group 1")
+	// Motion (Group 1)
 	Motion *Word
 
-	// Plane selection
+	// Plane selection (Group 2)
 	PlaneSelection *Word
 
-	// Diameter / Radius for lathes
-	// DiameterRadiusForLathes *Word
-
-	// Distance Mode
+	// Distance Mode (Group 3)
 	DistanceMode *Word
 
-	// Feed Rate Mode
+	// FIXME set to only supported mode
+	// Arc IJK Distance Mode (Group 4)
+	ArcIjkDistanceMode *Word
+
+	// Feed Rate Mode (Group 5)
 	FeedRateMode *Word
 
-	// Units
+	// Units (Group 6)
 	Units *Word
 
-	// Cutter Radius Compensation
-	CutterRadiusCompensation *Word
+	// FIXME set to only supported mode
+	// Cutter Diameter Compensation (Group 7)
+	CutterDiameterCompensation *Word
 
-	// Tool Length Offset
+	// FIXME only reported by $#
+	// Tool Length Offset (Group 8)
 	ToolLengthOffset *Word
 
-	// Return Mode in Canned Cycles
-	// ReturnModeInCannedCycles *Word
+	// Coordinate System Select (Group 12)
+	CoordinateSystemSelect *Word
 
-	// Coordinate System Selection
-	CoordinateSystemSelection *Word
+	// FIXME set to only supported mode
+	// Control Mode (Group 13)
+	ControlMode *Word
 
-	// Stopping
+	// FIXME never reported back
+	// Stopping (Group 4)
 	Stopping *Word
 
-	// Tool Change
-	// ToolChange *Word
-
-	// Spindle Turning
+	// Spindle (Group 7)
 	SpindleTurning *Word
 
-	// Coolant
+	// Coolant (Group 8)
 	Coolant []*Word
-
-	// Override Switches
-	// OverrideSwitches *Word
-
-	// Flow Control
-	// FlowControl *Word
 }
 
 func (m *ModalGroup) Copy() *ModalGroup {
@@ -67,30 +63,28 @@ func (m *ModalGroup) Copy() *ModalGroup {
 //gocyclo:ignore
 func (m *ModalGroup) Update(word *Word) {
 	switch word.NormalizedString() {
-	case "G0", "G1", "G2", "G3", "G33", "G38.2", "G38.3", "G38.4", "G38.5", "G73", "G76", "G80", "G81", "G82", "G83", "G84", "G85", "G86", "G87", "G88", "G89":
+	case "G0", "G1", "G2", "G3", "G38.2", "G38.3", "G38.4", "G38.5", "G80":
 		m.Motion = word
 	case "G17", "G18", "G19":
 		m.PlaneSelection = word
-	// DiameterRadiusForLathes
-	// G7, G8
 	case "G90", "G91":
 		m.DistanceMode = word
+	case "G91.1":
+		m.ArcIjkDistanceMode = word
 	case "G93", "G94":
 		m.FeedRateMode = word
 	case "G20", "G21":
 		m.Units = word
-	case "G40", "G41", "G42", "G41.1", "G42.1":
-		m.CutterRadiusCompensation = word
-	case "G43", "G43.1", "G49":
+	case "G40":
+		m.CutterDiameterCompensation = word
+	case "G43.1", "G49":
 		m.ToolLengthOffset = word
-	// ReturnModeInCannedCycles
-	// G98, G99
-	case "G54", "G55", "G56", "G57", "G58", "G59", "G59.1", "G59.2", "G59.3":
-		m.CoordinateSystemSelection = word
-	case "M0", "M1", "M2", "M30", "M60":
+	case "G54", "G55", "G56", "G57", "G58", "G59":
+		m.CoordinateSystemSelect = word
+	case "G61":
+		m.ControlMode = word
+	case "M0", "M1", "M2", "M30":
 		m.Stopping = word
-	// ToolChange
-	// M6 Tn
 	case "M3", "M4", "M5":
 		m.SpindleTurning = word
 	case "M7", "M8":
@@ -115,63 +109,25 @@ func (m *ModalGroup) Update(word *Word) {
 		m.Coolant = append(m.Coolant, word)
 	case "M9":
 		m.Coolant = []*Word{word}
-		// OverrideSwitches
-		// M48, M49
-		// FlowControl
-		// O-
 	}
 }
 
 // DefaultModalGroup holds Grbl default modal group states.
 // See: https://github.com/gnea/grbl/wiki/Grbl-v1.1-Commands.
 var DefaultModalGroup ModalGroup = ModalGroup{
-	// Motion ("Group 1")
-	Motion: NewWord('G', 0),
-
-	// Plane selection
-	PlaneSelection: NewWord('G', 17),
-
-	// Diameter / Radius for lathes
-	// DiameterRadiusForLathes: NewWord('G', 8),
-
-	// Distance Mode
-	DistanceMode: NewWord('G', 90),
-
-	// Feed Rate Mode
-	FeedRateMode: NewWord('G', 94),
-
-	// Units
-	Units: NewWord('G', 21),
-
-	// Cutter Radius Compensation
-	// CutterRadiusCompensation: NewWord('', ),
-
-	// Tool Length Offset
-	ToolLengthOffset: NewWord('G', 49),
-
-	// Return Mode in Canned Cycles
-	// ReturnModeInCannedCycles: NewWord('', ),
-
-	// Coordinate System Selection
-	CoordinateSystemSelection: NewWord('G', 54),
-
-	// Stopping
-	Stopping: NewWord('M', 0),
-
-	// Tool Change
-	// ToolChange: NewWord('', ),
-
-	// Spindle Turning
-	SpindleTurning: NewWord('M', 5),
-
-	// Coolant
-	Coolant: []*Word{NewWord('M', 9)},
-
-	// Override Switches
-	// OverrideSwitches: NewWord('', ),
-
-	// Flow Control
-	// FlowControl: NewWord('', ),
+	Motion:                     NewWord('G', 0),
+	PlaneSelection:             NewWord('G', 17),
+	DistanceMode:               NewWord('G', 90),
+	ArcIjkDistanceMode:         NewWord('G', 91.1),
+	FeedRateMode:               NewWord('G', 94),
+	Units:                      NewWord('G', 21),
+	CutterDiameterCompensation: NewWord('G', 40),
+	ToolLengthOffset:           NewWord('G', 49),
+	CoordinateSystemSelect:     NewWord('G', 54),
+	ControlMode:                NewWord('G', 61),
+	Stopping:                   nil,
+	SpindleTurning:             NewWord('M', 5),
+	Coolant:                    []*Word{NewWord('M', 9)},
 }
 
 // Parser can parse Grbl flavour G-Code.
