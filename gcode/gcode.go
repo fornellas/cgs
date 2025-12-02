@@ -37,6 +37,7 @@ var wordToName = map[string]string{
 	"G19":   "Plane Select YZ",
 	"G90":   "Distance Mode Absolute",
 	"G91":   "Distance Mode Incremental",
+	"G91.1": "Incremental Distance Mode for IJK",
 	"G93":   "Feed Rate Mode Inverse Time",
 	"G94":   "Feed Rate Mode Units per Minute",
 	"G20":   "Unit Inches",

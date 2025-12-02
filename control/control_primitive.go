@@ -159,6 +159,13 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 		"Distance Mode", cp.gcodeParserModalGroupsDistanceModeWords,
 	)
 
+	// Arc IJK Distance Mode
+	gcodeParserModalGroupsArcIjkDistanceModeDropDown := newModalGroupDropDown(
+		"Arc IJK Distance Mode", []string{"G91.1"},
+	)
+	gcodeParserModalGroupsArcIjkDistanceModeDropDown.SetCurrentOption(0)
+	gcodeParserModalGroupsArcIjkDistanceModeDropDown.SetDisabled(true)
+
 	// Modal Groups Flex
 	gcodeParserModalGroupsFlex := tview.NewFlex()
 	gcodeParserModalGroupsFlex.SetBorder(true)
@@ -167,6 +174,7 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 	gcodeParserModalGroupsFlex.AddItem(cp.gcodeParserModalGroupsMotionDropDown, 1, 0, false)
 	gcodeParserModalGroupsFlex.AddItem(cp.gcodeParserModalGroupsPlaneSelectionDropDown, 1, 0, false)
 	gcodeParserModalGroupsFlex.AddItem(cp.gcodeParserModalGroupsDistanceModeDropDown, 1, 0, false)
+	gcodeParserModalGroupsFlex.AddItem(gcodeParserModalGroupsArcIjkDistanceModeDropDown, 1, 0, false)
 
 	// TextView
 	gcodeParserTextView := tview.NewTextView()
