@@ -38,7 +38,6 @@ func (wm *WorkerManager) Start(ctx context.Context) {
 			workerLogger.Debug("Starting")
 			wm.workers[i].errCh <- wm.workers[i].fn(workerCtx)
 			workerLogger.Debug("Finished")
-			// FIXME this will double add Worker Manager group
 			wm.Cancel(workerCtx)
 		}()
 	}
