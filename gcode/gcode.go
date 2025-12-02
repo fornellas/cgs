@@ -71,6 +71,13 @@ var wordToName = map[string]string{
 	"M9":    "Mist And Flood Coolant Off",
 }
 
+func WordName(word string) string {
+	if name, ok := wordToName[word]; ok {
+		return name
+	}
+	return word
+}
+
 // Word may either give a command or provide an argument to a command.
 type Word struct {
 	letter rune

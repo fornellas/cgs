@@ -55,12 +55,16 @@ type ControlPrimitive struct {
 
 	quietStatusComms bool
 
+	skipQueueCommand bool
+
 	sendStatusCommandCh   chan string
 	sendCommandCh         chan *queuedCommandType
 	sendRealTimeCommandCh chan grblMod.RealTimeCommand
 
-	gcodeParserTextView *tview.TextView
-	gcodeParserFlex     *tview.Flex
+	gcodeParserModalGroupsMotionWords    []string
+	gcodeParserModalGroupsMotionDropDown *tview.DropDown
+	gcodeParserTextView                  *tview.TextView
+	gcodeParserFlex                      *tview.Flex
 
 	gcodeParamsTextView *tview.TextView
 
@@ -114,21 +118,26 @@ func NewControlPrimitive(
 }
 
 func (cp *ControlPrimitive) newGcodeParserFlex() {
+	newModalGroupDropDown := func(name string, words []string) *tview.DropDown {
+		dropDown := tview.NewDropDown()
+		dropDown.SetLabel(name + " ")
+		texts := []string{}
+		for _, word := range words {
+			texts = append(texts, fmt.Sprintf("%s%s", tview.Escape(gcode.WordName(word)), sprintGcodeWord(word)))
+		}
+		dropDown.SetOptions(texts, func(text string, index int) {
+			if cp.skipQueueCommand {
+				return
+			}
+			cp.QueueCommand(words[index])
+		})
+		return dropDown
+	}
 
 	// Modal Group Motion
-	gcodeParserModalGroupsMotionDropDown := tview.NewDropDown()
-	gcodeParserModalGroupsMotionDropDown.SetLabel("Motion")
-	gcodeParserModalGroupsMotionDropDown.SetOptions([]string{
-		"G0 Rapid Linear Motion",
-		"G1 Linear Motion at Feed Rate",
-		"G2 Arc at Feed Rate CW",
-		"G3 Arc at Feed Rate CCW",
-		"G33 Spindle Synchronized Motion",
-		"G38.2 Straight Probe Toward Piece with Error",
-		"G38.3 Straight Probe Toward Piece",
-		"G38.4 Straight Probe From Piece With Error",
-		"G38.5 Straight Probe From Piece",
-	}, nil)
+	cp.gcodeParserModalGroupsMotionWords = []string{"G0", "G1", "G2", "G3", "G38.2", "G38.3", "G38.4", "G38.5", "G80"}
+	gcodeParserModalGroupsMotionDropDown := newModalGroupDropDown("Motion", cp.gcodeParserModalGroupsMotionWords)
+	cp.gcodeParserModalGroupsMotionDropDown = gcodeParserModalGroupsMotionDropDown
 
 	// Modal Groups Flex
 	gcodeParserModalGroupsFlex := tview.NewFlex()
@@ -142,6 +151,8 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 	gcodeParserTextView.SetDynamicColors(true)
 	gcodeParserTextView.SetScrollable(true)
 	gcodeParserTextView.SetWrap(true)
+	gcodeParserTextView.SetBorder(true)
+	gcodeParserTextView.SetTitle("LEGACY")
 	gcodeParserTextView.SetChangedFunc(func() {
 		cp.app.QueueUpdateDraw(func() {
 			text := gcodeParserTextView.GetText(false)
@@ -274,7 +285,7 @@ func (cp *ControlPrimitive) newControlFlex() {
 	controlFlex.SetBorder(true)
 	controlFlex.SetTitle("Contrtol")
 	controlFlex.SetDirection(tview.FlexRow)
-	controlFlex.AddItem(gcodeFlex, 17, 0, false)
+	controlFlex.AddItem(gcodeFlex, 0, 1, false)
 	controlFlex.AddItem(commsFlex, 0, 1, false)
 	controlFlex.AddItem(cp.commandInputField, 1, 0, true)
 	cp.Flex = controlFlex
@@ -539,12 +550,18 @@ func (cp *ControlPrimitive) processGcodeStatePushMessage(
 ) tcell.Color {
 	var buf bytes.Buffer
 
+	cp.skipQueueCommand = true
+	defer func() { cp.skipQueueCommand = false }()
+
 	if modalGroup := gcodeStatePushMessage.ModalGroup; modalGroup != nil {
 		if modalGroup.Motion != nil {
-			fmt.Fprintf(
-				&buf, "%s:%s\n",
-				sprintGcodeWord(modalGroup.Motion.NormalizedString()), modalGroup.Motion.Name(),
-			)
+			index := -1
+			for i, word := range cp.gcodeParserModalGroupsMotionWords {
+				if word == modalGroup.Motion.NormalizedString() {
+					index = i
+				}
+			}
+			cp.gcodeParserModalGroupsMotionDropDown.SetCurrentOption(index)
 		}
 		if modalGroup.PlaneSelection != nil {
 			fmt.Fprintf(

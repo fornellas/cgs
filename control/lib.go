@@ -11,7 +11,7 @@ import (
 	iFmt "github.com/fornellas/cgs/internal/fmt"
 )
 
-var gcodeColor = tcell.NewRGBColor(111, 170, 210)
+var gcodeColor = tcell.NewRGBColor(30, 106, 157)
 
 const coordinateWidth = len("20000.0000") + 1
 const feedWidth = len("20000") + 1
@@ -75,7 +75,7 @@ func sprintTool(value float64) string {
 }
 
 func sprintGcodeWord(word string) string {
-	return fmt.Sprintf("[%s]%s[-]", tcell.ColorBlue, word)
+	return fmt.Sprintf("[%s]%s[-]", gcodeColor, word)
 }
 
 func getMachineStateColor(state grblMod.State) tcell.Color {
