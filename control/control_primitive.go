@@ -63,8 +63,12 @@ type ControlPrimitive struct {
 
 	gcodeParserModalGroupsMotionWords    []string
 	gcodeParserModalGroupsMotionDropDown *tview.DropDown
-	gcodeParserTextView                  *tview.TextView
-	gcodeParserFlex                      *tview.Flex
+
+	gcodeParserModalGroupsPlaneSelectionWords    []string
+	gcodeParserModalGroupsPlaneSelectionDropDown *tview.DropDown
+
+	gcodeParserTextView *tview.TextView
+	gcodeParserFlex     *tview.Flex
 
 	gcodeParamsTextView *tview.TextView
 
@@ -136,15 +140,19 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 
 	// Modal Group Motion
 	cp.gcodeParserModalGroupsMotionWords = []string{"G0", "G1", "G2", "G3", "G38.2", "G38.3", "G38.4", "G38.5", "G80"}
-	gcodeParserModalGroupsMotionDropDown := newModalGroupDropDown("Motion", cp.gcodeParserModalGroupsMotionWords)
-	cp.gcodeParserModalGroupsMotionDropDown = gcodeParserModalGroupsMotionDropDown
+	cp.gcodeParserModalGroupsMotionDropDown = newModalGroupDropDown("Motion", cp.gcodeParserModalGroupsMotionWords)
+
+	// Modal Plane selection
+	cp.gcodeParserModalGroupsPlaneSelectionWords = []string{"G17", "G18", "G19"}
+	cp.gcodeParserModalGroupsPlaneSelectionDropDown = newModalGroupDropDown("Plane Selection", cp.gcodeParserModalGroupsPlaneSelectionWords)
 
 	// Modal Groups Flex
 	gcodeParserModalGroupsFlex := tview.NewFlex()
 	gcodeParserModalGroupsFlex.SetBorder(true)
 	gcodeParserModalGroupsFlex.SetTitle("Modal Groups")
 	gcodeParserModalGroupsFlex.SetDirection(tview.FlexRow)
-	gcodeParserModalGroupsFlex.AddItem(gcodeParserModalGroupsMotionDropDown, 1, 0, false)
+	gcodeParserModalGroupsFlex.AddItem(cp.gcodeParserModalGroupsMotionDropDown, 1, 0, false)
+	gcodeParserModalGroupsFlex.AddItem(cp.gcodeParserModalGroupsPlaneSelectionDropDown, 1, 0, false)
 
 	// TextView
 	gcodeParserTextView := tview.NewTextView()
@@ -300,34 +308,40 @@ func (cp *ControlPrimitive) sendStatusCommands() {
 func (cp *ControlPrimitive) setDisabledState() {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
+
+	var disabled bool
 	if cp.disableCommandInput {
-		cp.commandInputField.SetDisabled(true)
-		return
+		disabled = true
+	} else {
+		switch cp.state {
+		case grblMod.StateIdle:
+			disabled = false
+		case grblMod.StateRun:
+			disabled = true
+		case grblMod.StateHold:
+			disabled = true
+		case grblMod.StateJog:
+			disabled = true
+		case grblMod.StateAlarm:
+			disabled = true
+		case grblMod.StateDoor:
+			disabled = true
+		case grblMod.StateCheck:
+			disabled = false
+		case grblMod.StateHome:
+			disabled = true
+		case grblMod.StateSleep:
+			disabled = true
+		case grblMod.StateUnknown:
+			disabled = true
+		default:
+			panic(fmt.Errorf("unknown state: %s", cp.state))
+		}
 	}
-	switch cp.state {
-	case grblMod.StateIdle:
-		cp.commandInputField.SetDisabled(false)
-	case grblMod.StateRun:
-		cp.commandInputField.SetDisabled(true)
-	case grblMod.StateHold:
-		cp.commandInputField.SetDisabled(true)
-	case grblMod.StateJog:
-		cp.commandInputField.SetDisabled(true)
-	case grblMod.StateAlarm:
-		cp.commandInputField.SetDisabled(true)
-	case grblMod.StateDoor:
-		cp.commandInputField.SetDisabled(true)
-	case grblMod.StateCheck:
-		cp.commandInputField.SetDisabled(false)
-	case grblMod.StateHome:
-		cp.commandInputField.SetDisabled(true)
-	case grblMod.StateSleep:
-		cp.commandInputField.SetDisabled(true)
-	case grblMod.StateUnknown:
-		cp.commandInputField.SetDisabled(true)
-	default:
-		panic(fmt.Errorf("unknown state: %s", cp.state))
-	}
+
+	cp.commandInputField.SetDisabled(disabled)
+	cp.gcodeParserModalGroupsMotionDropDown.SetDisabled(disabled)
+	cp.gcodeParserModalGroupsPlaneSelectionDropDown.SetDisabled(disabled)
 }
 
 func (cp *ControlPrimitive) setState(state grblMod.State) {
@@ -564,10 +578,13 @@ func (cp *ControlPrimitive) processGcodeStatePushMessage(
 			cp.gcodeParserModalGroupsMotionDropDown.SetCurrentOption(index)
 		}
 		if modalGroup.PlaneSelection != nil {
-			fmt.Fprintf(
-				&buf, "%s:%s\n",
-				sprintGcodeWord(modalGroup.PlaneSelection.NormalizedString()), modalGroup.PlaneSelection.Name(),
-			)
+			index := -1
+			for i, word := range cp.gcodeParserModalGroupsPlaneSelectionWords {
+				if word == modalGroup.PlaneSelection.NormalizedString() {
+					index = i
+				}
+			}
+			cp.gcodeParserModalGroupsPlaneSelectionDropDown.SetCurrentOption(index)
 		}
 		if modalGroup.DistanceMode != nil {
 			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.DistanceMode.NormalizedString()), modalGroup.DistanceMode.Name())
