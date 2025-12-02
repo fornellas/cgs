@@ -48,23 +48,34 @@ type queuedCommandType struct {
 
 type ControlPrimitive struct {
 	*tview.Flex
-	grbl                   *grblMod.Grbl
-	app                    *tview.Application
-	stateTracker           *StateTracker
-	quietStatusComms       bool
-	sendStatusCommandCh    chan string
-	sendCommandCh          chan *queuedCommandType
-	sendRealTimeCommandCh  chan grblMod.RealTimeCommand
-	commandsTextView       *tview.TextView
-	pushMessagesTextView   *tview.TextView
-	gcodeParserTextView    *tview.TextView
-	gcodeParamsTextView    *tview.TextView
+	grbl         *grblMod.Grbl
+	app          *tview.Application
+	stateTracker *StateTracker
+
+	quietStatusComms bool
+
+	sendStatusCommandCh   chan string
+	sendCommandCh         chan *queuedCommandType
+	sendRealTimeCommandCh chan grblMod.RealTimeCommand
+
+	gcodeParserTextView *tview.TextView
+	gcodeParserFlex     *tview.Flex
+
+	gcodeParamsTextView *tview.TextView
+
+	commandsTextView *tview.TextView
+
+	pushMessagesTextView *tview.TextView
+
 	commandInputField      *tview.InputField
 	commandInputHistory    []string
 	commandInputHistoryIdx int
-	mu                     sync.Mutex
-	disableCommandInput    bool
-	state                  grblMod.State
+
+	disableCommandInput bool
+
+	state grblMod.State
+
+	mu sync.Mutex
 }
 
 //gocyclo:ignore
@@ -87,7 +98,87 @@ func NewControlPrimitive(
 		state:                  grblMod.StateUnknown,
 	}
 
-	// Commands
+	cp.newGcodeParserFlex()
+	cp.newGcodeParamsTextView()
+	cp.newCommandsTextView()
+	cp.newPushMessagesTextView()
+	cp.newCommandInputField()
+
+	cp.newControlFlex()
+
+	cp.setDisabledState()
+	cp.sendStatusCommands()
+
+	return cp
+}
+
+func (cp *ControlPrimitive) newGcodeParserFlex() {
+	// G-Code Parser Modal Group Motion
+	gcodeParserModalGroupsMotionDropDown := tview.NewDropDown()
+	gcodeParserModalGroupsMotionDropDown.SetLabel("Motion")
+	gcodeParserModalGroupsMotionDropDown.SetOptions([]string{
+		"G0 Rapid Linear Motion",
+		"G1 Linear Motion at Feed Rate",
+		"G2 Arc at Feed Rate CW",
+		"G3 Arc at Feed Rate CCW",
+		"G33 Spindle Synchronized Motion",
+		"G38.2 Straight Probe Toward Piece with Error",
+		"G38.3 Straight Probe Toward Piece",
+		"G38.4 Straight Probe From Piece With Error",
+		"G38.5 Straight Probe From Piece",
+	}, nil)
+
+	// G-Code Parser Modal Groups Flex
+	gcodeParserModalGroupsFlex := tview.NewFlex()
+	gcodeParserModalGroupsFlex.SetBorder(true)
+	gcodeParserModalGroupsFlex.SetTitle("Modal Groups")
+	gcodeParserModalGroupsFlex.SetDirection(tview.FlexRow)
+	gcodeParserModalGroupsFlex.AddItem(gcodeParserModalGroupsMotionDropDown, 1, 0, false)
+
+	// G-Code Parser TextView
+	gcodeParserTextView := tview.NewTextView()
+	gcodeParserTextView.SetDynamicColors(true)
+	gcodeParserTextView.SetScrollable(true)
+	gcodeParserTextView.SetWrap(true)
+	gcodeParserTextView.SetChangedFunc(func() {
+		cp.app.QueueUpdateDraw(func() {
+			text := gcodeParserTextView.GetText(false)
+			if len(text) > 0 && text[len(text)-1] == '\n' {
+				gcodeParserTextView.SetText(text[:len(text)-1])
+			}
+		})
+	})
+	cp.gcodeParserTextView = gcodeParserTextView
+
+	// G-Code Parser Flex
+	gcodeParserFlex := tview.NewFlex()
+	gcodeParserFlex.SetBorder(true)
+	gcodeParserFlex.SetTitle("G-Code Parser")
+	gcodeParserFlex.SetDirection(tview.FlexRow)
+	gcodeParserFlex.AddItem(gcodeParserModalGroupsFlex, 0, 1, false)
+	gcodeParserFlex.AddItem(gcodeParserTextView, 0, 1, false)
+
+	cp.gcodeParserFlex = gcodeParserFlex
+}
+
+func (cp *ControlPrimitive) newGcodeParamsTextView() {
+	gcodeParamsTextView := tview.NewTextView()
+	gcodeParamsTextView.SetDynamicColors(true)
+	gcodeParamsTextView.SetScrollable(true)
+	gcodeParamsTextView.SetWrap(true)
+	gcodeParamsTextView.SetBorder(true).SetTitle("G-Code Parameters")
+	gcodeParamsTextView.SetChangedFunc(func() {
+		cp.app.QueueUpdateDraw(func() {
+			text := gcodeParamsTextView.GetText(false)
+			if len(text) > 0 && text[len(text)-1] == '\n' {
+				gcodeParamsTextView.SetText(text[:len(text)-1])
+			}
+		})
+	})
+	cp.gcodeParamsTextView = gcodeParamsTextView
+}
+
+func (cp *ControlPrimitive) newCommandsTextView() {
 	commandsTextView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
@@ -103,8 +194,9 @@ func NewControlPrimitive(
 		})
 	})
 	cp.commandsTextView = commandsTextView
+}
 
-	// Push Messages
+func (cp *ControlPrimitive) newPushMessagesTextView() {
 	pushMessagesTextView := tview.NewTextView()
 	pushMessagesTextView.SetDynamicColors(true)
 	pushMessagesTextView.SetScrollable(true)
@@ -120,40 +212,9 @@ func NewControlPrimitive(
 		})
 	})
 	cp.pushMessagesTextView = pushMessagesTextView
+}
 
-	// G-Code Parser
-	gcodeParserTextView := tview.NewTextView()
-	gcodeParserTextView.SetDynamicColors(true)
-	gcodeParserTextView.SetScrollable(true)
-	gcodeParserTextView.SetWrap(true)
-	gcodeParserTextView.SetBorder(true).SetTitle("G-Code Parser")
-	gcodeParserTextView.SetChangedFunc(func() {
-		cp.app.QueueUpdateDraw(func() {
-			text := gcodeParserTextView.GetText(false)
-			if len(text) > 0 && text[len(text)-1] == '\n' {
-				gcodeParserTextView.SetText(text[:len(text)-1])
-			}
-		})
-	})
-	cp.gcodeParserTextView = gcodeParserTextView
-
-	// G-Code Parameters
-	gcodeParamsTextView := tview.NewTextView()
-	gcodeParamsTextView.SetDynamicColors(true)
-	gcodeParamsTextView.SetScrollable(true)
-	gcodeParamsTextView.SetWrap(true)
-	gcodeParamsTextView.SetBorder(true).SetTitle("G-Code Parameters")
-	gcodeParamsTextView.SetChangedFunc(func() {
-		cp.app.QueueUpdateDraw(func() {
-			text := gcodeParamsTextView.GetText(false)
-			if len(text) > 0 && text[len(text)-1] == '\n' {
-				gcodeParamsTextView.SetText(text[:len(text)-1])
-			}
-		})
-	})
-	cp.gcodeParamsTextView = gcodeParamsTextView
-
-	// Command
+func (cp *ControlPrimitive) newCommandInputField() {
 	commandInputField := tview.NewInputField()
 	commandInputField.SetLabel("Command ")
 	commandInputField.SetDoneFunc(func(key tcell.Key) {
@@ -194,32 +255,27 @@ func NewControlPrimitive(
 		return event
 	})
 	cp.commandInputField = commandInputField
+}
 
+func (cp *ControlPrimitive) newControlFlex() {
 	gcodeFlex := tview.NewFlex()
 	gcodeFlex.SetDirection(tview.FlexColumn)
-	gcodeFlex.AddItem(gcodeParserTextView, 0, 1, false)
-	gcodeFlex.AddItem(gcodeParamsTextView, 0, 1, false)
+	gcodeFlex.AddItem(cp.gcodeParserFlex, 0, 1, false)
+	gcodeFlex.AddItem(cp.gcodeParamsTextView, 0, 1, false)
 
 	commsFlex := tview.NewFlex()
 	commsFlex.SetDirection(tview.FlexColumn)
-	commsFlex.AddItem(commandsTextView, 0, 1, false)
-	commsFlex.AddItem(pushMessagesTextView, 0, 1, false)
+	commsFlex.AddItem(cp.commandsTextView, 0, 1, false)
+	commsFlex.AddItem(cp.pushMessagesTextView, 0, 1, false)
 
-	// Control
 	controlFlex := tview.NewFlex()
 	controlFlex.SetBorder(true)
 	controlFlex.SetTitle("Contrtol")
 	controlFlex.SetDirection(tview.FlexRow)
 	controlFlex.AddItem(gcodeFlex, 17, 0, false)
 	controlFlex.AddItem(commsFlex, 0, 1, false)
-	controlFlex.AddItem(commandInputField, 1, 0, true)
+	controlFlex.AddItem(cp.commandInputField, 1, 0, true)
 	cp.Flex = controlFlex
-
-	cp.setDisabledState()
-
-	cp.sendStatusCommands()
-
-	return cp
 }
 
 func (cp *ControlPrimitive) sendStatusCommands() {
