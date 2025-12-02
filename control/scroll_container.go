@@ -75,36 +75,41 @@ func (s *ScrollContainer) Draw(screen tcell.Screen) {
 		s.scrollOffset = 0
 	}
 
-	// Draw primitives
+	// Draw primitives (except focused)
 	currentY := y - s.scrollOffset
 	for i, p := range s.primitives {
 		h := s.primitiveHeights[i]
 
-		// Only draw if visible
+		// Skip focused primitive - draw it last so dropdown appears on top
+		if i == s.focusedIndex {
+			currentY += h
+			continue
+		}
+
+		// Only draw if visible (or partially visible)
 		if currentY+h > y && currentY < y+height {
-			// Clip to container boundaries
-			drawY := currentY
-			drawHeight := h
-
-			// Clip top
-			if drawY < y {
-				drawHeight -= (y - drawY)
-				drawY = y
-			}
-
-			// Clip bottom
-			if drawY+drawHeight > y+height {
-				drawHeight = y + height - drawY
-			}
-
-			// Only draw if there's visible space
-			if drawHeight > 0 {
-				p.SetRect(x, drawY, width, drawHeight)
-				p.Draw(screen)
-			}
+			// Set primitive to its natural position and size
+			// This allows primitives like dropdowns to render outside their bounds
+			p.SetRect(x, currentY, width, h)
+			p.Draw(screen)
 		}
 
 		currentY += h
+	}
+
+	// Draw focused primitive last so dropdown appears on top
+	if s.focusedIndex >= 0 && s.focusedIndex < len(s.primitives) {
+		focusedY := y - s.scrollOffset
+		for i := 0; i < s.focusedIndex; i++ {
+			focusedY += s.primitiveHeights[i]
+		}
+		h := s.primitiveHeights[s.focusedIndex]
+		p := s.primitives[s.focusedIndex]
+
+		if focusedY+h > y && focusedY < y+height {
+			p.SetRect(x, focusedY, width, h)
+			p.Draw(screen)
+		}
 	}
 }
 
