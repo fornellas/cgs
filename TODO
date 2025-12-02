@@ -1,4 +1,5 @@
 Bug
+    Bug: if state is check, skip status commands (or they'll fail)
     InputFields
         When it looses focus, the entered value is not applied
 Features
