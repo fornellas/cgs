@@ -468,7 +468,7 @@ func (cp *ControlPrimitive) newControlFlex() {
 	controlFlex.SetBorder(true)
 	controlFlex.SetTitle("Contrtol")
 	controlFlex.SetDirection(tview.FlexRow)
-	controlFlex.AddItem(gcodeFlex, 0, 1, false)
+	controlFlex.AddItem(gcodeFlex, 20, 0, false)
 	controlFlex.AddItem(commsFlex, 0, 1, false)
 	controlFlex.AddItem(cp.commandInputField, 1, 0, true)
 	cp.Flex = controlFlex
