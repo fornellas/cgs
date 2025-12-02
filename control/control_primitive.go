@@ -387,9 +387,9 @@ func (cp *ControlPrimitive) extractRealTimeCommands(command string) ([]grblMod.R
 }
 
 //gocyclo:ignore
-func (cp *ControlPrimitive) getStatusCmdsAndTimeout(block *gcode.Block) (map[string]bool, time.Duration) {
+func (cp *ControlPrimitive) getStatusCmdsAndTimeout(block *gcode.Block) (map[string]bool, *time.Duration) {
 	statusCommands := map[string]bool{}
-	var timeout time.Duration
+	var timeout *time.Duration
 	if block.IsSystem() {
 		if _, ok := allStatusCommands[block.String()]; ok && cp.quietStatusComms {
 			fmt.Fprintf(cp.pushMessagesTextView, "\n[%s](push messages from %s omitted, results at Control panel)[-]", tcell.ColorYellow, block.String())
@@ -406,7 +406,7 @@ func (cp *ControlPrimitive) getStatusCmdsAndTimeout(block *gcode.Block) (map[str
 			statusCommands[grblMod.GrblCommandViewStartupBlocks] = true
 		}
 		if strings.HasPrefix(block.String(), grblMod.GrblCommandRunHomingCyclePrefix) {
-			timeout = homeCommandTimeout
+			timeout = &homeCommandTimeout
 			cp.stateTracker.HomeOverride(true)
 		}
 		matched, err := regexp.MatchString(`^\$[0-9]+=`, block.String())
@@ -426,9 +426,10 @@ func (cp *ControlPrimitive) getStatusCmdsAndTimeout(block *gcode.Block) (map[str
 		for _, word := range block.Words() {
 			switch word.NormalizedString() {
 			case "M0":
-				timeout = 0
+				var zeroDuration time.Duration
+				timeout = &zeroDuration
 			case "G38.2", "G38.3", "G38.4", "G38.5":
-				timeout = probeCommandTimeout
+				timeout = &probeCommandTimeout
 			}
 		}
 		statusCommands[grblMod.GrblCommandViewGcodeParserState] = true
@@ -470,10 +471,10 @@ func (cp *ControlPrimitive) processCommand(ctx context.Context, command string) 
 	var statusCommands map[string]bool
 	if len(blocks) > 0 {
 		block := blocks[0]
-		var timeout time.Duration
+		var timeout *time.Duration
 		statusCommands, timeout = cp.getStatusCmdsAndTimeout(block)
-		if timeout > 0 {
-			commandParameter.timeout = timeout
+		if timeout != nil {
+			commandParameter.timeout = *timeout
 		}
 	}
 
