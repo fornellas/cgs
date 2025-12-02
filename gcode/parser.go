@@ -1,6 +1,7 @@
 package gcode
 
 import (
+	"errors"
 	"fmt"
 	"io"
 )
@@ -34,7 +35,7 @@ type ModalGroup struct {
 
 	// FIXME only reported by $#
 	// Tool Length Offset (Group 8)
-	ToolLengthOffset *Word
+	ToolLengthOffset *Block
 
 	// Coordinate System Select (Group 12)
 	CoordinateSystemSelect *Word
@@ -61,7 +62,7 @@ func (m *ModalGroup) Copy() *ModalGroup {
 }
 
 //gocyclo:ignore
-func (m *ModalGroup) Update(word *Word) {
+func (m *ModalGroup) UpdateFromWord(word *Word) error {
 	switch word.NormalizedString() {
 	case "G0", "G1", "G2", "G3", "G38.2", "G38.3", "G38.4", "G38.5", "G80":
 		m.Motion = word
@@ -77,8 +78,10 @@ func (m *ModalGroup) Update(word *Word) {
 		m.Units = word
 	case "G40":
 		m.CutterDiameterCompensation = word
-	case "G43.1", "G49":
-		m.ToolLengthOffset = word
+	case "G43.1":
+		return errors.New("can't update from word G43.1: it must be from a block with Z axis")
+	case "G49":
+		m.ToolLengthOffset = NewBlockCommand(word)
 	case "G54", "G55", "G56", "G57", "G58", "G59":
 		m.CoordinateSystemSelect = word
 	case "G61":
@@ -110,6 +113,31 @@ func (m *ModalGroup) Update(word *Word) {
 	case "M9":
 		m.Coolant = []*Word{word}
 	}
+
+	return nil
+}
+
+func (m *ModalGroup) UpdateFromBlock(block *Block) error {
+	for _, word := range block.Commands() {
+		if word.NormalizedString() == "G43.1" {
+			var z *float64
+			for _, argWord := range block.Arguments() {
+				if argWord.Letter() == 'Z' {
+					zv := argWord.Number()
+					z = &zv
+				}
+			}
+			if z == nil {
+				return fmt.Errorf("G43.1 requires Z argument")
+			}
+			m.ToolLengthOffset = NewBlockCommand(NewWord('G', 43.1), NewWord('Z', *z))
+		} else {
+			if err := m.UpdateFromWord(word); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // DefaultModalGroup holds Grbl default modal group states.
@@ -122,7 +150,7 @@ var DefaultModalGroup ModalGroup = ModalGroup{
 	FeedRateMode:               NewWord('G', 94),
 	Units:                      NewWord('G', 21),
 	CutterDiameterCompensation: NewWord('G', 40),
-	ToolLengthOffset:           NewWord('G', 49),
+	ToolLengthOffset:           NewBlockCommand(NewWord('G', 49)),
 	CoordinateSystemSelect:     NewWord('G', 54),
 	ControlMode:                NewWord('G', 61),
 	Stopping:                   nil,
@@ -227,13 +255,6 @@ func (p *Parser) handleToken(token *Token) (bool, error) {
 	}
 }
 
-//gocyclo:ignore
-func (p *Parser) updateModalGroups(block *Block) {
-	for _, word := range block.Commands() {
-		p.ModalGroup.Update(word)
-	}
-}
-
 // Next returns the next parsed line. The first returned bool indicates EOF: when true, parsing is
 // complete. If the line contained a block, it is returned. Tokens contains all tokens for the
 // parsed line.
@@ -254,7 +275,9 @@ func (p *Parser) Next() (bool, *Block, Tokens, error) {
 		}
 		if eol {
 			if p.block != nil {
-				p.updateModalGroups(p.block)
+				if err := p.ModalGroup.UpdateFromBlock(p.block); err != nil {
+					return false, nil, nil, err
+				}
 			}
 			return token.Type == TokenTypeEOF, p.block, tokens, nil
 		}

@@ -550,8 +550,7 @@ func (jp *JoggingPrimitive) processGcodeStatePushMessage(
 	gcodeStatePushMessage *grblMod.GcodeStatePushMessage,
 ) {
 	jp.app.QueueUpdateDraw(func() {
-		modalGroup := gcodeStatePushMessage.ModalGroup
-		if modalGroup != nil {
+		if modalGroup := gcodeStatePushMessage.ModalGroup; modalGroup != nil {
 			units := modalGroup.Units
 			if units != nil {
 				switch units.NormalizedString() {

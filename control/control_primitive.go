@@ -565,7 +565,7 @@ func (cp *ControlPrimitive) processGcodeStatePushMessage(
 			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.CutterDiameterCompensation.NormalizedString()), modalGroup.CutterDiameterCompensation.Name())
 		}
 		if modalGroup.ToolLengthOffset != nil {
-			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.ToolLengthOffset.NormalizedString()), modalGroup.ToolLengthOffset.Name())
+			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.ToolLengthOffset.NormalizedString()), "Tool Length Offset")
 		}
 		if modalGroup.CoordinateSystemSelect != nil {
 			fmt.Fprintf(&buf, "%s:%s\n", sprintGcodeWord(modalGroup.CoordinateSystemSelect.NormalizedString()), modalGroup.CoordinateSystemSelect.Name())

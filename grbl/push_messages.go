@@ -128,7 +128,10 @@ func (m *FeedbackPushMessage) Text() string {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type GcodeStatePushMessage struct {
-	Message      string
+	Message string
+	// ModalGroup is built from $G response, some fields aren't reported and won't be populated:
+	// - ToolLengthOffset, only reported by $#.
+	// - Stopping, is never reported back.
 	ModalGroup   *gcode.ModalGroup
 	Tool         *float64
 	SpindleSpeed *float64
@@ -147,7 +150,9 @@ func NewGcodeStatePushMessage(message string) (*GcodeStatePushMessage, error) {
 		if err != nil {
 			return nil, err
 		}
-		m.ModalGroup.Update(word)
+		if err := m.ModalGroup.UpdateFromWord(word); err != nil {
+			return nil, err
+		}
 		switch word.Letter() {
 		case 'T':
 			n := word.Number()
