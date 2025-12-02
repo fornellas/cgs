@@ -213,11 +213,11 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 	cp.gcodeParserModalGroupsToolLengthOffsetInputField = tview.NewInputField()
 	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetLabel(fmt.Sprintf("Tool Length Offset%s:", sprintGcodeWord("G43.1")))
 	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetAcceptanceFunc(acceptUFloat)
-	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetChangedFunc(func(text string) {
+	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetDoneFunc(func(key tcell.Key) {
 		if cp.skipQueueCommand {
 			return
 		}
-		cp.QueueCommand(fmt.Sprintf("G43.1 Z%s", text))
+		cp.QueueCommand(fmt.Sprintf("G43.1 Z%s", cp.gcodeParserModalGroupsToolLengthOffsetInputField.GetText()))
 	})
 
 	// Coordinate System Select
