@@ -507,7 +507,13 @@ func (cp *ControlPrimitive) setState(state grblMod.State) {
 	cp.mu.Lock()
 	cp.state = state
 	cp.mu.Unlock()
-	// TODO set g-code parser stopping state
+
+	var stopping bool
+	if state == grblMod.StateHold {
+		stopping = true
+	}
+	cp.gcodeParserModalGroupsStoppingCheckbox.SetChecked(stopping)
+
 	cp.setDisabledState()
 }
 
