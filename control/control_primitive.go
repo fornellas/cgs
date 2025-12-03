@@ -574,21 +574,21 @@ func (cp *ControlPrimitive) newGcodeParams() {
 		y.SetLabel("Y:")
 		z := tview.NewInputField()
 		z.SetLabel("Z:")
-		getChangedFunc := func(letter string, inputField *tview.InputField) func() {
-			return func() {
+		getChangedFunc := func(letter string, inputField *tview.InputField) func(tcell.Key) {
+			return func(tcell.Key) {
 				if cp.skipQueueCommand {
 					return
 				}
 				if n, _ := cp.gcodeParamsCoordinateSystemModeDropdown.GetCurrentOption(); n == 0 {
-					cp.QueueCommandIgnoreResponse(fmt.Sprintf("; G10L2%s%s", letter, inputField.GetText()))
+					cp.QueueCommandIgnoreResponse(fmt.Sprintf("G10L2P%s%s%s", number, letter, inputField.GetText()))
 				} else {
-					cp.QueueCommandIgnoreResponse(fmt.Sprintf("; G10L20%s%s", letter, inputField.GetText()))
+					cp.QueueCommandIgnoreResponse(fmt.Sprintf("G10L20P%s%s%s", number, letter, inputField.GetText()))
 				}
 			}
 		}
-		x.SetDoneFunc(func(tcell.Key) { getChangedFunc("X", x) })
-		y.SetDoneFunc(func(tcell.Key) { getChangedFunc("Y", x) })
-		z.SetDoneFunc(func(tcell.Key) { getChangedFunc("Z", x) })
+		x.SetDoneFunc(getChangedFunc("X", x))
+		y.SetDoneFunc(getChangedFunc("Y", x))
+		z.SetDoneFunc(getChangedFunc("Z", x))
 
 		x.SetAcceptanceFunc(acceptFloat)
 		y.SetAcceptanceFunc(acceptFloat)
