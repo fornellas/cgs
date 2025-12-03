@@ -641,7 +641,7 @@ func (cp *ControlPrimitive) newGcodeParams() {
 	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem4flex, 1)
 	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem5flex, 1)
 	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem6flex, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(cp.gcodeParamsLegacyTextView, 16)
+	cp.gcodeParamsScrollContainer.AddPrimitive(cp.gcodeParamsLegacyTextView, 9)
 }
 
 func (cp *ControlPrimitive) newCommands() {
@@ -1168,33 +1168,6 @@ func (cp *ControlPrimitive) processGcodeParamPushMessage() tcell.Color {
 
 	// LEGACY
 	var buf bytes.Buffer
-	if gcodeParameters.HasCoordinateSystem() {
-		fmt.Fprint(&buf, "Coordinate System\n")
-		if gcodeParameters.CoordinateSystem1 != nil {
-			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G54"))
-			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(gcodeParameters.CoordinateSystem1, " "))
-		}
-		if gcodeParameters.CoordinateSystem2 != nil {
-			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G55"))
-			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(gcodeParameters.CoordinateSystem2, " "))
-		}
-		if gcodeParameters.CoordinateSystem3 != nil {
-			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G56"))
-			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(gcodeParameters.CoordinateSystem3, " "))
-		}
-		if gcodeParameters.CoordinateSystem4 != nil {
-			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G57"))
-			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(gcodeParameters.CoordinateSystem4, " "))
-		}
-		if gcodeParameters.CoordinateSystem5 != nil {
-			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G58"))
-			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(gcodeParameters.CoordinateSystem5, " "))
-		}
-		if gcodeParameters.CoordinateSystem6 != nil {
-			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G59"))
-			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(gcodeParameters.CoordinateSystem6, " "))
-		}
-	}
 	if gcodeParameters.HasPreDefinedPosition() {
 		fmt.Fprintf(&buf, "Pre-Defined Position\n")
 		if gcodeParameters.PrimaryPreDefinedPosition != nil {
