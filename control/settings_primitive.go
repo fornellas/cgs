@@ -242,8 +242,14 @@ func NewSettingsPrimitive(
 	mainSettings.SetTitle(fmt.Sprintf("Settings[%s]$$[-]", gcodeColor))
 	mainSettings.AddPrimitive(sp.stepPulse, 1)
 	mainSettings.AddPrimitive(sp.stepIdleDelay, 1)
-	mainSettings.AddPrimitive(newSettingMaskContainer("2", "Step port invert", sp.stepPortInvertX, sp.stepPortInvertY, sp.stepPortInvertZ), 1)
-	mainSettings.AddPrimitive(newSettingMaskContainer("3", "Direction port invert", sp.directionPortInvertX, sp.directionPortInvertY, sp.directionPortInvertZ), 1)
+	mainSettings.AddPrimitive(newSettingMaskContainer(
+		"2", "Step port invert",
+		sp.stepPortInvertX, sp.stepPortInvertY, sp.stepPortInvertZ,
+	), 1)
+	mainSettings.AddPrimitive(newSettingMaskContainer(
+		"3", "Direction port invert",
+		sp.directionPortInvertX, sp.directionPortInvertY, sp.directionPortInvertZ,
+	), 1)
 	mainSettings.AddPrimitive(sp.stepEnableInvert, 1)
 	mainSettings.AddPrimitive(sp.limitPinsInvert, 1)
 	mainSettings.AddPrimitive(sp.probePinInvert, 1)
@@ -255,7 +261,10 @@ func NewSettingsPrimitive(
 	mainSettings.AddPrimitive(sp.softLimits, 1)
 	mainSettings.AddPrimitive(sp.hardLimits, 1)
 	mainSettings.AddPrimitive(sp.homingCycle, 1)
-	mainSettings.AddPrimitive(newSettingMaskContainer("23", "Homing dir invert", sp.homingDirInvertX, sp.homingDirInvertY, sp.homingDirInvertZ), 1)
+	mainSettings.AddPrimitive(newSettingMaskContainer(
+		"23", "Homing dir invert",
+		sp.homingDirInvertX, sp.homingDirInvertY, sp.homingDirInvertZ,
+	), 1)
 	mainSettings.AddPrimitive(sp.homingFeed, 1)
 	mainSettings.AddPrimitive(sp.homingSeek, 1)
 	mainSettings.AddPrimitive(sp.homingDebounce, 1)
