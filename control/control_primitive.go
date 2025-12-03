@@ -147,6 +147,8 @@ type ControlPrimitive struct {
 
 	state grblMod.State
 
+	statusReportPushMessage *grblMod.StatusReportPushMessage
+
 	mu sync.Mutex
 }
 
@@ -395,59 +397,89 @@ func (cp *ControlPrimitive) newGcodeParser() {
 func (cp *ControlPrimitive) updateGcodeParams() {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
-	if cp.gcodeParamsCoordinateSystem1 != nil {
-		cp.gcodeParamsCoordinateSystem1xInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem1.X, 4))
-		cp.gcodeParamsCoordinateSystem1yInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem1.Y, 4))
-		cp.gcodeParamsCoordinateSystem1zInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem1.Z, 4))
+	if n, _ := cp.gcodeParamsCoordinateSystemModeDropdown.GetCurrentOption(); n == 0 {
+		// Offset
+		if cp.gcodeParamsCoordinateSystem1 != nil {
+			cp.gcodeParamsCoordinateSystem1xInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem1.X, 4))
+			cp.gcodeParamsCoordinateSystem1yInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem1.Y, 4))
+			cp.gcodeParamsCoordinateSystem1zInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem1.Z, 4))
+		} else {
+			cp.gcodeParamsCoordinateSystem1xInputField.SetText("")
+			cp.gcodeParamsCoordinateSystem1yInputField.SetText("")
+			cp.gcodeParamsCoordinateSystem1zInputField.SetText("")
+		}
+		if cp.gcodeParamsCoordinateSystem2 != nil {
+			cp.gcodeParamsCoordinateSystem2xInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem2.X, 4))
+			cp.gcodeParamsCoordinateSystem2yInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem2.Y, 4))
+			cp.gcodeParamsCoordinateSystem2zInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem2.Z, 4))
+		} else {
+			cp.gcodeParamsCoordinateSystem2xInputField.SetText("")
+			cp.gcodeParamsCoordinateSystem2yInputField.SetText("")
+			cp.gcodeParamsCoordinateSystem2zInputField.SetText("")
+		}
+		if cp.gcodeParamsCoordinateSystem3 != nil {
+			cp.gcodeParamsCoordinateSystem3xInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem3.X, 4))
+			cp.gcodeParamsCoordinateSystem3yInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem3.Y, 4))
+			cp.gcodeParamsCoordinateSystem3zInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem3.Z, 4))
+		} else {
+			cp.gcodeParamsCoordinateSystem3xInputField.SetText("")
+			cp.gcodeParamsCoordinateSystem3yInputField.SetText("")
+			cp.gcodeParamsCoordinateSystem3zInputField.SetText("")
+		}
+		if cp.gcodeParamsCoordinateSystem4 != nil {
+			cp.gcodeParamsCoordinateSystem4xInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem4.X, 4))
+			cp.gcodeParamsCoordinateSystem4yInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem4.Y, 4))
+			cp.gcodeParamsCoordinateSystem4zInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem4.Z, 4))
+		} else {
+			cp.gcodeParamsCoordinateSystem4xInputField.SetText("")
+			cp.gcodeParamsCoordinateSystem4yInputField.SetText("")
+			cp.gcodeParamsCoordinateSystem4zInputField.SetText("")
+		}
+		if cp.gcodeParamsCoordinateSystem5 != nil {
+			cp.gcodeParamsCoordinateSystem5xInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem5.X, 4))
+			cp.gcodeParamsCoordinateSystem5yInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem5.Y, 4))
+			cp.gcodeParamsCoordinateSystem5zInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem5.Z, 4))
+		} else {
+			cp.gcodeParamsCoordinateSystem5xInputField.SetText("")
+			cp.gcodeParamsCoordinateSystem5yInputField.SetText("")
+			cp.gcodeParamsCoordinateSystem5zInputField.SetText("")
+		}
+		if cp.gcodeParamsCoordinateSystem6 != nil {
+			cp.gcodeParamsCoordinateSystem6xInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem6.X, 4))
+			cp.gcodeParamsCoordinateSystem6yInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem6.Y, 4))
+			cp.gcodeParamsCoordinateSystem6zInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem6.Z, 4))
+		} else {
+			cp.gcodeParamsCoordinateSystem6xInputField.SetText("")
+			cp.gcodeParamsCoordinateSystem6yInputField.SetText("")
+			cp.gcodeParamsCoordinateSystem6zInputField.SetText("")
+		}
 	} else {
-		cp.gcodeParamsCoordinateSystem1xInputField.SetText("")
-		cp.gcodeParamsCoordinateSystem1yInputField.SetText("")
-		cp.gcodeParamsCoordinateSystem1zInputField.SetText("")
-	}
-	if cp.gcodeParamsCoordinateSystem2 != nil {
-		cp.gcodeParamsCoordinateSystem2xInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem2.X, 4))
-		cp.gcodeParamsCoordinateSystem2yInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem2.Y, 4))
-		cp.gcodeParamsCoordinateSystem2zInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem2.Z, 4))
-	} else {
-		cp.gcodeParamsCoordinateSystem2xInputField.SetText("")
-		cp.gcodeParamsCoordinateSystem2yInputField.SetText("")
-		cp.gcodeParamsCoordinateSystem2zInputField.SetText("")
-	}
-	if cp.gcodeParamsCoordinateSystem3 != nil {
-		cp.gcodeParamsCoordinateSystem3xInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem3.X, 4))
-		cp.gcodeParamsCoordinateSystem3yInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem3.Y, 4))
-		cp.gcodeParamsCoordinateSystem3zInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem3.Z, 4))
-	} else {
-		cp.gcodeParamsCoordinateSystem3xInputField.SetText("")
-		cp.gcodeParamsCoordinateSystem3yInputField.SetText("")
-		cp.gcodeParamsCoordinateSystem3zInputField.SetText("")
-	}
-	if cp.gcodeParamsCoordinateSystem4 != nil {
-		cp.gcodeParamsCoordinateSystem4xInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem4.X, 4))
-		cp.gcodeParamsCoordinateSystem4yInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem4.Y, 4))
-		cp.gcodeParamsCoordinateSystem4zInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem4.Z, 4))
-	} else {
-		cp.gcodeParamsCoordinateSystem4xInputField.SetText("")
-		cp.gcodeParamsCoordinateSystem4yInputField.SetText("")
-		cp.gcodeParamsCoordinateSystem4zInputField.SetText("")
-	}
-	if cp.gcodeParamsCoordinateSystem5 != nil {
-		cp.gcodeParamsCoordinateSystem5xInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem5.X, 4))
-		cp.gcodeParamsCoordinateSystem5yInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem5.Y, 4))
-		cp.gcodeParamsCoordinateSystem5zInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem5.Z, 4))
-	} else {
-		cp.gcodeParamsCoordinateSystem5xInputField.SetText("")
-		cp.gcodeParamsCoordinateSystem5yInputField.SetText("")
-		cp.gcodeParamsCoordinateSystem5zInputField.SetText("")
-	}
-	if cp.gcodeParamsCoordinateSystem6 != nil {
-		cp.gcodeParamsCoordinateSystem6xInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem6.X, 4))
-		cp.gcodeParamsCoordinateSystem6yInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem6.Y, 4))
-		cp.gcodeParamsCoordinateSystem6zInputField.SetText(iFmt.SprintFloat(cp.gcodeParamsCoordinateSystem6.Z, 4))
-	} else {
-		cp.gcodeParamsCoordinateSystem6xInputField.SetText("")
-		cp.gcodeParamsCoordinateSystem6yInputField.SetText("")
-		cp.gcodeParamsCoordinateSystem6zInputField.SetText("")
+		// Value
+		machineCoordinates := cp.statusReportPushMessage.GetMachineCoordinates(cp.grbl)
+
+		cp.gcodeParamsCoordinateSystem1xInputField.SetText(iFmt.SprintFloat(machineCoordinates.X-cp.gcodeParamsCoordinateSystem1.X, 4))
+		cp.gcodeParamsCoordinateSystem1yInputField.SetText(iFmt.SprintFloat(machineCoordinates.Y-cp.gcodeParamsCoordinateSystem1.Y, 4))
+		cp.gcodeParamsCoordinateSystem1zInputField.SetText(iFmt.SprintFloat(machineCoordinates.Z-cp.gcodeParamsCoordinateSystem1.Z, 4))
+
+		cp.gcodeParamsCoordinateSystem2xInputField.SetText(iFmt.SprintFloat(machineCoordinates.X-cp.gcodeParamsCoordinateSystem2.X, 4))
+		cp.gcodeParamsCoordinateSystem2yInputField.SetText(iFmt.SprintFloat(machineCoordinates.Y-cp.gcodeParamsCoordinateSystem2.Y, 4))
+		cp.gcodeParamsCoordinateSystem2zInputField.SetText(iFmt.SprintFloat(machineCoordinates.Z-cp.gcodeParamsCoordinateSystem2.Z, 4))
+
+		cp.gcodeParamsCoordinateSystem3xInputField.SetText(iFmt.SprintFloat(machineCoordinates.X-cp.gcodeParamsCoordinateSystem3.X, 4))
+		cp.gcodeParamsCoordinateSystem3yInputField.SetText(iFmt.SprintFloat(machineCoordinates.Y-cp.gcodeParamsCoordinateSystem3.Y, 4))
+		cp.gcodeParamsCoordinateSystem3zInputField.SetText(iFmt.SprintFloat(machineCoordinates.Z-cp.gcodeParamsCoordinateSystem3.Z, 4))
+
+		cp.gcodeParamsCoordinateSystem4xInputField.SetText(iFmt.SprintFloat(machineCoordinates.X-cp.gcodeParamsCoordinateSystem4.X, 4))
+		cp.gcodeParamsCoordinateSystem4yInputField.SetText(iFmt.SprintFloat(machineCoordinates.Y-cp.gcodeParamsCoordinateSystem4.Y, 4))
+		cp.gcodeParamsCoordinateSystem4zInputField.SetText(iFmt.SprintFloat(machineCoordinates.Z-cp.gcodeParamsCoordinateSystem4.Z, 4))
+
+		cp.gcodeParamsCoordinateSystem5xInputField.SetText(iFmt.SprintFloat(machineCoordinates.X-cp.gcodeParamsCoordinateSystem5.X, 4))
+		cp.gcodeParamsCoordinateSystem5yInputField.SetText(iFmt.SprintFloat(machineCoordinates.Y-cp.gcodeParamsCoordinateSystem5.Y, 4))
+		cp.gcodeParamsCoordinateSystem5zInputField.SetText(iFmt.SprintFloat(machineCoordinates.Z-cp.gcodeParamsCoordinateSystem5.Z, 4))
+
+		cp.gcodeParamsCoordinateSystem6xInputField.SetText(iFmt.SprintFloat(machineCoordinates.X-cp.gcodeParamsCoordinateSystem6.X, 4))
+		cp.gcodeParamsCoordinateSystem6yInputField.SetText(iFmt.SprintFloat(machineCoordinates.Y-cp.gcodeParamsCoordinateSystem6.Y, 4))
+		cp.gcodeParamsCoordinateSystem6zInputField.SetText(iFmt.SprintFloat(machineCoordinates.Z-cp.gcodeParamsCoordinateSystem6.Z, 4))
 	}
 }
 
@@ -458,10 +490,6 @@ func (cp *ControlPrimitive) newGcodeParams() {
 	// set
 	//   G10 L2 P(1-9) - Set offset(s) to a value. Current position irrelevant (see G10 L2 for details).
 	//   G10 L20 P(1-9) - Set offset(s) so current position becomes a value (see G10 L20 for details).
-	// Interface Idea
-	// Coordinate System [Offset|Value]
-	// 1(G54): X:  Y:  Z:
-	// 2(G55): X:  Y:  Z:
 	coordinateSystemTextView := tview.NewTextView()
 	coordinateSystemTextView.SetText("Coordinate System")
 
@@ -474,7 +502,7 @@ func (cp *ControlPrimitive) newGcodeParams() {
 	cp.gcodeParamsCoordinateSystemModeDropdown.SetOptions(cp.gcodeParamsCoordinateSystemModeOptions, nil)
 	cp.gcodeParamsCoordinateSystemModeDropdown.SetCurrentOption(0)
 	cp.gcodeParamsCoordinateSystemModeDropdown.SetSelectedFunc(func(string, int) {
-		// TODO update coordinate input fields
+		cp.updateGcodeParams()
 	})
 	newCoordinatesInputFields := func(number, word string) (*tview.InputField, *tview.InputField, *tview.InputField, *tview.Flex) {
 		labelTextView := tview.NewTextView()
@@ -1052,19 +1080,19 @@ func (cp *ControlPrimitive) processGcodeStatePushMessage(
 func (cp *ControlPrimitive) processGcodeParamPushMessage() tcell.Color {
 	color := tcell.ColorGreen
 
-	params := cp.grbl.GetLastGcodeParameters()
-	if params == nil {
+	lastGcodeParameters := cp.grbl.GetLastGcodeParameters()
+	if lastGcodeParameters == nil {
 		return color
 	}
 
 	// G-Code: Parameters
 	cp.mu.Lock()
-	cp.gcodeParamsCoordinateSystem1 = params.CoordinateSystem1
-	cp.gcodeParamsCoordinateSystem2 = params.CoordinateSystem2
-	cp.gcodeParamsCoordinateSystem3 = params.CoordinateSystem3
-	cp.gcodeParamsCoordinateSystem4 = params.CoordinateSystem4
-	cp.gcodeParamsCoordinateSystem5 = params.CoordinateSystem5
-	cp.gcodeParamsCoordinateSystem6 = params.CoordinateSystem6
+	cp.gcodeParamsCoordinateSystem1 = lastGcodeParameters.CoordinateSystem1
+	cp.gcodeParamsCoordinateSystem2 = lastGcodeParameters.CoordinateSystem2
+	cp.gcodeParamsCoordinateSystem3 = lastGcodeParameters.CoordinateSystem3
+	cp.gcodeParamsCoordinateSystem4 = lastGcodeParameters.CoordinateSystem4
+	cp.gcodeParamsCoordinateSystem5 = lastGcodeParameters.CoordinateSystem5
+	cp.gcodeParamsCoordinateSystem6 = lastGcodeParameters.CoordinateSystem6
 	cp.mu.Unlock()
 	cp.app.QueueUpdateDraw(func() {
 		cp.updateGcodeParams()
@@ -1072,56 +1100,56 @@ func (cp *ControlPrimitive) processGcodeParamPushMessage() tcell.Color {
 
 	// LEGACY
 	var buf bytes.Buffer
-	if params.HasCoordinateSystem() {
+	if lastGcodeParameters.HasCoordinateSystem() {
 		fmt.Fprint(&buf, "Coordinate System\n")
-		if params.CoordinateSystem1 != nil {
+		if lastGcodeParameters.CoordinateSystem1 != nil {
 			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G54"))
-			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(params.CoordinateSystem1, " "))
+			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(lastGcodeParameters.CoordinateSystem1, " "))
 		}
-		if params.CoordinateSystem2 != nil {
+		if lastGcodeParameters.CoordinateSystem2 != nil {
 			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G55"))
-			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(params.CoordinateSystem2, " "))
+			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(lastGcodeParameters.CoordinateSystem2, " "))
 		}
-		if params.CoordinateSystem3 != nil {
+		if lastGcodeParameters.CoordinateSystem3 != nil {
 			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G56"))
-			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(params.CoordinateSystem3, " "))
+			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(lastGcodeParameters.CoordinateSystem3, " "))
 		}
-		if params.CoordinateSystem4 != nil {
+		if lastGcodeParameters.CoordinateSystem4 != nil {
 			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G57"))
-			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(params.CoordinateSystem4, " "))
+			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(lastGcodeParameters.CoordinateSystem4, " "))
 		}
-		if params.CoordinateSystem5 != nil {
+		if lastGcodeParameters.CoordinateSystem5 != nil {
 			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G58"))
-			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(params.CoordinateSystem5, " "))
+			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(lastGcodeParameters.CoordinateSystem5, " "))
 		}
-		if params.CoordinateSystem6 != nil {
+		if lastGcodeParameters.CoordinateSystem6 != nil {
 			fmt.Fprintf(&buf, "  %s:", sprintGcodeWord("G59"))
-			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(params.CoordinateSystem6, " "))
+			fmt.Fprintf(&buf, "%s\n", sprintCoordinatesSingleLine(lastGcodeParameters.CoordinateSystem6, " "))
 		}
 	}
-	if params.HasPreDefinedPosition() {
+	if lastGcodeParameters.HasPreDefinedPosition() {
 		fmt.Fprintf(&buf, "Pre-Defined Position\n")
-		if params.PrimaryPreDefinedPosition != nil {
-			fmt.Fprintf(&buf, "  %s:%s\n", sprintGcodeWord("G28"), sprintCoordinatesSingleLine(params.PrimaryPreDefinedPosition, " "))
+		if lastGcodeParameters.PrimaryPreDefinedPosition != nil {
+			fmt.Fprintf(&buf, "  %s:%s\n", sprintGcodeWord("G28"), sprintCoordinatesSingleLine(lastGcodeParameters.PrimaryPreDefinedPosition, " "))
 		}
-		if params.SecondaryPreDefinedPosition != nil {
-			fmt.Fprintf(&buf, "  %s:%s\n", sprintGcodeWord("G30"), sprintCoordinatesSingleLine(params.SecondaryPreDefinedPosition, " "))
+		if lastGcodeParameters.SecondaryPreDefinedPosition != nil {
+			fmt.Fprintf(&buf, "  %s:%s\n", sprintGcodeWord("G30"), sprintCoordinatesSingleLine(lastGcodeParameters.SecondaryPreDefinedPosition, " "))
 		}
 	}
-	if params.CoordinateOffset != nil {
+	if lastGcodeParameters.CoordinateOffset != nil {
 		fmt.Fprintf(&buf, "Coordinate Offset\n")
-		fmt.Fprintf(&buf, "  %s:%s\n", sprintGcodeWord("G92"), sprintCoordinatesSingleLine(params.CoordinateOffset, " "))
+		fmt.Fprintf(&buf, "  %s:%s\n", sprintGcodeWord("G92"), sprintCoordinatesSingleLine(lastGcodeParameters.CoordinateOffset, " "))
 	}
-	if params.ToolLengthOffset != nil {
+	if lastGcodeParameters.ToolLengthOffset != nil {
 		cp.app.QueueUpdateDraw(func() {
-			cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetText(iFmt.SprintFloat(*params.ToolLengthOffset, 4))
+			cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetText(iFmt.SprintFloat(*lastGcodeParameters.ToolLengthOffset, 4))
 		})
 	}
-	if params.Probe != nil {
+	if lastGcodeParameters.Probe != nil {
 		// TODO move to Probe tab
 		fmt.Fprintf(&buf, "Last Probing Cycle\n")
-		if params.Probe.Successful {
-			fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(&params.Probe.Coordinates, " "))
+		if lastGcodeParameters.Probe.Successful {
+			fmt.Fprintf(&buf, "  %s\n", sprintCoordinatesSingleLine(&lastGcodeParameters.Probe.Coordinates, " "))
 		} else {
 			fmt.Fprintf(&buf, "  [%s]Failed[-]\n", tcell.ColorRed)
 		}
@@ -1222,7 +1250,13 @@ func (cp *ControlPrimitive) processPushMessage(pushMessage grblMod.PushMessage) 
 		extraInfo, color = cp.processAlarmPushMessage(alarmPushMessage)
 	}
 
-	if _, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
+	if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
+		if !reflect.DeepEqual(cp.statusReportPushMessage, statusReportPushMessage) {
+			cp.mu.Lock()
+			cp.statusReportPushMessage = statusReportPushMessage
+			cp.mu.Unlock()
+			cp.updateGcodeParams()
+		}
 		if cp.quietStatusComms {
 			return
 		}
