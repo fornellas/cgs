@@ -25,6 +25,34 @@ var defaultCommandTimeout = 1 * time.Second
 var homeCommandTimeout = 2 * time.Minute
 var probeCommandTimeout = 2 * time.Minute
 
+var gcodeParserModalGroupsMotionWords = []string{
+	"G0", "G1", "G2", "G3", "G38.2", "G38.3", "G38.4", "G38.5", "G80",
+}
+var gcodeParserModalGroupsPlaneSelectionWords = []string{
+	"G17", "G18", "G19",
+}
+var gcodeParserModalGroupsDistanceModeWords = []string{
+	"G90", "G91",
+}
+var gcodeParserModalGroupsFeedRateModeWords = []string{
+	"G93", "G94",
+}
+var gcodeParserModalGroupsUnitsWords = []string{
+	"G20", "G21",
+}
+var gcodeParserModalGroupsCoordinateSystemSelectWords = []string{
+	"G54", "G55", "G56", "G57", "G58", "G59",
+}
+var gcodeParserModalGroupsSpindleWords = []string{
+	"M3", "M4", "M5",
+}
+var gcodeParamsCoordinateSystemModeOptions = []string{
+	fmt.Sprintf("Offset%s", sprintGcodeWord("G10L2")),
+	fmt.Sprintf("Value%s", sprintGcodeWord("G10L20")),
+}
+var gcodeParamsCoordinateSystemModeOffsetIdx = 0
+var gcodeParamsCoordinateSystemModeValueIdx = 1
+
 var allStatusCommands = map[string]bool{
 	grblMod.GrblCommandViewGcodeParameters:  true,
 	grblMod.GrblCommandViewGrblSettings:     true,
@@ -63,29 +91,22 @@ type ControlPrimitive struct {
 	sendCommandCh         chan *queuedCommandType
 	sendRealTimeCommandCh chan grblMod.RealTimeCommand
 
-	gcodeParserModalGroupsMotionWords    []string
 	gcodeParserModalGroupsMotionDropDown *tview.DropDown
 
-	gcodeParserModalGroupsPlaneSelectionWords    []string
 	gcodeParserModalGroupsPlaneSelectionDropDown *tview.DropDown
 
-	gcodeParserModalGroupsDistanceModeWords    []string
 	gcodeParserModalGroupsDistanceModeDropDown *tview.DropDown
 
-	gcodeParserModalGroupsFeedRateModeWords    []string
 	gcodeParserModalGroupsFeedRateModeDropDown *tview.DropDown
 
-	gcodeParserModalGroupsUnitsWords    []string
 	gcodeParserModalGroupsUnitsDropDown *tview.DropDown
 
 	gcodeParserModalGroupsToolLengthOffsetInputField *tview.InputField
 
-	gcodeParserModalGroupsCoordinateSystemSelectWords    []string
 	gcodeParserModalGroupsCoordinateSystemSelectDropDown *tview.DropDown
 
 	gcodeParserModalGroupsStoppingCheckbox *tview.Checkbox
 
-	gcodeParserModalGroupsSpindleWords    []string
 	gcodeParserModalGroupsSpindleDropDown *tview.DropDown
 
 	gcodeParserModalGroupsCoolantMistCheckbok  *tview.Checkbox
@@ -98,7 +119,6 @@ type ControlPrimitive struct {
 
 	gcodeParserFlex *tview.Flex
 
-	gcodeParamsCoordinateSystemModeOptions  []string
 	gcodeParamsCoordinateSystemModeDropdown *tview.DropDown
 
 	gcodeParamsCoordinateSystem1xInputField *tview.InputField
@@ -200,21 +220,18 @@ func (cp *ControlPrimitive) newGcodeParser() {
 	}
 
 	// Motion
-	cp.gcodeParserModalGroupsMotionWords = []string{"G0", "G1", "G2", "G3", "G38.2", "G38.3", "G38.4", "G38.5", "G80"}
 	cp.gcodeParserModalGroupsMotionDropDown = newModalGroupDropDown(
-		"Motion", cp.gcodeParserModalGroupsMotionWords,
+		"Motion", gcodeParserModalGroupsMotionWords,
 	)
 
 	// Plane selection
-	cp.gcodeParserModalGroupsPlaneSelectionWords = []string{"G17", "G18", "G19"}
 	cp.gcodeParserModalGroupsPlaneSelectionDropDown = newModalGroupDropDown(
-		"Plane Selection", cp.gcodeParserModalGroupsPlaneSelectionWords,
+		"Plane Selection", gcodeParserModalGroupsPlaneSelectionWords,
 	)
 
 	// Distance Mode
-	cp.gcodeParserModalGroupsDistanceModeWords = []string{"G90", "G91"}
 	cp.gcodeParserModalGroupsDistanceModeDropDown = newModalGroupDropDown(
-		"Distance Mode", cp.gcodeParserModalGroupsDistanceModeWords,
+		"Distance Mode", gcodeParserModalGroupsDistanceModeWords,
 	)
 
 	// Arc IJK Distance Mode
@@ -227,15 +244,13 @@ func (cp *ControlPrimitive) newGcodeParser() {
 	gcodeParserModalGroupsArcIjkDistanceModeDropDown.SetDisabled(true)
 
 	// Feed Rate Mode
-	cp.gcodeParserModalGroupsFeedRateModeWords = []string{"G93", "G94"}
 	cp.gcodeParserModalGroupsFeedRateModeDropDown = newModalGroupDropDown(
-		"Feed Rate Mode", cp.gcodeParserModalGroupsFeedRateModeWords,
+		"Feed Rate Mode", gcodeParserModalGroupsFeedRateModeWords,
 	)
 
 	// Units
-	cp.gcodeParserModalGroupsUnitsWords = []string{"G20", "G21"}
 	cp.gcodeParserModalGroupsUnitsDropDown = newModalGroupDropDown(
-		"Units", cp.gcodeParserModalGroupsUnitsWords,
+		"Units", gcodeParserModalGroupsUnitsWords,
 	)
 
 	// Cutter Diameter Compensation
@@ -260,9 +275,8 @@ func (cp *ControlPrimitive) newGcodeParser() {
 	})
 
 	// Coordinate System Select
-	cp.gcodeParserModalGroupsCoordinateSystemSelectWords = []string{"G54", "G55", "G56", "G57", "G58", "G59"}
 	cp.gcodeParserModalGroupsCoordinateSystemSelectDropDown = newModalGroupDropDown(
-		"Coordinate System Select", cp.gcodeParserModalGroupsCoordinateSystemSelectWords,
+		"Coordinate System Select", gcodeParserModalGroupsCoordinateSystemSelectWords,
 	)
 
 	// Control Mode
@@ -289,9 +303,8 @@ func (cp *ControlPrimitive) newGcodeParser() {
 	})
 
 	// Spindle
-	cp.gcodeParserModalGroupsSpindleWords = []string{"M3", "M4", "M5"}
 	cp.gcodeParserModalGroupsSpindleDropDown = newModalGroupDropDown(
-		"Spindle", cp.gcodeParserModalGroupsSpindleWords,
+		"Spindle", gcodeParserModalGroupsSpindleWords,
 	)
 
 	// Coolant
@@ -393,7 +406,7 @@ func (cp *ControlPrimitive) newGcodeParser() {
 func (cp *ControlPrimitive) updateGcodeParams() {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
-	if n, _ := cp.gcodeParamsCoordinateSystemModeDropdown.GetCurrentOption(); n == 0 && cp.gcodeParameters != nil {
+	if n, _ := cp.gcodeParamsCoordinateSystemModeDropdown.GetCurrentOption(); n == gcodeParamsCoordinateSystemModeOffsetIdx && cp.gcodeParameters != nil {
 		// Offset
 		if cp.gcodeParameters.CoordinateSystem1 != nil {
 			cp.gcodeParamsCoordinateSystem1xInputField.SetText(iFmt.SprintFloat(cp.gcodeParameters.CoordinateSystem1.X, 4))
@@ -544,23 +557,13 @@ func (cp *ControlPrimitive) updateGcodeParams() {
 }
 
 func (cp *ControlPrimitive) newGcodeParams() {
-	// Coordinate system
-	// select
-	//   G54-G59
-	// set
-	//   G10 L2 P(1-9) - Set offset(s) to a value. Current position irrelevant (see G10 L2 for details).
-	//   G10 L20 P(1-9) - Set offset(s) so current position becomes a value (see G10 L20 for details).
 	coordinateSystemTextView := tview.NewTextView()
 	coordinateSystemTextView.SetText("Coordinate System")
 
 	cp.gcodeParamsCoordinateSystemModeDropdown = tview.NewDropDown()
 	cp.gcodeParamsCoordinateSystemModeDropdown.SetLabel("Mode:")
-	cp.gcodeParamsCoordinateSystemModeOptions = []string{
-		fmt.Sprintf("Offset%s", sprintGcodeWord("G10L2")),
-		fmt.Sprintf("Value%s", sprintGcodeWord("G10L20")),
-	}
-	cp.gcodeParamsCoordinateSystemModeDropdown.SetOptions(cp.gcodeParamsCoordinateSystemModeOptions, nil)
-	cp.gcodeParamsCoordinateSystemModeDropdown.SetCurrentOption(0)
+	cp.gcodeParamsCoordinateSystemModeDropdown.SetOptions(gcodeParamsCoordinateSystemModeOptions, nil)
+	cp.gcodeParamsCoordinateSystemModeDropdown.SetCurrentOption(gcodeParamsCoordinateSystemModeValueIdx)
 	cp.gcodeParamsCoordinateSystemModeDropdown.SetSelectedFunc(func(string, int) {
 		cp.updateGcodeParams()
 	})
@@ -579,7 +582,7 @@ func (cp *ControlPrimitive) newGcodeParams() {
 				if cp.skipQueueCommand {
 					return
 				}
-				if n, _ := cp.gcodeParamsCoordinateSystemModeDropdown.GetCurrentOption(); n == 0 {
+				if n, _ := cp.gcodeParamsCoordinateSystemModeDropdown.GetCurrentOption(); n == gcodeParamsCoordinateSystemModeOffsetIdx {
 					cp.QueueCommandIgnoreResponse(fmt.Sprintf("G10L2P%s%s%s", number, letter, inputField.GetText()))
 				} else {
 					cp.QueueCommandIgnoreResponse(fmt.Sprintf("G10L20P%s%s%s", number, letter, inputField.GetText()))
@@ -1064,49 +1067,49 @@ func (cp *ControlPrimitive) processGcodeStatePushMessage(
 			if modalGroup.Motion != nil {
 				setDropDownFn(
 					modalGroup.Motion,
-					cp.gcodeParserModalGroupsMotionWords,
+					gcodeParserModalGroupsMotionWords,
 					cp.gcodeParserModalGroupsMotionDropDown,
 				)
 			}
 			if modalGroup.PlaneSelection != nil {
 				setDropDownFn(
 					modalGroup.PlaneSelection,
-					cp.gcodeParserModalGroupsPlaneSelectionWords,
+					gcodeParserModalGroupsPlaneSelectionWords,
 					cp.gcodeParserModalGroupsPlaneSelectionDropDown,
 				)
 			}
 			if modalGroup.DistanceMode != nil {
 				setDropDownFn(
 					modalGroup.DistanceMode,
-					cp.gcodeParserModalGroupsDistanceModeWords,
+					gcodeParserModalGroupsDistanceModeWords,
 					cp.gcodeParserModalGroupsDistanceModeDropDown,
 				)
 			}
 			if modalGroup.FeedRateMode != nil {
 				setDropDownFn(
 					modalGroup.FeedRateMode,
-					cp.gcodeParserModalGroupsFeedRateModeWords,
+					gcodeParserModalGroupsFeedRateModeWords,
 					cp.gcodeParserModalGroupsFeedRateModeDropDown,
 				)
 			}
 			if modalGroup.Units != nil {
 				setDropDownFn(
 					modalGroup.Units,
-					cp.gcodeParserModalGroupsUnitsWords,
+					gcodeParserModalGroupsUnitsWords,
 					cp.gcodeParserModalGroupsUnitsDropDown,
 				)
 			}
 			if modalGroup.CoordinateSystemSelect != nil {
 				setDropDownFn(
 					modalGroup.CoordinateSystemSelect,
-					cp.gcodeParserModalGroupsCoordinateSystemSelectWords,
+					gcodeParserModalGroupsCoordinateSystemSelectWords,
 					cp.gcodeParserModalGroupsCoordinateSystemSelectDropDown,
 				)
 			}
 			if modalGroup.Spindle != nil {
 				setDropDownFn(
 					modalGroup.Spindle,
-					cp.gcodeParserModalGroupsSpindleWords,
+					gcodeParserModalGroupsSpindleWords,
 					cp.gcodeParserModalGroupsSpindleDropDown,
 				)
 			}
