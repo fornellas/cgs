@@ -96,77 +96,30 @@ func (sp *StatusPrimitive) updateStateTextView(trackedState *TrackedState) {
 
 //gocyclo:ignore
 func (sp *StatusPrimitive) writePositionStatus(w io.Writer, statusReportPushMessage *grblMod.StatusReportPushMessage) {
-	var mx, my, mz, ma, wx, wy, wz, wa *float64
-	if statusReportPushMessage.MachinePosition != nil {
-		mx = &statusReportPushMessage.MachinePosition.X
-		my = &statusReportPushMessage.MachinePosition.Y
-		mz = &statusReportPushMessage.MachinePosition.Z
-		ma = statusReportPushMessage.MachinePosition.A
-		if sp.grbl.GetLastWorkCoordinateOffset() != nil {
-			wxv := statusReportPushMessage.MachinePosition.X - sp.grbl.GetLastWorkCoordinateOffset().X
-			wx = &wxv
-			wyv := statusReportPushMessage.MachinePosition.Y - sp.grbl.GetLastWorkCoordinateOffset().Y
-			wy = &wyv
-			wzv := statusReportPushMessage.MachinePosition.Z - sp.grbl.GetLastWorkCoordinateOffset().Z
-			wz = &wzv
-			if statusReportPushMessage.MachinePosition.A != nil && sp.grbl.GetLastWorkCoordinateOffset().A != nil {
-				wav := *statusReportPushMessage.MachinePosition.A - *sp.grbl.GetLastWorkCoordinateOffset().A
-				wa = &wav
-			}
-		}
-	}
-	if statusReportPushMessage.WorkPosition != nil {
-		wx = &statusReportPushMessage.WorkPosition.X
-		wy = &statusReportPushMessage.WorkPosition.Y
-		wz = &statusReportPushMessage.WorkPosition.Z
-		wa = statusReportPushMessage.WorkPosition.A
-		if sp.grbl.GetLastWorkCoordinateOffset() != nil {
-			mxv := statusReportPushMessage.WorkPosition.X - sp.grbl.GetLastWorkCoordinateOffset().X
-			mx = &mxv
-			myv := statusReportPushMessage.WorkPosition.Y - sp.grbl.GetLastWorkCoordinateOffset().Y
-			my = &myv
-			mzv := statusReportPushMessage.WorkPosition.Z - sp.grbl.GetLastWorkCoordinateOffset().Z
-			mz = &mzv
-			if statusReportPushMessage.WorkPosition.A != nil && sp.grbl.GetLastWorkCoordinateOffset().A != nil {
-				mav := *statusReportPushMessage.WorkPosition.A - *sp.grbl.GetLastWorkCoordinateOffset().A
-				ma = &mav
-			}
-		}
-	}
+	machineCoordinates := statusReportPushMessage.GetMachineCoordinates(sp.grbl)
+	workCoordinates := statusReportPushMessage.GetWorkCoordinates(sp.grbl)
 	var nl bool
-	if wx != nil || wy != nil || wz != nil || wa != nil {
+	if workCoordinates != nil {
 		fmt.Fprintf(w, "Work\n")
 		nl = true
+		fmt.Fprintf(w, "X:%s\n", sprintCoordinate(workCoordinates.X))
+		fmt.Fprintf(w, "Y:%s\n", sprintCoordinate(workCoordinates.Y))
+		fmt.Fprintf(w, "Z:%s\n", sprintCoordinate(workCoordinates.Z))
+		if workCoordinates.A != nil {
+			fmt.Fprintf(w, "A:%s\n", sprintCoordinate(*workCoordinates.A))
+		}
 	}
-	if wx != nil {
-		fmt.Fprintf(w, "X:%s\n", sprintCoordinate(*wx))
-	}
-	if wy != nil {
-		fmt.Fprintf(w, "Y:%s\n", sprintCoordinate(*wy))
-	}
-	if wz != nil {
-		fmt.Fprintf(w, "Z:%s\n", sprintCoordinate(*wz))
-	}
-	if wa != nil {
-		fmt.Fprintf(w, "A:%s\n", sprintCoordinate(*wa))
-	}
-	if mx != nil || my != nil || mz != nil || ma != nil {
+	if machineCoordinates != nil {
 		if nl {
 			fmt.Fprintf(w, "\n")
 		}
 		fmt.Fprintf(w, "Machine\n")
-	}
-	if mx != nil {
-		fmt.Fprintf(w, "X:%s\n", sprintCoordinate(*mx))
-	}
-	if my != nil {
-		fmt.Fprintf(w, "Y:%s\n", sprintCoordinate(*my))
-	}
-	if mz != nil {
-		fmt.Fprintf(w, "Z:%s\n", sprintCoordinate(*mz))
-	}
-	if ma != nil {
-		fmt.Fprintf(w, "A:%s\n", sprintCoordinate(*ma))
+		fmt.Fprintf(w, "X:%s\n", sprintCoordinate(machineCoordinates.X))
+		fmt.Fprintf(w, "Y:%s\n", sprintCoordinate(machineCoordinates.Y))
+		fmt.Fprintf(w, "Z:%s\n", sprintCoordinate(machineCoordinates.Z))
+		if machineCoordinates.A != nil {
+			fmt.Fprintf(w, "A:%s\n", sprintCoordinate(*machineCoordinates.A))
+		}
 	}
 }
 

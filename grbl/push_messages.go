@@ -1048,8 +1048,74 @@ func NewStatusReportPushMessage(message string) (*StatusReportPushMessage, error
 	return statusReportPushMessage, nil
 }
 
-func (m *StatusReportPushMessage) String() string {
-	return m.Message
+func (p *StatusReportPushMessage) String() string {
+	return p.Message
+}
+
+func (p *StatusReportPushMessage) GetMachineCoordinates(grbl *Grbl) *Coordinates {
+	var mx, my, mz, ma *float64
+	if p.MachinePosition != nil {
+		mx = &p.MachinePosition.X
+		my = &p.MachinePosition.Y
+		mz = &p.MachinePosition.Z
+		ma = p.MachinePosition.A
+	}
+	if p.WorkPosition != nil {
+		if grbl.GetLastWorkCoordinateOffset() != nil {
+			mxv := p.WorkPosition.X - grbl.GetLastWorkCoordinateOffset().X
+			mx = &mxv
+			myv := p.WorkPosition.Y - grbl.GetLastWorkCoordinateOffset().Y
+			my = &myv
+			mzv := p.WorkPosition.Z - grbl.GetLastWorkCoordinateOffset().Z
+			mz = &mzv
+			if p.WorkPosition.A != nil && grbl.GetLastWorkCoordinateOffset().A != nil {
+				mav := *p.WorkPosition.A - *grbl.GetLastWorkCoordinateOffset().A
+				ma = &mav
+			}
+		}
+	}
+	if mx == nil || my == nil || mz == nil {
+		return nil
+	}
+	return &Coordinates{
+		X: *mx,
+		Y: *my,
+		Z: *mz,
+		A: ma,
+	}
+}
+
+func (p *StatusReportPushMessage) GetWorkCoordinates(grbl *Grbl) *Coordinates {
+	var wx, wy, wz, wa *float64
+	if p.MachinePosition != nil {
+		if grbl.GetLastWorkCoordinateOffset() != nil {
+			wxv := p.MachinePosition.X - grbl.GetLastWorkCoordinateOffset().X
+			wx = &wxv
+			wyv := p.MachinePosition.Y - grbl.GetLastWorkCoordinateOffset().Y
+			wy = &wyv
+			wzv := p.MachinePosition.Z - grbl.GetLastWorkCoordinateOffset().Z
+			wz = &wzv
+			if p.MachinePosition.A != nil && grbl.GetLastWorkCoordinateOffset().A != nil {
+				wav := *p.MachinePosition.A - *grbl.GetLastWorkCoordinateOffset().A
+				wa = &wav
+			}
+		}
+	}
+	if p.WorkPosition != nil {
+		wx = &p.WorkPosition.X
+		wy = &p.WorkPosition.Y
+		wz = &p.WorkPosition.Z
+		wa = p.WorkPosition.A
+	}
+	if wx == nil || wy == nil || wz == nil {
+		return nil
+	}
+	return &Coordinates{
+		X: *wx,
+		Y: *wy,
+		Z: *wz,
+		A: wa,
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
