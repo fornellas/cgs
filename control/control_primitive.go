@@ -145,6 +145,18 @@ type ControlPrimitive struct {
 	gcodeParamsCoordinateSystem6yInputField *tview.InputField
 	gcodeParamsCoordinateSystem6zInputField *tview.InputField
 
+	gcodeParamsPreDefinedPosition1xInputField        *tview.InputField
+	gcodeParamsPreDefinedPosition1yInputField        *tview.InputField
+	gcodeParamsPreDefinedPosition1zInputField        *tview.InputField
+	gcodeParamsPreDefinedPosition1GoToButton         *tview.Button
+	gcodeParamsPreDefinedPosition1SetToCurrentButton *tview.Button
+
+	gcodeParamsPreDefinedPosition2xInputField        *tview.InputField
+	gcodeParamsPreDefinedPosition2yInputField        *tview.InputField
+	gcodeParamsPreDefinedPosition2zInputField        *tview.InputField
+	gcodeParamsPreDefinedPosition2GoToButton         *tview.Button
+	gcodeParamsPreDefinedPosition2SetToCurrentButton *tview.Button
+
 	gcodeParamsLegacyTextView *tview.TextView
 
 	gcodeParamsScrollContainer *ScrollContainer
@@ -557,9 +569,9 @@ func (cp *ControlPrimitive) updateGcodeParams() {
 }
 
 func (cp *ControlPrimitive) newGcodeParams() {
+	// Coordinate System
 	coordinateSystemTextView := tview.NewTextView()
 	coordinateSystemTextView.SetText("Coordinate System")
-
 	cp.gcodeParamsCoordinateSystemModeDropdown = tview.NewDropDown()
 	cp.gcodeParamsCoordinateSystemModeDropdown.SetLabel("Mode:")
 	cp.gcodeParamsCoordinateSystemModeDropdown.SetOptions(gcodeParamsCoordinateSystemModeOptions, nil)
@@ -567,16 +579,10 @@ func (cp *ControlPrimitive) newGcodeParams() {
 	cp.gcodeParamsCoordinateSystemModeDropdown.SetSelectedFunc(func(string, int) {
 		cp.updateGcodeParams()
 	})
-	newCoordinatesInputFields := func(number, word string) (*tview.InputField, *tview.InputField, *tview.InputField, *tview.Flex) {
+	newCoordinateSystemPrimitives := func(number, word string) (*tview.InputField, *tview.InputField, *tview.InputField, *tview.Flex) {
 		labelTextView := tview.NewTextView()
 		labelTextView.SetLabel(fmt.Sprintf("%s%s:", number, sprintGcodeWord(word)))
 
-		x := tview.NewInputField()
-		x.SetLabel("X:")
-		y := tview.NewInputField()
-		y.SetLabel("Y:")
-		z := tview.NewInputField()
-		z.SetLabel("Z:")
 		getChangedFunc := func(letter string, inputField *tview.InputField) func(tcell.Key) {
 			return func(tcell.Key) {
 				if cp.skipQueueCommand {
@@ -589,17 +595,28 @@ func (cp *ControlPrimitive) newGcodeParams() {
 				}
 			}
 		}
-		x.SetDoneFunc(getChangedFunc("X", x))
-		y.SetDoneFunc(getChangedFunc("Y", x))
-		z.SetDoneFunc(getChangedFunc("Z", x))
 
+		x := tview.NewInputField()
+		x.SetLabel("X:")
+		x.SetDoneFunc(getChangedFunc("X", x))
 		x.SetAcceptanceFunc(acceptFloat)
+		x.SetBorderPadding(0, 0, 1, 0)
+
+		y := tview.NewInputField()
+		y.SetLabel("Y:")
+		y.SetDoneFunc(getChangedFunc("Y", y))
 		y.SetAcceptanceFunc(acceptFloat)
+		y.SetBorderPadding(0, 0, 1, 0)
+
+		z := tview.NewInputField()
+		z.SetLabel("Z:")
+		z.SetDoneFunc(getChangedFunc("Z", z))
 		z.SetAcceptanceFunc(acceptFloat)
+		z.SetBorderPadding(0, 0, 1, 0)
 
 		flex := tview.NewFlex()
 		flex.SetDirection(tview.FlexColumn)
-		flex.AddItem(labelTextView, 6, 0, false)
+		flex.AddItem(labelTextView, 5, 0, false)
 		flex.AddItem(x, 0, 1, false)
 		flex.AddItem(y, 0, 1, false)
 		flex.AddItem(z, 0, 1, false)
@@ -607,12 +624,131 @@ func (cp *ControlPrimitive) newGcodeParams() {
 		return x, y, z, flex
 	}
 	var coordinateSystem1flex, coordinateSystem2flex, coordinateSystem3flex, coordinateSystem4flex, coordinateSystem5flex, coordinateSystem6flex *tview.Flex
-	cp.gcodeParamsCoordinateSystem1xInputField, cp.gcodeParamsCoordinateSystem1yInputField, cp.gcodeParamsCoordinateSystem1zInputField, coordinateSystem1flex = newCoordinatesInputFields("1", "G54")
-	cp.gcodeParamsCoordinateSystem2xInputField, cp.gcodeParamsCoordinateSystem2yInputField, cp.gcodeParamsCoordinateSystem2zInputField, coordinateSystem2flex = newCoordinatesInputFields("2", "G55")
-	cp.gcodeParamsCoordinateSystem3xInputField, cp.gcodeParamsCoordinateSystem3yInputField, cp.gcodeParamsCoordinateSystem3zInputField, coordinateSystem3flex = newCoordinatesInputFields("3", "G56")
-	cp.gcodeParamsCoordinateSystem4xInputField, cp.gcodeParamsCoordinateSystem4yInputField, cp.gcodeParamsCoordinateSystem4zInputField, coordinateSystem4flex = newCoordinatesInputFields("4", "G57")
-	cp.gcodeParamsCoordinateSystem5xInputField, cp.gcodeParamsCoordinateSystem5yInputField, cp.gcodeParamsCoordinateSystem5zInputField, coordinateSystem5flex = newCoordinatesInputFields("5", "G58")
-	cp.gcodeParamsCoordinateSystem6xInputField, cp.gcodeParamsCoordinateSystem6yInputField, cp.gcodeParamsCoordinateSystem6zInputField, coordinateSystem6flex = newCoordinatesInputFields("6", "G59")
+	cp.gcodeParamsCoordinateSystem1xInputField,
+		cp.gcodeParamsCoordinateSystem1yInputField,
+		cp.gcodeParamsCoordinateSystem1zInputField,
+		coordinateSystem1flex = newCoordinateSystemPrimitives("1", "G54")
+	cp.gcodeParamsCoordinateSystem2xInputField,
+		cp.gcodeParamsCoordinateSystem2yInputField,
+		cp.gcodeParamsCoordinateSystem2zInputField,
+		coordinateSystem2flex = newCoordinateSystemPrimitives("2", "G55")
+	cp.gcodeParamsCoordinateSystem3xInputField,
+		cp.gcodeParamsCoordinateSystem3yInputField,
+		cp.gcodeParamsCoordinateSystem3zInputField,
+		coordinateSystem3flex = newCoordinateSystemPrimitives("3", "G56")
+	cp.gcodeParamsCoordinateSystem4xInputField,
+		cp.gcodeParamsCoordinateSystem4yInputField,
+		cp.gcodeParamsCoordinateSystem4zInputField,
+		coordinateSystem4flex = newCoordinateSystemPrimitives("4", "G57")
+	cp.gcodeParamsCoordinateSystem5xInputField,
+		cp.gcodeParamsCoordinateSystem5yInputField,
+		cp.gcodeParamsCoordinateSystem5zInputField,
+		coordinateSystem5flex = newCoordinateSystemPrimitives("5", "G58")
+	cp.gcodeParamsCoordinateSystem6xInputField,
+		cp.gcodeParamsCoordinateSystem6yInputField,
+		cp.gcodeParamsCoordinateSystem6zInputField,
+		coordinateSystem6flex = newCoordinateSystemPrimitives("6", "G59")
+
+	// Pre-Defined Position
+	preDefinedPositionTextView := tview.NewTextView()
+	preDefinedPositionTextView.SetText("Pre-Defined Position")
+	newPreDefinedPositionPrimitives := func(number, word string) (
+		*tview.InputField, *tview.InputField, *tview.InputField,
+		*tview.Button, *tview.Button,
+		*tview.Flex,
+	) {
+		labelTextView := tview.NewTextView()
+		labelTextView.SetLabel(fmt.Sprintf("%s%s:", number, sprintGcodeWord(word)))
+
+		getChangedFunc := func(letter string, inputField *tview.InputField) func(tcell.Key) {
+			return func(tcell.Key) {
+				if cp.skipQueueCommand {
+					return
+				}
+				cp.QueueCommandIgnoreResponse(fmt.Sprintf("%s.1%s%s", word, letter, inputField.GetText()))
+			}
+		}
+
+		x := tview.NewInputField()
+		x.SetLabel("X:")
+		x.SetDoneFunc(getChangedFunc("X", x))
+		x.SetAcceptanceFunc(acceptFloat)
+		x.SetBorderPadding(0, 0, 0, 1)
+
+		y := tview.NewInputField()
+		y.SetLabel("Y:")
+		y.SetDoneFunc(getChangedFunc("Y", y))
+		y.SetAcceptanceFunc(acceptFloat)
+		y.SetBorderPadding(0, 0, 0, 1)
+
+		z := tview.NewInputField()
+		z.SetLabel("Z:")
+		z.SetDoneFunc(getChangedFunc("Z", z))
+		z.SetAcceptanceFunc(acceptFloat)
+		z.SetBorderPadding(0, 0, 0, 1)
+
+		paramsFlex := tview.NewFlex()
+		paramsFlex.SetDirection(tview.FlexColumn)
+		paramsFlex.AddItem(labelTextView, 6, 0, false)
+		paramsFlex.AddItem(x, 0, 1, false)
+		paramsFlex.AddItem(y, 0, 1, false)
+		paramsFlex.AddItem(z, 0, 1, false)
+
+		goButton := tview.NewButton("Go To")
+		goButton.SetSelectedFunc(func() {
+			cp.QueueCommandIgnoreResponse(word)
+		})
+
+		spacerTextView := tview.NewTextView()
+
+		setToCurrentButton := tview.NewButton("Set to Current")
+		setToCurrentButton.SetSelectedFunc(func() {
+			cp.QueueCommandIgnoreResponse(fmt.Sprintf("%s.1", word))
+		})
+
+		buttonsFlex := tview.NewFlex()
+		buttonsFlex.SetDirection(tview.FlexColumn)
+		buttonsFlex.AddItem(goButton, 0, 1, false)
+		buttonsFlex.AddItem(spacerTextView, 2, 0, false)
+		buttonsFlex.AddItem(setToCurrentButton, 0, 1, false)
+		buttonsFlex.SetBorderPadding(0, 0, 2, 2)
+
+		flex := tview.NewFlex()
+		flex.SetDirection(tview.FlexRow)
+		flex.AddItem(paramsFlex, 1, 0, false)
+		flex.AddItem(buttonsFlex, 1, 0, false)
+
+		return x, y, z, goButton, setToCurrentButton, flex
+	}
+	var preDefinedPosition1Flex, preDefinedPosition2Flex *tview.Flex
+	cp.gcodeParamsPreDefinedPosition1xInputField,
+		cp.gcodeParamsPreDefinedPosition1yInputField,
+		cp.gcodeParamsPreDefinedPosition1zInputField,
+		cp.gcodeParamsPreDefinedPosition1GoToButton,
+		cp.gcodeParamsPreDefinedPosition1SetToCurrentButton,
+		preDefinedPosition1Flex = newPreDefinedPositionPrimitives("1", "G28")
+	cp.gcodeParamsPreDefinedPosition2xInputField,
+		cp.gcodeParamsPreDefinedPosition2yInputField,
+		cp.gcodeParamsPreDefinedPosition2zInputField,
+		cp.gcodeParamsPreDefinedPosition2GoToButton,
+		cp.gcodeParamsPreDefinedPosition2SetToCurrentButton,
+		preDefinedPosition2Flex = newPreDefinedPositionPrimitives("1", "G30")
+
+	// G-Code: Parameters
+	cp.gcodeParamsScrollContainer = NewScrollContainer()
+	cp.gcodeParamsScrollContainer.SetBorder(true)
+	cp.gcodeParamsScrollContainer.SetTitle("G-Code: Parameters")
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystemTextView, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(cp.gcodeParamsCoordinateSystemModeDropdown, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem1flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem2flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem3flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem4flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem5flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem6flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(preDefinedPositionTextView, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(preDefinedPosition1Flex, 2)
+	cp.gcodeParamsScrollContainer.AddPrimitive(preDefinedPosition2Flex, 2)
 
 	// LEGACY
 	cp.gcodeParamsLegacyTextView = tview.NewTextView()
@@ -628,19 +764,6 @@ func (cp *ControlPrimitive) newGcodeParams() {
 			}
 		})
 	})
-
-	// G-Code: Parameters
-	cp.gcodeParamsScrollContainer = NewScrollContainer()
-	cp.gcodeParamsScrollContainer.SetBorder(true)
-	cp.gcodeParamsScrollContainer.SetTitle("G-Code: Parameters")
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystemTextView, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(cp.gcodeParamsCoordinateSystemModeDropdown, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem1flex, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem2flex, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem3flex, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem4flex, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem5flex, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem6flex, 1)
 	cp.gcodeParamsScrollContainer.AddPrimitive(cp.gcodeParamsLegacyTextView, 9)
 }
 
@@ -820,6 +943,17 @@ func (cp *ControlPrimitive) setDisabledState() {
 	cp.gcodeParamsCoordinateSystem6xInputField.SetDisabled(disabled)
 	cp.gcodeParamsCoordinateSystem6yInputField.SetDisabled(disabled)
 	cp.gcodeParamsCoordinateSystem6zInputField.SetDisabled(disabled)
+	// Pre-Defined Position
+	cp.gcodeParamsPreDefinedPosition1xInputField.SetDisabled(disabled)
+	cp.gcodeParamsPreDefinedPosition1yInputField.SetDisabled(disabled)
+	cp.gcodeParamsPreDefinedPosition1zInputField.SetDisabled(disabled)
+	cp.gcodeParamsPreDefinedPosition1GoToButton.SetDisabled(disabled)
+	cp.gcodeParamsPreDefinedPosition1SetToCurrentButton.SetDisabled(disabled)
+	cp.gcodeParamsPreDefinedPosition2xInputField.SetDisabled(disabled)
+	cp.gcodeParamsPreDefinedPosition2yInputField.SetDisabled(disabled)
+	cp.gcodeParamsPreDefinedPosition2zInputField.SetDisabled(disabled)
+	cp.gcodeParamsPreDefinedPosition2GoToButton.SetDisabled(disabled)
+	cp.gcodeParamsPreDefinedPosition2SetToCurrentButton.SetDisabled(disabled)
 	// Command
 	cp.commandInputField.SetDisabled(disabled)
 }
@@ -1154,11 +1288,13 @@ func (cp *ControlPrimitive) processGcodeParamPushMessage() tcell.Color {
 	color := tcell.ColorGreen
 
 	gcodeParameters := cp.grbl.GetLastGcodeParameters()
+	cp.mu.Lock()
 	if reflect.DeepEqual(gcodeParameters, cp.gcodeParameters) {
+		cp.mu.Unlock()
 		return color
 	}
-	cp.mu.Lock()
-	cp.gcodeParameters = gcodeParameters
+	newGcodeParameters := *gcodeParameters
+	cp.gcodeParameters = &newGcodeParameters
 	cp.mu.Unlock()
 
 	// G-Code: Parameters
@@ -1166,17 +1302,23 @@ func (cp *ControlPrimitive) processGcodeParamPushMessage() tcell.Color {
 		cp.updateGcodeParams()
 	})
 
-	// LEGACY
-	var buf bytes.Buffer
-	if gcodeParameters.HasPreDefinedPosition() {
-		fmt.Fprintf(&buf, "Pre-Defined Position\n")
+	// Pre-Defined Position
+	cp.app.QueueUpdateDraw(func() {
 		if gcodeParameters.PrimaryPreDefinedPosition != nil {
-			fmt.Fprintf(&buf, "  %s:%s\n", sprintGcodeWord("G28"), sprintCoordinatesSingleLine(gcodeParameters.PrimaryPreDefinedPosition, " "))
+			cp.gcodeParamsPreDefinedPosition1xInputField.SetText(iFmt.SprintFloat(gcodeParameters.PrimaryPreDefinedPosition.X, 4))
+			cp.gcodeParamsPreDefinedPosition1yInputField.SetText(iFmt.SprintFloat(gcodeParameters.PrimaryPreDefinedPosition.Y, 4))
+			cp.gcodeParamsPreDefinedPosition1zInputField.SetText(iFmt.SprintFloat(gcodeParameters.PrimaryPreDefinedPosition.Z, 4))
+
 		}
 		if gcodeParameters.SecondaryPreDefinedPosition != nil {
-			fmt.Fprintf(&buf, "  %s:%s\n", sprintGcodeWord("G30"), sprintCoordinatesSingleLine(gcodeParameters.SecondaryPreDefinedPosition, " "))
+			cp.gcodeParamsPreDefinedPosition2xInputField.SetText(iFmt.SprintFloat(gcodeParameters.SecondaryPreDefinedPosition.X, 4))
+			cp.gcodeParamsPreDefinedPosition2yInputField.SetText(iFmt.SprintFloat(gcodeParameters.SecondaryPreDefinedPosition.Y, 4))
+			cp.gcodeParamsPreDefinedPosition2zInputField.SetText(iFmt.SprintFloat(gcodeParameters.SecondaryPreDefinedPosition.Z, 4))
 		}
-	}
+	})
+
+	// LEGACY
+	var buf bytes.Buffer
 	if gcodeParameters.CoordinateOffset != nil {
 		fmt.Fprintf(&buf, "Coordinate Offset\n")
 		fmt.Fprintf(&buf, "  %s:%s\n", sprintGcodeWord("G92"), sprintCoordinatesSingleLine(gcodeParameters.CoordinateOffset, " "))
@@ -1252,6 +1394,14 @@ func (cp *ControlPrimitive) processWelcomePushMessage() {
 		cp.gcodeParamsCoordinateSystem6xInputField.SetText("")
 		cp.gcodeParamsCoordinateSystem6yInputField.SetText("")
 		cp.gcodeParamsCoordinateSystem6zInputField.SetText("")
+
+		// Pre-Defined Position
+		cp.gcodeParamsPreDefinedPosition1xInputField.SetText("")
+		cp.gcodeParamsPreDefinedPosition1yInputField.SetText("")
+		cp.gcodeParamsPreDefinedPosition1zInputField.SetText("")
+		cp.gcodeParamsPreDefinedPosition2xInputField.SetText("")
+		cp.gcodeParamsPreDefinedPosition2yInputField.SetText("")
+		cp.gcodeParamsPreDefinedPosition2zInputField.SetText("")
 
 		cp.gcodeParameters = nil
 	})
