@@ -98,7 +98,29 @@ type ControlPrimitive struct {
 
 	gcodeParserFlex *tview.Flex
 
-	gcodeParamsTextView *tview.TextView
+	coordinateSystemModeOptions  []string
+	coordinateSystemModeDropdown *tview.DropDown
+	coordinateSystem1xInputField *tview.InputField
+	coordinateSystem1yInputField *tview.InputField
+	coordinateSystem1zInputField *tview.InputField
+	coordinateSystem2xInputField *tview.InputField
+	coordinateSystem2yInputField *tview.InputField
+	coordinateSystem2zInputField *tview.InputField
+	coordinateSystem3xInputField *tview.InputField
+	coordinateSystem3yInputField *tview.InputField
+	coordinateSystem3zInputField *tview.InputField
+	coordinateSystem4xInputField *tview.InputField
+	coordinateSystem4yInputField *tview.InputField
+	coordinateSystem4zInputField *tview.InputField
+	coordinateSystem5xInputField *tview.InputField
+	coordinateSystem5yInputField *tview.InputField
+	coordinateSystem5zInputField *tview.InputField
+	coordinateSystem6xInputField *tview.InputField
+	coordinateSystem6yInputField *tview.InputField
+	coordinateSystem6zInputField *tview.InputField
+	gcodeParamsLegacyTextView    *tview.TextView
+
+	gcodeParamsScrollContainer *ScrollContainer
 
 	commandsTextView *tview.TextView
 
@@ -135,13 +157,13 @@ func NewControlPrimitive(
 		state:                  grblMod.StateUnknown,
 	}
 
-	cp.newGcodeParserFlex()
-	cp.newGcodeParamsTextView()
-	cp.newCommandsTextView()
-	cp.newPushMessagesTextView()
-	cp.newCommandInputField()
+	cp.newGcodeParser()
+	cp.newGcodeParams()
+	cp.newCommands()
+	cp.newPushMessages()
+	cp.newCommand()
 
-	cp.newControlFlex()
+	cp.newControl()
 
 	cp.setDisabledState()
 	cp.sendStatusCommands()
@@ -149,7 +171,7 @@ func NewControlPrimitive(
 	return cp
 }
 
-func (cp *ControlPrimitive) newGcodeParserFlex() {
+func (cp *ControlPrimitive) newGcodeParser() {
 	newModalGroupDropDown := func(name string, words []string) *tview.DropDown {
 		dropDown := tview.NewDropDown()
 		dropDown.SetLabel(name + ":")
@@ -357,24 +379,102 @@ func (cp *ControlPrimitive) newGcodeParserFlex() {
 	cp.gcodeParserFlex = gcodeParserFlex
 }
 
-func (cp *ControlPrimitive) newGcodeParamsTextView() {
-	gcodeParamsTextView := tview.NewTextView()
-	gcodeParamsTextView.SetDynamicColors(true)
-	gcodeParamsTextView.SetScrollable(true)
-	gcodeParamsTextView.SetWrap(true)
-	gcodeParamsTextView.SetBorder(true).SetTitle("G-Code Parameters")
-	gcodeParamsTextView.SetChangedFunc(func() {
+func (cp *ControlPrimitive) newGcodeParams() {
+	// Coordinate system
+	// select
+	//   G54-G59
+	// set
+	//   G10 L2 P(1-9) - Set offset(s) to a value. Current position irrelevant (see G10 L2 for details).
+	//   G10 L20 P(1-9) - Set offset(s) so current position becomes a value (see G10 L20 for details).
+	// Interface Idea
+	// Coordinate System [Offset|Value]
+	// 1(G54): X:  Y:  Z:
+	// 2(G55): X:  Y:  Z:
+	coordinateSystemTextView := tview.NewTextView()
+	coordinateSystemTextView.SetText("Coordinate System")
+
+	cp.coordinateSystemModeDropdown = tview.NewDropDown()
+	cp.coordinateSystemModeDropdown.SetLabel("Mode:")
+	cp.coordinateSystemModeOptions = []string{
+		fmt.Sprintf("Offset%s", sprintGcodeWord("G10L2")),
+		fmt.Sprintf("Value%s", sprintGcodeWord("G10L20")),
+	}
+	cp.coordinateSystemModeDropdown.SetOptions(cp.coordinateSystemModeOptions, nil)
+	cp.coordinateSystemModeDropdown.SetCurrentOption(0)
+	cp.coordinateSystemModeDropdown.SetSelectedFunc(func(string, int) {
+		// TODO update coordinate input fields
+	})
+	newCoordinatesInputFields := func(number, word string) (*tview.InputField, *tview.InputField, *tview.InputField, *tview.Flex) {
+		labelTextView := tview.NewTextView()
+		labelTextView.SetLabel(fmt.Sprintf("%s%s", number, sprintGcodeWord(word)))
+
+		x := tview.NewInputField()
+		x.SetLabel("X:")
+		// x.SetFieldWidth(coordinateWidth)
+		y := tview.NewInputField()
+		y.SetLabel("Y:")
+		// y.SetFieldWidth(coordinateWidth)
+		z := tview.NewInputField()
+		z.SetLabel("Z:")
+		// z.SetFieldWidth(coordinateWidth)
+		changedFunc := func() {
+			if cp.skipQueueCommand {
+				return
+			}
+			// TODO
+		}
+		x.SetChangedFunc(func(string) { changedFunc() })
+		y.SetChangedFunc(func(string) { changedFunc() })
+		z.SetChangedFunc(func(string) { changedFunc() })
+
+		flex := tview.NewFlex()
+		flex.SetDirection(tview.FlexColumn)
+		flex.AddItem(labelTextView, 0, 1, false)
+		flex.AddItem(x, 0, 1, false)
+		flex.AddItem(y, 0, 1, false)
+		flex.AddItem(z, 0, 1, false)
+
+		return x, y, z, flex
+	}
+	var coordinateSystem1flex, coordinateSystem2flex, coordinateSystem3flex, coordinateSystem4flex, coordinateSystem5flex, coordinateSystem6flex *tview.Flex
+	cp.coordinateSystem1xInputField, cp.coordinateSystem1yInputField, cp.coordinateSystem1zInputField, coordinateSystem1flex = newCoordinatesInputFields("1", "G54")
+	cp.coordinateSystem2xInputField, cp.coordinateSystem2yInputField, cp.coordinateSystem2zInputField, coordinateSystem2flex = newCoordinatesInputFields("2", "G55")
+	cp.coordinateSystem3xInputField, cp.coordinateSystem3yInputField, cp.coordinateSystem3zInputField, coordinateSystem3flex = newCoordinatesInputFields("3", "G56")
+	cp.coordinateSystem4xInputField, cp.coordinateSystem4yInputField, cp.coordinateSystem4zInputField, coordinateSystem4flex = newCoordinatesInputFields("4", "G57")
+	cp.coordinateSystem5xInputField, cp.coordinateSystem5yInputField, cp.coordinateSystem5zInputField, coordinateSystem5flex = newCoordinatesInputFields("5", "G58")
+	cp.coordinateSystem6xInputField, cp.coordinateSystem6yInputField, cp.coordinateSystem6zInputField, coordinateSystem6flex = newCoordinatesInputFields("6", "G59")
+
+	// LEGACY
+	cp.gcodeParamsLegacyTextView = tview.NewTextView()
+	cp.gcodeParamsLegacyTextView.SetDynamicColors(true)
+	cp.gcodeParamsLegacyTextView.SetScrollable(true)
+	cp.gcodeParamsLegacyTextView.SetWrap(true)
+	cp.gcodeParamsLegacyTextView.SetBorder(true).SetTitle("LEGACY")
+	cp.gcodeParamsLegacyTextView.SetChangedFunc(func() {
 		cp.app.QueueUpdateDraw(func() {
-			text := gcodeParamsTextView.GetText(false)
+			text := cp.gcodeParamsLegacyTextView.GetText(false)
 			if len(text) > 0 && text[len(text)-1] == '\n' {
-				gcodeParamsTextView.SetText(text[:len(text)-1])
+				cp.gcodeParamsLegacyTextView.SetText(text[:len(text)-1])
 			}
 		})
 	})
-	cp.gcodeParamsTextView = gcodeParamsTextView
+
+	// G-Code: Parameters
+	cp.gcodeParamsScrollContainer = NewScrollContainer()
+	cp.gcodeParamsScrollContainer.SetBorder(true)
+	cp.gcodeParamsScrollContainer.SetTitle("G-Code: Modal Groups")
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystemTextView, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(cp.coordinateSystemModeDropdown, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem1flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem2flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem3flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem4flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem5flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem6flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(cp.gcodeParamsLegacyTextView, 16)
 }
 
-func (cp *ControlPrimitive) newCommandsTextView() {
+func (cp *ControlPrimitive) newCommands() {
 	commandsTextView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
@@ -392,7 +492,7 @@ func (cp *ControlPrimitive) newCommandsTextView() {
 	cp.commandsTextView = commandsTextView
 }
 
-func (cp *ControlPrimitive) newPushMessagesTextView() {
+func (cp *ControlPrimitive) newPushMessages() {
 	pushMessagesTextView := tview.NewTextView()
 	pushMessagesTextView.SetDynamicColors(true)
 	pushMessagesTextView.SetScrollable(true)
@@ -410,7 +510,7 @@ func (cp *ControlPrimitive) newPushMessagesTextView() {
 	cp.pushMessagesTextView = pushMessagesTextView
 }
 
-func (cp *ControlPrimitive) newCommandInputField() {
+func (cp *ControlPrimitive) newCommand() {
 	commandInputField := tview.NewInputField()
 	commandInputField.SetLabel("Command:")
 	commandInputField.SetDoneFunc(func(key tcell.Key) {
@@ -453,11 +553,11 @@ func (cp *ControlPrimitive) newCommandInputField() {
 	cp.commandInputField = commandInputField
 }
 
-func (cp *ControlPrimitive) newControlFlex() {
+func (cp *ControlPrimitive) newControl() {
 	gcodeFlex := tview.NewFlex()
 	gcodeFlex.SetDirection(tview.FlexColumn)
 	gcodeFlex.AddItem(cp.gcodeParserFlex, 0, 1, false)
-	gcodeFlex.AddItem(cp.gcodeParamsTextView, 0, 1, false)
+	gcodeFlex.AddItem(cp.gcodeParamsScrollContainer, 0, 1, false)
 
 	commsFlex := tview.NewFlex()
 	commsFlex.SetDirection(tview.FlexColumn)
@@ -926,10 +1026,10 @@ func (cp *ControlPrimitive) processGcodeParamPushMessage() tcell.Color {
 	}
 
 	cp.app.QueueUpdateDraw(func() {
-		if buf.String() == cp.gcodeParamsTextView.GetText(false) {
+		if buf.String() == cp.gcodeParamsLegacyTextView.GetText(false) {
 			return
 		}
-		cp.gcodeParamsTextView.SetText(buf.String())
+		cp.gcodeParamsLegacyTextView.SetText(buf.String())
 	})
 
 	return color
@@ -938,7 +1038,7 @@ func (cp *ControlPrimitive) processGcodeParamPushMessage() tcell.Color {
 func (cp *ControlPrimitive) processWelcomePushMessage() {
 	cp.app.QueueUpdateDraw(func() {
 		// G-Code Parameters
-		cp.gcodeParamsTextView.Clear()
+		cp.gcodeParamsLegacyTextView.Clear()
 		// G-Code: Modal Groups
 		cp.skipQueueCommand = true
 		cp.gcodeParserModalGroupsMotionDropDown.SetCurrentOption(-1)
