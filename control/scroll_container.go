@@ -52,6 +52,37 @@ func (s *ScrollContainer) Clear() *ScrollContainer {
 	return s
 }
 
+// drawPrimitive draws a single primitive at the given position, clipped to container bounds.
+func (s *ScrollContainer) drawPrimitive(screen tcell.Screen, p tview.Primitive, primY, primHeight, x, y, width, height int) {
+	if primY+primHeight > y && primY < y+height {
+		drawY, drawHeight := s.clipPrimitiveRect(primY, primHeight, y, height)
+		if drawHeight > 0 {
+			p.SetRect(x, drawY, width, drawHeight)
+			p.Draw(screen)
+		}
+	}
+}
+
+// clipPrimitiveRect clips a primitive's rect to container bounds.
+// Returns the clipped Y position and height.
+func (s *ScrollContainer) clipPrimitiveRect(primY, primHeight, containerY, containerHeight int) (clippedY, clippedHeight int) {
+	clippedY = primY
+	clippedHeight = primHeight
+
+	// Clip top
+	if clippedY < containerY {
+		clippedHeight -= (containerY - clippedY)
+		clippedY = containerY
+	}
+
+	// Clip bottom
+	if clippedY+clippedHeight > containerY+containerHeight {
+		clippedHeight = containerY + containerHeight - clippedY
+	}
+
+	return
+}
+
 // Draw draws this primitive onto the screen.
 func (s *ScrollContainer) Draw(screen tcell.Screen) {
 	s.Box.DrawForSubclass(screen, s)
@@ -86,14 +117,7 @@ func (s *ScrollContainer) Draw(screen tcell.Screen) {
 			continue
 		}
 
-		// Only draw if visible (or partially visible)
-		if currentY+h > y && currentY < y+height {
-			// Set primitive to its natural position and size
-			// This allows primitives like dropdowns to render outside their bounds
-			p.SetRect(x, currentY, width, h)
-			p.Draw(screen)
-		}
-
+		s.drawPrimitive(screen, p, currentY, h, x, y, width, height)
 		currentY += h
 	}
 
@@ -106,10 +130,7 @@ func (s *ScrollContainer) Draw(screen tcell.Screen) {
 		h := s.primitiveHeights[s.focusedIndex]
 		p := s.primitives[s.focusedIndex]
 
-		if focusedY+h > y && focusedY < y+height {
-			p.SetRect(x, focusedY, width, h)
-			p.Draw(screen)
-		}
+		s.drawPrimitive(screen, p, focusedY, h, x, y, width, height)
 	}
 }
 
