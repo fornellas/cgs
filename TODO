@@ -3,6 +3,7 @@ Bug
     InputFields
         When it looses focus, the entered value is not applied
 Features
+    Enforce homing after reset
     Panels
         Probe
             Straight
