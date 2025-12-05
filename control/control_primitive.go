@@ -53,6 +53,14 @@ var gcodeParamsCoordinateSystemModeOptions = []string{
 var gcodeParamsCoordinateSystemModeOffsetIdx = 0
 var gcodeParamsCoordinateSystemModeValueIdx = 1
 
+var gcodeParamsCoordinateOffsetModeOptions = []string{
+	"Offset",
+	"Value",
+}
+
+// var gcodeParamsCoordinateOffsetModeOffsetIdx = 0
+var gcodeParamsCoordinateOffsetModeValueIdx = 1
+
 var allStatusCommands = map[string]bool{
 	grblMod.GrblCommandViewGcodeParameters:  true,
 	grblMod.GrblCommandViewGrblSettings:     true,
@@ -156,6 +164,8 @@ type ControlPrimitive struct {
 	gcodeParamsPreDefinedPosition2zInputField        *tview.InputField
 	gcodeParamsPreDefinedPosition2GoToButton         *tview.Button
 	gcodeParamsPreDefinedPosition2SetToCurrentButton *tview.Button
+
+	gcodeParamsCoordinateOffsetModeDropdown *tview.DropDown
 
 	gcodeParamsLegacyTextView *tview.TextView
 
@@ -734,23 +744,16 @@ func (cp *ControlPrimitive) newGcodeParams() {
 		cp.gcodeParamsPreDefinedPosition2SetToCurrentButton,
 		preDefinedPosition2Flex = newPreDefinedPositionPrimitives("1", "G30")
 
-	// G-Code: Parameters
-	cp.gcodeParamsScrollContainer = NewScrollContainer()
-	cp.gcodeParamsScrollContainer.SetBorder(true)
-	cp.gcodeParamsScrollContainer.SetTitle("G-Code: Parameters")
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystemTextView, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(cp.gcodeParamsCoordinateSystemModeDropdown, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem1Flex, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem2Flex, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem3Flex, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem4Flex, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem5Flex, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem6Flex, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(preDefinedPositionTextView, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(preDefinedPosition1Flex, 2)
-	cp.gcodeParamsScrollContainer.AddPrimitive(preDefinedPosition2Flex, 2)
-
 	// Coordinate Offset
+	coordinateOffsetTextView := tview.NewTextView()
+	coordinateOffsetTextView.SetText("Coordinate Offset")
+	cp.gcodeParamsCoordinateOffsetModeDropdown = tview.NewDropDown()
+	cp.gcodeParamsCoordinateOffsetModeDropdown.SetLabel("Mode:")
+	cp.gcodeParamsCoordinateOffsetModeDropdown.SetOptions(gcodeParamsCoordinateOffsetModeOptions, nil)
+	cp.gcodeParamsCoordinateOffsetModeDropdown.SetCurrentOption(gcodeParamsCoordinateOffsetModeValueIdx)
+	cp.gcodeParamsCoordinateOffsetModeDropdown.SetSelectedFunc(func(string, int) {
+		cp.updateGcodeParams()
+	})
 
 	// LEGACY
 	cp.gcodeParamsLegacyTextView = tview.NewTextView()
@@ -766,6 +769,24 @@ func (cp *ControlPrimitive) newGcodeParams() {
 			}
 		})
 	})
+
+	// G-Code: Parameters
+	cp.gcodeParamsScrollContainer = NewScrollContainer()
+	cp.gcodeParamsScrollContainer.SetBorder(true)
+	cp.gcodeParamsScrollContainer.SetTitle("G-Code: Parameters")
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystemTextView, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(cp.gcodeParamsCoordinateSystemModeDropdown, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem1Flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem2Flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem3Flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem4Flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem5Flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem6Flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(preDefinedPositionTextView, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(preDefinedPosition1Flex, 2)
+	cp.gcodeParamsScrollContainer.AddPrimitive(preDefinedPosition2Flex, 2)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateOffsetTextView, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(cp.gcodeParamsCoordinateOffsetModeDropdown, 1)
 	cp.gcodeParamsScrollContainer.AddPrimitive(cp.gcodeParamsLegacyTextView, 9)
 }
 
