@@ -623,31 +623,31 @@ func (cp *ControlPrimitive) newGcodeParams() {
 
 		return x, y, z, flex
 	}
-	var coordinateSystem1flex, coordinateSystem2flex, coordinateSystem3flex, coordinateSystem4flex, coordinateSystem5flex, coordinateSystem6flex *tview.Flex
+	var coordinateSystem1Flex, coordinateSystem2Flex, coordinateSystem3Flex, coordinateSystem4Flex, coordinateSystem5Flex, coordinateSystem6Flex *tview.Flex
 	cp.gcodeParamsCoordinateSystem1xInputField,
 		cp.gcodeParamsCoordinateSystem1yInputField,
 		cp.gcodeParamsCoordinateSystem1zInputField,
-		coordinateSystem1flex = newCoordinateSystemPrimitives("1", "G54")
+		coordinateSystem1Flex = newCoordinateSystemPrimitives("1", "G54")
 	cp.gcodeParamsCoordinateSystem2xInputField,
 		cp.gcodeParamsCoordinateSystem2yInputField,
 		cp.gcodeParamsCoordinateSystem2zInputField,
-		coordinateSystem2flex = newCoordinateSystemPrimitives("2", "G55")
+		coordinateSystem2Flex = newCoordinateSystemPrimitives("2", "G55")
 	cp.gcodeParamsCoordinateSystem3xInputField,
 		cp.gcodeParamsCoordinateSystem3yInputField,
 		cp.gcodeParamsCoordinateSystem3zInputField,
-		coordinateSystem3flex = newCoordinateSystemPrimitives("3", "G56")
+		coordinateSystem3Flex = newCoordinateSystemPrimitives("3", "G56")
 	cp.gcodeParamsCoordinateSystem4xInputField,
 		cp.gcodeParamsCoordinateSystem4yInputField,
 		cp.gcodeParamsCoordinateSystem4zInputField,
-		coordinateSystem4flex = newCoordinateSystemPrimitives("4", "G57")
+		coordinateSystem4Flex = newCoordinateSystemPrimitives("4", "G57")
 	cp.gcodeParamsCoordinateSystem5xInputField,
 		cp.gcodeParamsCoordinateSystem5yInputField,
 		cp.gcodeParamsCoordinateSystem5zInputField,
-		coordinateSystem5flex = newCoordinateSystemPrimitives("5", "G58")
+		coordinateSystem5Flex = newCoordinateSystemPrimitives("5", "G58")
 	cp.gcodeParamsCoordinateSystem6xInputField,
 		cp.gcodeParamsCoordinateSystem6yInputField,
 		cp.gcodeParamsCoordinateSystem6zInputField,
-		coordinateSystem6flex = newCoordinateSystemPrimitives("6", "G59")
+		coordinateSystem6Flex = newCoordinateSystemPrimitives("6", "G59")
 
 	// Pre-Defined Position
 	preDefinedPositionTextView := tview.NewTextView()
@@ -740,15 +740,17 @@ func (cp *ControlPrimitive) newGcodeParams() {
 	cp.gcodeParamsScrollContainer.SetTitle("G-Code: Parameters")
 	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystemTextView, 1)
 	cp.gcodeParamsScrollContainer.AddPrimitive(cp.gcodeParamsCoordinateSystemModeDropdown, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem1flex, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem2flex, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem3flex, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem4flex, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem5flex, 1)
-	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem6flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem1Flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem2Flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem3Flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem4Flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem5Flex, 1)
+	cp.gcodeParamsScrollContainer.AddPrimitive(coordinateSystem6Flex, 1)
 	cp.gcodeParamsScrollContainer.AddPrimitive(preDefinedPositionTextView, 1)
 	cp.gcodeParamsScrollContainer.AddPrimitive(preDefinedPosition1Flex, 2)
 	cp.gcodeParamsScrollContainer.AddPrimitive(preDefinedPosition2Flex, 2)
+
+	// Coordinate Offset
 
 	// LEGACY
 	cp.gcodeParamsLegacyTextView = tview.NewTextView()
