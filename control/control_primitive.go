@@ -846,7 +846,7 @@ func (cp *ControlPrimitive) newGcodeParams() {
 				return
 			}
 			var coordinateOffsetStr string
-			if n, _ := cp.gcodeParamsCoordinateOffsetModeDropdown.GetCurrentOption(); n == gcodeParamsCoordinateOffsetModeOffsetIdx {
+			if n, _ := cp.gcodeParamsCoordinateOffsetModeDropdown.GetCurrentOption(); n == gcodeParamsCoordinateOffsetModeWorkCoordinatesIdx {
 				coordinateOffsetStr = coordinateInputField.GetText()
 			} else {
 				var machineCoordinate, coordinateSystemCoordinate *float64
