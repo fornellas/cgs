@@ -186,7 +186,8 @@ type ControlPrimitive struct {
 	state grblMod.State
 
 	machineCoordinates *grblMod.Coordinates
-	workCoordinates    *grblMod.Coordinates
+	coordinateOffset   *grblMod.Coordinates
+	toolLengthOffset   *float64
 
 	gcodeParameters *grblMod.GcodeParameters
 
@@ -490,27 +491,44 @@ func (cp *ControlPrimitive) updateGcodeParamsCoordinateSystem() {
 		}
 	} else {
 		// Machine Coordinates
-		if cp.machineCoordinates != nil && cp.gcodeParameters != nil {
+		if cp.machineCoordinates != nil && cp.gcodeParameters != nil && cp.coordinateOffset != nil && cp.toolLengthOffset != nil {
 			updateFunc := func(
-				gcodeParamsCoordinateSystem *grblMod.Coordinates,
-				gcodeParamsCoordinateSystemxInputField *tview.InputField,
-				gcodeParamsCoordinateSystemyInputField *tview.InputField,
-				gcodeParamsCoordinateSystemzInputField *tview.InputField,
+				coordinateSystem *grblMod.Coordinates,
+				xInputField *tview.InputField,
+				yInputField *tview.InputField,
+				zInputField *tview.InputField,
 			) {
-				if gcodeParamsCoordinateSystem != nil {
-					gcodeParamsCoordinateSystemxInputField.SetText(
-						iFmt.SprintFloat(cp.machineCoordinates.X-gcodeParamsCoordinateSystem.X, 4),
+				if coordinateSystem != nil {
+					xInputField.SetText(
+						iFmt.SprintFloat(
+							cp.machineCoordinates.X-
+								coordinateSystem.X-
+								cp.coordinateOffset.X-
+								*cp.toolLengthOffset,
+							4,
+						),
 					)
-					gcodeParamsCoordinateSystemyInputField.SetText(
-						iFmt.SprintFloat(cp.machineCoordinates.Y-gcodeParamsCoordinateSystem.Y, 4),
+					yInputField.SetText(
+						iFmt.SprintFloat(
+							cp.machineCoordinates.Y-
+								coordinateSystem.Y-
+								cp.coordinateOffset.Y-
+								*cp.toolLengthOffset,
+							4,
+						),
 					)
-					gcodeParamsCoordinateSystemzInputField.SetText(
-						iFmt.SprintFloat(cp.machineCoordinates.Z-gcodeParamsCoordinateSystem.Z, 4),
-					)
+					zInputField.SetText(
+						iFmt.SprintFloat(
+							cp.machineCoordinates.Z-
+								coordinateSystem.Z-
+								cp.coordinateOffset.Z-
+								*cp.toolLengthOffset,
+							4,
+						))
 				} else {
-					gcodeParamsCoordinateSystemxInputField.SetText("")
-					gcodeParamsCoordinateSystemyInputField.SetText("")
-					gcodeParamsCoordinateSystemzInputField.SetText("")
+					xInputField.SetText("")
+					yInputField.SetText("")
+					zInputField.SetText("")
 				}
 			}
 			updateFunc(
@@ -585,6 +603,7 @@ func (cp *ControlPrimitive) updateGcodeParamsCoordinateSystem() {
 func (cp *ControlPrimitive) updateGcodeParamsCoordinateOffset() {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
+
 	if n, _ := cp.gcodeParamsCoordinateOffsetModeDropdown.GetCurrentOption(); n == gcodeParamsCoordinateOffsetModeOffsetIdx && cp.gcodeParameters != nil {
 		// Offset
 		if cp.gcodeParameters.CoordinateOffset != nil {
@@ -597,21 +616,37 @@ func (cp *ControlPrimitive) updateGcodeParamsCoordinateOffset() {
 			cp.gcodeParamsCoordinateOffsetZInputField.SetText("")
 		}
 	} else {
-		// Value
-		if cp.workCoordinates != nil && cp.gcodeParameters != nil {
-			if cp.gcodeParameters.CoordinateOffset != nil {
-				cp.gcodeParamsCoordinateOffsetXInputField.SetText(
-					iFmt.SprintFloat(cp.workCoordinates.X+cp.gcodeParameters.CoordinateOffset.X, 4),
-				)
-				cp.gcodeParamsCoordinateOffsetYInputField.SetText(
-					iFmt.SprintFloat(cp.workCoordinates.Y+cp.gcodeParameters.CoordinateOffset.Y, 4),
-				)
+		// Work Coordinates
+		var coordinateSystem *grblMod.Coordinates
+		// TODO get current coordinateSystem
+		if cp.machineCoordinates != nil && coordinateSystem != nil && cp.coordinateOffset != nil {
+			cp.gcodeParamsCoordinateOffsetXInputField.SetText(
+				iFmt.SprintFloat(
+					cp.machineCoordinates.X-
+						coordinateSystem.X-
+						cp.coordinateOffset.X,
+					4,
+				),
+			)
+			cp.gcodeParamsCoordinateOffsetYInputField.SetText(
+				iFmt.SprintFloat(
+					cp.machineCoordinates.Y-
+						coordinateSystem.Y-
+						cp.coordinateOffset.Y,
+					4,
+				),
+			)
+			if cp.toolLengthOffset != nil {
 				cp.gcodeParamsCoordinateOffsetZInputField.SetText(
-					iFmt.SprintFloat(cp.workCoordinates.Z+cp.gcodeParameters.CoordinateOffset.Z, 4),
+					iFmt.SprintFloat(
+						cp.machineCoordinates.Z-
+							coordinateSystem.Z-
+							cp.coordinateOffset.Z-
+							*cp.toolLengthOffset,
+						4,
+					),
 				)
 			} else {
-				cp.gcodeParamsCoordinateOffsetXInputField.SetText("")
-				cp.gcodeParamsCoordinateOffsetYInputField.SetText("")
 				cp.gcodeParamsCoordinateOffsetZInputField.SetText("")
 			}
 		} else {
@@ -1372,24 +1407,26 @@ func (cp *ControlPrimitive) processGcodeStatePushMessage(
 func (cp *ControlPrimitive) processGcodeParamPushMessage() tcell.Color {
 	color := tcell.ColorGreen
 
+	var update bool
+
 	gcodeParameters := cp.grbl.GetLastGcodeParameters()
 	cp.mu.Lock()
-	if reflect.DeepEqual(gcodeParameters, cp.gcodeParameters) {
-		cp.mu.Unlock()
+	if !reflect.DeepEqual(gcodeParameters, cp.gcodeParameters) {
+		newGcodeParameters := *gcodeParameters
+		cp.gcodeParameters = &newGcodeParameters
+		update = true
+	}
+	cp.mu.Unlock()
+
+	if !update {
 		return color
 	}
-	newGcodeParameters := *gcodeParameters
-	cp.gcodeParameters = &newGcodeParameters
-	cp.mu.Unlock()
 
 	// G-Code: Parameters
 	cp.app.QueueUpdateDraw(func() {
+		// Coordinate System
 		cp.updateGcodeParamsCoordinateSystem()
-		cp.updateGcodeParamsCoordinateOffset()
-	})
-
-	// Pre-Defined Position
-	cp.app.QueueUpdateDraw(func() {
+		// Pre-Defined Position
 		if gcodeParameters.PrimaryPreDefinedPosition != nil {
 			cp.gcodeParamsPreDefinedPosition1XInputField.SetText(iFmt.SprintFloat(gcodeParameters.PrimaryPreDefinedPosition.X, 4))
 			cp.gcodeParamsPreDefinedPosition1YInputField.SetText(iFmt.SprintFloat(gcodeParameters.PrimaryPreDefinedPosition.Y, 4))
@@ -1401,6 +1438,10 @@ func (cp *ControlPrimitive) processGcodeParamPushMessage() tcell.Color {
 			cp.gcodeParamsPreDefinedPosition2YInputField.SetText(iFmt.SprintFloat(gcodeParameters.SecondaryPreDefinedPosition.Y, 4))
 			cp.gcodeParamsPreDefinedPosition2ZInputField.SetText(iFmt.SprintFloat(gcodeParameters.SecondaryPreDefinedPosition.Z, 4))
 		}
+		// Coordinate Offset
+		cp.updateGcodeParamsCoordinateOffset()
+		// Tool Length Offset
+		// TODO
 	})
 	return color
 }
@@ -1483,6 +1524,7 @@ func (cp *ControlPrimitive) processPushMessage(pushMessage grblMod.PushMessage) 
 
 	if _, ok := pushMessage.(*grblMod.GcodeParamPushMessage); ok {
 		color = cp.processGcodeParamPushMessage()
+
 		if cp.quietStatusComms {
 			return
 		}
@@ -1501,14 +1543,6 @@ func (cp *ControlPrimitive) processPushMessage(pushMessage grblMod.PushMessage) 
 		if !reflect.DeepEqual(cp.machineCoordinates, machineCoordinates) {
 			cp.mu.Lock()
 			cp.machineCoordinates = machineCoordinates
-			cp.mu.Unlock()
-			cp.updateGcodeParamsCoordinateSystem()
-			cp.updateGcodeParamsCoordinateOffset()
-		}
-		workCoordinates := statusReportPushMessage.GetWorkCoordinates(cp.grbl)
-		if !reflect.DeepEqual(cp.workCoordinates, workCoordinates) {
-			cp.mu.Lock()
-			cp.workCoordinates = workCoordinates
 			cp.mu.Unlock()
 			cp.updateGcodeParamsCoordinateSystem()
 			cp.updateGcodeParamsCoordinateOffset()
