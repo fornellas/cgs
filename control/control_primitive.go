@@ -233,7 +233,7 @@ func (cp *ControlPrimitive) newGcodeParser() {
 		dropDown.SetLabel(name + ":")
 		texts := []string{}
 		for _, word := range words {
-			texts = append(texts, fmt.Sprintf("%s%s", tview.Escape(gcode.WordName(word)), sprintGcodeWord(word)))
+			texts = append(texts, fmt.Sprintf("%s%s", sprintGcodeWord(word), tview.Escape(gcode.ShortWordName(word))))
 		}
 		dropDown.SetOptions(texts, func(text string, index int) {
 			if cp.skipQueueCommand {
@@ -315,7 +315,7 @@ func (cp *ControlPrimitive) newGcodeParser() {
 
 	// Stopping
 	cp.gcodeParserModalGroupsStoppingCheckbox = tview.NewCheckbox()
-	cp.gcodeParserModalGroupsStoppingCheckbox.SetLabel(fmt.Sprintf("%s%s", tview.Escape(gcode.WordName("M0")), sprintGcodeWord("M0")))
+	cp.gcodeParserModalGroupsStoppingCheckbox.SetLabel(fmt.Sprintf("%s%s", tview.Escape(gcode.ShortWordName("M0")), sprintGcodeWord("M0")))
 	cp.gcodeParserModalGroupsStoppingCheckbox.SetChangedFunc(func(checked bool) {
 		if cp.skipQueueCommand {
 			return
@@ -824,7 +824,7 @@ func (cp *ControlPrimitive) newGcodeParams() {
 		cp.gcodeParamsPreDefinedPosition2ZInputField,
 		cp.gcodeParamsPreDefinedPosition2GoToButton,
 		cp.gcodeParamsPreDefinedPosition2SetToCurrentButton,
-		preDefinedPosition2Flex = newPreDefinedPositionPrimitives("1", "G30")
+		preDefinedPosition2Flex = newPreDefinedPositionPrimitives("2", "G30")
 
 	// Coordinate Offset
 	coordinateOffsetTitleTextView := tview.NewTextView()
