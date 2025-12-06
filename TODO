@@ -16,16 +16,6 @@ Features
             Use grid to hide Gcode row if height is too small
             G-Code Parser
                 Refactor to table
-            G-Code Parameters
-                Tool Length
-                    Tool Length Offset
-                        G43 <H->
-                    Dynamic Tool Length Offset
-                        G43.1 axes
-                    Apply additional Tool Length Offset
-                        G43.2 H- or axes-
-                    Cancel Tool Length Compensation
-                        G49
             Auto Complete
         Stream
             Open / Save
