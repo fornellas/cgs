@@ -48,18 +48,18 @@ var gcodeParserModalGroupsSpindleWords = []string{
 }
 var gcodeParamsCoordinateSystemModeOptions = []string{
 	fmt.Sprintf("Offset%s", sprintGcodeWord("G10L2")),
-	fmt.Sprintf("Value%s", sprintGcodeWord("G10L20")),
+	fmt.Sprintf("Work Coordinates%s", sprintGcodeWord("G10L20")),
 }
 var gcodeParamsCoordinateSystemModeOffsetIdx = 0
-var gcodeParamsCoordinateSystemModeValueIdx = 1
+var gcodeParamsCoordinateSystemModeWorkCoordinatesIdx = 1
 
 var gcodeParamsCoordinateOffsetModeOptions = []string{
 	"Offset",
-	"Value",
+	"Work Coordinates",
 }
 
 var gcodeParamsCoordinateOffsetModeOffsetIdx = 0
-var gcodeParamsCoordinateOffsetModeValueIdx = 1
+var gcodeParamsCoordinateOffsetModeWorkCoordinatesIdx = 1
 
 var allStatusCommands = map[string]bool{
 	grblMod.GrblCommandViewGcodeParameters:  true,
@@ -431,6 +431,7 @@ func (cp *ControlPrimitive) newGcodeParser() {
 func (cp *ControlPrimitive) updateGcodeParamsCoordinateSystem() {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
+
 	if n, _ := cp.gcodeParamsCoordinateSystemModeDropdown.GetCurrentOption(); n == gcodeParamsCoordinateSystemModeOffsetIdx && cp.gcodeParameters != nil {
 		// Offset
 		if cp.gcodeParameters.CoordinateSystem1 != nil {
@@ -488,7 +489,7 @@ func (cp *ControlPrimitive) updateGcodeParamsCoordinateSystem() {
 			cp.gcodeParamsCoordinateSystem6ZInputField.SetText("")
 		}
 	} else {
-		// Value
+		// Machine Coordinates
 		if cp.machineCoordinates != nil && cp.gcodeParameters != nil {
 			updateFunc := func(
 				gcodeParamsCoordinateSystem *grblMod.Coordinates,
@@ -628,7 +629,7 @@ func (cp *ControlPrimitive) newGcodeParams() {
 	cp.gcodeParamsCoordinateSystemModeDropdown = tview.NewDropDown()
 	cp.gcodeParamsCoordinateSystemModeDropdown.SetLabel("Mode:")
 	cp.gcodeParamsCoordinateSystemModeDropdown.SetOptions(gcodeParamsCoordinateSystemModeOptions, nil)
-	cp.gcodeParamsCoordinateSystemModeDropdown.SetCurrentOption(gcodeParamsCoordinateSystemModeValueIdx)
+	cp.gcodeParamsCoordinateSystemModeDropdown.SetCurrentOption(gcodeParamsCoordinateSystemModeWorkCoordinatesIdx)
 	cp.gcodeParamsCoordinateSystemModeDropdown.SetSelectedFunc(func(string, int) {
 		cp.updateGcodeParamsCoordinateSystem()
 	})
@@ -783,7 +784,7 @@ func (cp *ControlPrimitive) newGcodeParams() {
 	cp.gcodeParamsCoordinateOffsetModeDropdown = tview.NewDropDown()
 	cp.gcodeParamsCoordinateOffsetModeDropdown.SetLabel("Mode:")
 	cp.gcodeParamsCoordinateOffsetModeDropdown.SetOptions(gcodeParamsCoordinateOffsetModeOptions, nil)
-	cp.gcodeParamsCoordinateOffsetModeDropdown.SetCurrentOption(gcodeParamsCoordinateOffsetModeValueIdx)
+	cp.gcodeParamsCoordinateOffsetModeDropdown.SetCurrentOption(gcodeParamsCoordinateOffsetModeWorkCoordinatesIdx)
 	cp.gcodeParamsCoordinateOffsetModeDropdown.SetSelectedFunc(func(string, int) {
 		cp.updateGcodeParamsCoordinateOffset()
 	})
@@ -1425,7 +1426,7 @@ func (cp *ControlPrimitive) processWelcomePushMessage() {
 		cp.gcodeParserStateFeedRateInputField.SetText("")
 		cp.skipQueueCommand = false
 		// G-Code: Parameters: Coordinate System
-		cp.gcodeParamsCoordinateSystemModeDropdown.SetCurrentOption(gcodeParamsCoordinateSystemModeValueIdx)
+		cp.gcodeParamsCoordinateSystemModeDropdown.SetCurrentOption(gcodeParamsCoordinateSystemModeWorkCoordinatesIdx)
 		cp.gcodeParamsCoordinateSystem1XInputField.SetText("")
 		cp.gcodeParamsCoordinateSystem1YInputField.SetText("")
 		cp.gcodeParamsCoordinateSystem1ZInputField.SetText("")
@@ -1452,7 +1453,7 @@ func (cp *ControlPrimitive) processWelcomePushMessage() {
 		cp.gcodeParamsPreDefinedPosition2YInputField.SetText("")
 		cp.gcodeParamsPreDefinedPosition2ZInputField.SetText("")
 		// G-Code: Parameters: Coordinate Offset
-		cp.gcodeParamsCoordinateOffsetModeDropdown.SetCurrentOption(gcodeParamsCoordinateOffsetModeValueIdx)
+		cp.gcodeParamsCoordinateOffsetModeDropdown.SetCurrentOption(gcodeParamsCoordinateOffsetModeWorkCoordinatesIdx)
 		cp.gcodeParamsCoordinateOffsetXInputField.SetText("")
 		cp.gcodeParamsCoordinateOffsetYInputField.SetText("")
 		cp.gcodeParamsCoordinateOffsetZInputField.SetText("")
