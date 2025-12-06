@@ -1,7 +1,6 @@
 package control
 
 import (
-	"bytes"
 	"fmt"
 	"strconv"
 
@@ -36,15 +35,6 @@ func sprintFloat(value float64, decimal uint) string {
 
 func sprintCoordinate(value float64) string {
 	return sprintFloat(value, 4)
-}
-
-func sprintCoordinatesSingleLine(coordinates *grblMod.Coordinates, sep string) string {
-	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "X:%s%sY:%s%sZ:%s", sprintCoordinate(coordinates.X), sep, sprintCoordinate(coordinates.Y), sep, sprintCoordinate(coordinates.Z))
-	if coordinates.A != nil {
-		fmt.Fprintf(&buf, " %sA:%.4f", sep, *coordinates.A)
-	}
-	return buf.String()
 }
 
 func sprintBlocks(value int) string {
