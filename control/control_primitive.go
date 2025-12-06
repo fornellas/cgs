@@ -185,8 +185,9 @@ type ControlPrimitive struct {
 
 	state grblMod.State
 
-	machineCoordinates *grblMod.Coordinates // Status Report
+	machineCoordinates *grblMod.Coordinates
 	gcodeParameters    *grblMod.GcodeParameters
+	modalGroup         *gcode.ModalGroup
 
 	mu sync.Mutex
 }
@@ -588,6 +589,7 @@ func (cp *ControlPrimitive) updateGcodeParamsCoordinateSystem() {
 	}
 }
 
+//gocyclo:ignore
 func (cp *ControlPrimitive) updateGcodeParamsCoordinateOffset() {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
@@ -606,7 +608,24 @@ func (cp *ControlPrimitive) updateGcodeParamsCoordinateOffset() {
 	} else {
 		// Work Coordinates
 		var coordinateSystem *grblMod.Coordinates
-		// TODO get current coordinateSystem
+		if cp.modalGroup != nil && cp.modalGroup.CoordinateSystemSelect != nil {
+			switch cp.modalGroup.CoordinateSystemSelect.NormalizedString() {
+			case "G54":
+				coordinateSystem = cp.gcodeParameters.CoordinateSystem1
+			case "G55":
+				coordinateSystem = cp.gcodeParameters.CoordinateSystem2
+			case "G56":
+				coordinateSystem = cp.gcodeParameters.CoordinateSystem3
+			case "G57":
+				coordinateSystem = cp.gcodeParameters.CoordinateSystem4
+			case "G58":
+				coordinateSystem = cp.gcodeParameters.CoordinateSystem5
+			case "G59":
+				coordinateSystem = cp.gcodeParameters.CoordinateSystem6
+			default:
+				panic(fmt.Sprintf("bug: unexpected coordinate system: %#v", cp.modalGroup.CoordinateSystemSelect.NormalizedString()))
+			}
+		}
 		if cp.machineCoordinates != nil && coordinateSystem != nil && cp.gcodeParameters.CoordinateOffset != nil {
 			cp.gcodeParamsCoordinateOffsetXInputField.SetText(
 				iFmt.SprintFloat(
@@ -845,10 +864,6 @@ func (cp *ControlPrimitive) newGcodeParams() {
 	coordinateOffsetFlex.AddItem(cp.gcodeParamsCoordinateOffsetXInputField, 0, 1, false)
 	coordinateOffsetFlex.AddItem(cp.gcodeParamsCoordinateOffsetYInputField, 0, 1, false)
 	coordinateOffsetFlex.AddItem(cp.gcodeParamsCoordinateOffsetZInputField, 0, 1, false)
-
-	// TODO ToolLengthOffset
-
-	// TODO Probe
 
 	// G-Code: Parameters
 	cp.gcodeParamsScrollContainer = NewScrollContainer()
@@ -1291,6 +1306,11 @@ func (cp *ControlPrimitive) QueueRealTimeCommand(rtc grblMod.RealTimeCommand) {
 func (cp *ControlPrimitive) processGcodeStatePushMessage(
 	gcodeStatePushMessage *grblMod.GcodeStatePushMessage,
 ) tcell.Color {
+	cp.mu.Lock()
+	newModalGroup := *gcodeStatePushMessage.ModalGroup
+	cp.modalGroup = &newModalGroup
+	cp.mu.Unlock()
+
 	cp.app.QueueUpdateDraw(func() {
 		cp.skipQueueCommand = true
 		defer func() { cp.skipQueueCommand = false }()
@@ -1386,6 +1406,9 @@ func (cp *ControlPrimitive) processGcodeStatePushMessage(
 				iFmt.SprintFloat(*gcodeStatePushMessage.FeedRate, 4),
 			)
 		}
+
+		// G-Code: Coordinate Offset
+		cp.updateGcodeParamsCoordinateOffset()
 	})
 
 	return tcell.ColorGreen
@@ -1489,7 +1512,10 @@ func (cp *ControlPrimitive) processWelcomePushMessage() {
 		cp.gcodeParamsCoordinateOffsetXInputField.SetText("")
 		cp.gcodeParamsCoordinateOffsetYInputField.SetText("")
 		cp.gcodeParamsCoordinateOffsetZInputField.SetText("")
+
+		cp.machineCoordinates = nil
 		cp.gcodeParameters = nil
+		cp.modalGroup = nil
 	})
 	fmt.Fprintf(cp.pushMessagesTextView, "\n[%s]Soft-Reset detected[-]", tcell.ColorOrange)
 	cp.sendStatusCommands()
@@ -1533,10 +1559,13 @@ func (cp *ControlPrimitive) processPushMessage(pushMessage grblMod.PushMessage) 
 		machineCoordinates := statusReportPushMessage.GetMachineCoordinates(cp.grbl)
 		if !reflect.DeepEqual(cp.machineCoordinates, machineCoordinates) {
 			cp.mu.Lock()
-			cp.machineCoordinates = machineCoordinates
+			newMachineCoordinates := *machineCoordinates
+			cp.machineCoordinates = &newMachineCoordinates
 			cp.mu.Unlock()
-			cp.updateGcodeParamsCoordinateSystem()
-			cp.updateGcodeParamsCoordinateOffset()
+			cp.app.QueueUpdateDraw(func() {
+				cp.updateGcodeParamsCoordinateSystem()
+				cp.updateGcodeParamsCoordinateOffset()
+			})
 		}
 		if cp.quietStatusComms {
 			return
