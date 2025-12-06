@@ -245,6 +245,16 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	defer func() { exitMu.Lock() }()
 	defer func() {
 		logger := log.MustLogger(appCtx)
+
+		// After Application.Run returns, any pending or future calls to Application.QueueUpdate
+		// will block indefinitely.
+		// This hack here spins the app again using a simulated screen, which enables any pending
+		// Application.QueueUpdate to be processed, unblocking them, so that workers can properly
+		// shutdown.
+		logger.Debug("Restarting app with simulated screen to support workers shutdown")
+		app.SetScreen(tcell.NewSimulationScreen("UTF-8"))
+		go app.Run()
+
 		logger.Info("Stopping all workers")
 		workerManager.Cancel(appCtx)
 	}()
