@@ -1573,7 +1573,7 @@ func (cp *ControlPrimitive) processPushMessage(pushMessage grblMod.PushMessage) 
 
 	if statusReportPushMessage, ok := pushMessage.(*grblMod.StatusReportPushMessage); ok {
 		machineCoordinates := statusReportPushMessage.GetMachineCoordinates(cp.grbl)
-		if !reflect.DeepEqual(cp.machineCoordinates, machineCoordinates) {
+		if machineCoordinates != nil && !reflect.DeepEqual(cp.machineCoordinates, machineCoordinates) {
 			cp.mu.Lock()
 			newMachineCoordinates := *machineCoordinates
 			cp.machineCoordinates = &newMachineCoordinates
