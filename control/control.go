@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -246,14 +247,20 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	defer func() {
 		logger := log.MustLogger(appCtx)
 
+		if r := recover(); r != nil {
+			logger.Debug("Panic", "recovered", r, "stack", string(debug.Stack()))
+		}
+
 		// After Application.Run returns, any pending or future calls to Application.QueueUpdate
 		// will block indefinitely.
 		// This hack here spins the app again using a simulated screen, which enables any pending
 		// Application.QueueUpdate to be processed, unblocking them, so that workers can properly
 		// shutdown.
-		logger.Debug("Restarting app with simulated screen to support workers shutdown")
 		app.SetScreen(tcell.NewSimulationScreen("UTF-8"))
-		go app.Run()
+		go func() {
+			logger.Debug("Restarting app with simulated screen to support workers shutdown")
+			logger.Debug("Simulated screen app returned", "err", app.Run())
+		}()
 
 		logger.Info("Stopping all workers")
 		workerManager.Cancel(appCtx)

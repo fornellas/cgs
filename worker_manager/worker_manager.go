@@ -17,7 +17,7 @@ type workerType struct {
 
 // WorkerManager manages a group of workers and coordinates their execution.
 type WorkerManager struct {
-	workers []workerType
+	workers []*workerType
 }
 
 // NewWorkerManager creates a new WorkerManager with the given context.
@@ -26,16 +26,16 @@ func NewWorkerManager() *WorkerManager {
 }
 
 func (wm *WorkerManager) AddWorker(name string, fn func(context.Context) error) {
-	wm.workers = append([]workerType{{name: name, fn: fn}}, wm.workers...)
+	wm.workers = append([]*workerType{{name: name, fn: fn}}, wm.workers...)
 }
 
 func (wm *WorkerManager) Start(ctx context.Context) {
 	ctx, logger := log.MustWithGroup(ctx, "Worker Manager > Workers")
 	logger.Debug("Starting workers")
-	for i := range wm.workers {
-		workerCtx, workerLogger := log.MustWithGroup(ctx, wm.workers[i].name)
-		workerCtx, wm.workers[i].cancelFunc = context.WithCancel(workerCtx)
-		wm.workers[i].errCh = make(chan error, 1)
+	for _, worker := range wm.workers {
+		workerCtx, workerLogger := log.MustWithGroup(ctx, worker.name)
+		workerCtx, worker.cancelFunc = context.WithCancel(workerCtx)
+		worker.errCh = make(chan error, 1)
 		go func() {
 			var err error
 			defer func() {
@@ -43,13 +43,13 @@ func (wm *WorkerManager) Start(ctx context.Context) {
 				wm.Cancel(workerCtx)
 				if r := recover(); r != nil {
 					workerLogger.Debug("Panic", "recovered", r, "stack", string(debug.Stack()))
-					wm.workers[i].errCh <- fmt.Errorf("panic: %v", r)
+					worker.errCh <- fmt.Errorf("panic: %v", r)
 				} else {
-					wm.workers[i].errCh <- err
+					worker.errCh <- err
 				}
 			}()
 			workerLogger.Debug("Starting")
-			err = wm.workers[i].fn(workerCtx)
+			err = worker.fn(workerCtx)
 		}()
 	}
 	logger.Debug("All workers started")

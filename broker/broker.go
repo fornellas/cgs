@@ -40,7 +40,15 @@ func (b *Broker[T]) Publish(t T) error {
 	}
 
 	for _, ch := range b.subscribers {
-		go func() { ch <- t }()
+		go func() {
+			// We run this concurrently to prevent a single subscriber from blocking the others.
+			// As a consequence, when Close() is called, there's a race where we may attempt to
+			// send to a closed channel.
+			// Adding this recover() here prevents it from panicing, which is expected in this
+			// scenario.
+			defer func() { recover() }()
+			ch <- t
+		}()
 	}
 
 	return nil
