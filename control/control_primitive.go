@@ -592,7 +592,7 @@ func (cp *ControlPrimitive) updateGcodeParamsCoordinateSystem() {
 
 func (cp *ControlPrimitive) getCoordinateSystemCoordinates() *grblMod.Coordinates {
 	var coordinateSystem *grblMod.Coordinates
-	if cp.modalGroup != nil && cp.modalGroup.CoordinateSystemSelect != nil {
+	if cp.modalGroup != nil && cp.modalGroup.CoordinateSystemSelect != nil && cp.gcodeParameters != nil {
 		switch cp.modalGroup.CoordinateSystemSelect.NormalizedString() {
 		case "G54":
 			coordinateSystem = cp.gcodeParameters.CoordinateSystem1
