@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -289,7 +290,7 @@ func (cp *ControlPrimitive) newGcodeParser() {
 	// Tool Length Offset
 	cp.gcodeParserModalGroupsToolLengthOffsetInputField = tview.NewInputField()
 	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetLabel(fmt.Sprintf("Tool Length Offset%s:", sprintGcodeWord("G43.1")))
-	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetAcceptanceFunc(acceptUFloat)
+	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetAcceptanceFunc(acceptFloat)
 	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetFieldWidth(coordinateWidth)
 	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetDoneFunc(func(key tcell.Key) {
 		if cp.skipQueueCommand {
@@ -589,6 +590,29 @@ func (cp *ControlPrimitive) updateGcodeParamsCoordinateSystem() {
 	}
 }
 
+func (cp *ControlPrimitive) getCoordinateSystemCoordinates() *grblMod.Coordinates {
+	var coordinateSystem *grblMod.Coordinates
+	if cp.modalGroup != nil && cp.modalGroup.CoordinateSystemSelect != nil {
+		switch cp.modalGroup.CoordinateSystemSelect.NormalizedString() {
+		case "G54":
+			coordinateSystem = cp.gcodeParameters.CoordinateSystem1
+		case "G55":
+			coordinateSystem = cp.gcodeParameters.CoordinateSystem2
+		case "G56":
+			coordinateSystem = cp.gcodeParameters.CoordinateSystem3
+		case "G57":
+			coordinateSystem = cp.gcodeParameters.CoordinateSystem4
+		case "G58":
+			coordinateSystem = cp.gcodeParameters.CoordinateSystem5
+		case "G59":
+			coordinateSystem = cp.gcodeParameters.CoordinateSystem6
+		default:
+			panic(fmt.Sprintf("bug: unexpected coordinate system: %#v", cp.modalGroup.CoordinateSystemSelect.NormalizedString()))
+		}
+	}
+	return coordinateSystem
+}
+
 //gocyclo:ignore
 func (cp *ControlPrimitive) updateGcodeParamsCoordinateOffset() {
 	cp.mu.Lock()
@@ -607,25 +631,7 @@ func (cp *ControlPrimitive) updateGcodeParamsCoordinateOffset() {
 		}
 	} else {
 		// Work Coordinates
-		var coordinateSystem *grblMod.Coordinates
-		if cp.modalGroup != nil && cp.modalGroup.CoordinateSystemSelect != nil {
-			switch cp.modalGroup.CoordinateSystemSelect.NormalizedString() {
-			case "G54":
-				coordinateSystem = cp.gcodeParameters.CoordinateSystem1
-			case "G55":
-				coordinateSystem = cp.gcodeParameters.CoordinateSystem2
-			case "G56":
-				coordinateSystem = cp.gcodeParameters.CoordinateSystem3
-			case "G57":
-				coordinateSystem = cp.gcodeParameters.CoordinateSystem4
-			case "G58":
-				coordinateSystem = cp.gcodeParameters.CoordinateSystem5
-			case "G59":
-				coordinateSystem = cp.gcodeParameters.CoordinateSystem6
-			default:
-				panic(fmt.Sprintf("bug: unexpected coordinate system: %#v", cp.modalGroup.CoordinateSystemSelect.NormalizedString()))
-			}
-		}
+		coordinateSystem := cp.getCoordinateSystemCoordinates()
 		if cp.machineCoordinates != nil && coordinateSystem != nil && cp.gcodeParameters.CoordinateOffset != nil {
 			cp.gcodeParamsCoordinateOffsetXInputField.SetText(
 				iFmt.SprintFloat(
@@ -839,17 +845,25 @@ func (cp *ControlPrimitive) newGcodeParams() {
 			if cp.skipQueueCommand {
 				return
 			}
-			var coordinateStr string
+			var coordinateOffsetStr string
 			if n, _ := cp.gcodeParamsCoordinateOffsetModeDropdown.GetCurrentOption(); n == gcodeParamsCoordinateOffsetModeOffsetIdx {
-				coordinateStr = coordinateInputField.GetText()
+				coordinateOffsetStr = coordinateInputField.GetText()
 			} else {
-				// TODO
-				// coordinateFloat, err := strconv.ParseFloat(coordinateInputField.GetText(), 64)
-				// if err != nil {
-				// 	panic(fmt.Errorf("bug: parsing not expected to fail: %w", err))
-				// }
+				var machineCoordinate, coordinateSystemCoordinate *float64
+				machineCoordinate = cp.machineCoordinates.GetAxis(letter)
+				coordinateSystemCoordinates := cp.getCoordinateSystemCoordinates()
+				coordinateSystemCoordinate = coordinateSystemCoordinates.GetAxis(letter)
+				workCoordinate, err := strconv.ParseFloat(coordinateInputField.GetText(), 64)
+				if err != nil {
+					panic(fmt.Errorf("bug: parsing not expected to fail: %w", err))
+				}
+				if machineCoordinate == nil || coordinateSystemCoordinate == nil || cp.gcodeParameters.ToolLengthOffset == nil {
+					return
+				}
+				coordinateOffset := *machineCoordinate - *coordinateSystemCoordinate - *cp.gcodeParameters.ToolLengthOffset - workCoordinate
+				coordinateOffsetStr = iFmt.SprintFloat(coordinateOffset, 4)
 			}
-			cp.QueueCommandIgnoreResponse(fmt.Sprintf("G92%s%s", letter, coordinateStr))
+			cp.QueueCommandIgnoreResponse(fmt.Sprintf("G92%s%s", letter, coordinateOffsetStr))
 		})
 		coordinateInputField.SetAcceptanceFunc(acceptFloat)
 		coordinateInputField.SetBorderPadding(0, 0, 1, 0)
