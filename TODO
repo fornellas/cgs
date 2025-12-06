@@ -1,4 +1,12 @@
 Bug
+    G-Code Parameters
+        Coordinate Sytem
+            Mode Value
+                Work = Machine - CoordinateSystem - CoordinateOffset - ToolLengthOffset
+        Coordinate Offset
+            Mode Value
+                Formula
+                    Work = Machine - CoordinateSystem - CoordinateOffset - ToolLengthOffset
     Bug: if state is check, skip status commands (or they'll fail)
     InputFields
         When it looses focus, the entered value is not applied
@@ -15,9 +23,17 @@ Features
         Control
             Use grid to hide Gcode row if height is too small
             G-Code Parser
-                UI setting
+                Refactor to table
             G-Code Parameters
-                UI setting
+                Tool Length
+                    Tool Length Offset
+                        G43 <H->
+                    Dynamic Tool Length Offset
+                        G43.1 axes
+                    Apply additional Tool Length Offset
+                        G43.2 H- or axes-
+                    Cancel Tool Length Compensation
+                        G49
             Auto Complete
         Stream
             Open / Save
