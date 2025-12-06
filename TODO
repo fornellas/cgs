@@ -1,13 +1,6 @@
 Bug
-    G-Code Parameters
-        Coordinate Sytem
-            Mode Value
-                Work = Machine - CoordinateSystem - CoordinateOffset - ToolLengthOffset
-        Coordinate Offset
-            Mode Value
-                Formula
-                    Work = Machine - CoordinateSystem - CoordinateOffset - ToolLengthOffset
-    Bug: if state is check, skip status commands (or they'll fail)
+    If tool length offset is set, then Reset is pressed, it crashes and deadlockes
+    If state is check, skip status commands (or they'll fail)
     InputFields
         When it looses focus, the entered value is not applied
 Features
