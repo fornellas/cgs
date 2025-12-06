@@ -850,7 +850,9 @@ func (cp *ControlPrimitive) newGcodeParams() {
 				coordinateOffsetStr = coordinateInputField.GetText()
 			} else {
 				var machineCoordinate, coordinateSystemCoordinate *float64
-				machineCoordinate = cp.machineCoordinates.GetAxis(letter)
+				if cp.machineCoordinates != nil {
+					machineCoordinate = cp.machineCoordinates.GetAxis(letter)
+				}
 				coordinateSystemCoordinates := cp.getCoordinateSystemCoordinates()
 				coordinateSystemCoordinate = coordinateSystemCoordinates.GetAxis(letter)
 				workCoordinate, err := strconv.ParseFloat(coordinateInputField.GetText(), 64)
