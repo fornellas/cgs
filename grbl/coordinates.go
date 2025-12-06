@@ -49,3 +49,17 @@ func NewCoordinatesFromStrValues(dataValues []string) (*Coordinates, error) {
 func NewCoordinatesFromCSV(s string) (*Coordinates, error) {
 	return NewCoordinatesFromStrValues(strings.Split(s, ","))
 }
+
+func (c *Coordinates) GetAxis(axis string) *float64 {
+	switch axis {
+	case "X":
+		return &c.X
+	case "Y":
+		return &c.Y
+	case "Z":
+		return &c.Z
+	case "A":
+		return c.A
+	}
+	return nil
+}
