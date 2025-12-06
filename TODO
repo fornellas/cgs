@@ -10,8 +10,18 @@ Features
                 Probe button, enable / disable
                 Set
                     G92, G54+
-                Angle
-                    TODO
+            Angle
+            Edge Finder
+                Edge / Conrner
+                Top
+            Center Finder
+                Inner contour
+                Outside contour
+        Tool Change
+            Safe Z
+            Probe
+                XY
+                Feed Rate / Overshoot
         Control
             Use grid to hide Gcode row if height is too small
             G-Code Parser
