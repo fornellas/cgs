@@ -2,6 +2,8 @@ package worker_manager
 
 import (
 	"context"
+	"fmt"
+	"runtime/debug"
 
 	"github.com/fornellas/slogxt/log"
 )
@@ -35,10 +37,19 @@ func (wm *WorkerManager) Start(ctx context.Context) {
 		workerCtx, wm.workers[i].cancelFunc = context.WithCancel(workerCtx)
 		wm.workers[i].errCh = make(chan error, 1)
 		go func() {
+			var err error
+			defer func() {
+				workerLogger.Debug("Finished", "err", err)
+				wm.Cancel(workerCtx)
+				if r := recover(); r != nil {
+					workerLogger.Debug("Panic", "recovered", r, "stack", string(debug.Stack()))
+					wm.workers[i].errCh <- fmt.Errorf("panic: %v", r)
+				} else {
+					wm.workers[i].errCh <- err
+				}
+			}()
 			workerLogger.Debug("Starting")
-			wm.workers[i].errCh <- wm.workers[i].fn(workerCtx)
-			workerLogger.Debug("Finished")
-			wm.Cancel(workerCtx)
+			err = wm.workers[i].fn(workerCtx)
 		}()
 	}
 	logger.Debug("All workers started")
