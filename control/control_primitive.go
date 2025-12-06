@@ -1441,7 +1441,11 @@ func (cp *ControlPrimitive) processGcodeParamPushMessage() tcell.Color {
 		// Coordinate Offset
 		cp.updateGcodeParamsCoordinateOffset()
 		// Tool Length Offset
-		// TODO
+		if gcodeParameters.ToolLengthOffset != nil {
+			cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetText(iFmt.SprintFloat(*gcodeParameters.ToolLengthOffset, 4))
+		} else {
+			cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetText("")
+		}
 	})
 	return color
 }
