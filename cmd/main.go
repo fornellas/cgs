@@ -1,7 +1,10 @@
 package main
 
 import (
+	"log/slog"
 	"os"
+	"runtime/debug"
+	"strings"
 
 	"github.com/fornellas/slogxt/log"
 	"github.com/spf13/cobra"
@@ -15,10 +18,20 @@ var Exit func(int) = func(code int) { os.Exit(code) }
 func GetRunFn(fn func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
 		logger := log.MustLogger(cmd.Context())
+		slog.SetDefault(logger)
+
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Error("panic", "recovered", r, "stack", strings.TrimSuffix(string(debug.Stack()), "\n"))
+				Exit(1)
+			}
+		}()
+
 		if err := fn(cmd, args); err != nil {
 			logger.Error(err.Error())
 			Exit(1)
 		}
+
 		logger.Info("Success")
 	}
 }
