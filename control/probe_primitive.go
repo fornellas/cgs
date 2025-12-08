@@ -5,6 +5,9 @@ import (
 	"context"
 	"fmt"
 
+	iFmt "github.com/fornellas/cgs/internal/fmt"
+
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
 	grblMod "github.com/fornellas/cgs/grbl"
@@ -26,6 +29,7 @@ type ProbePrimitive struct {
 	straightOvershootTextView       *tview.TextView
 	straightProbeButton             *tview.Button
 	straightFlex                    *tview.Flex
+	statusTextView                  *tview.TextView
 }
 
 func NewProbePrimitive(
@@ -153,6 +157,10 @@ func (pp *ProbePrimitive) newStraight() {
 	})
 	pp.straightProbeButton = straightProbeButton
 
+	// Status
+	pp.statusTextView = tview.NewTextView()
+	pp.statusTextView.SetDynamicColors(true)
+
 	// Straight
 	straightFlex := tview.NewFlex()
 	straightFlex.SetBorder(true)
@@ -165,8 +173,35 @@ func (pp *ProbePrimitive) newStraight() {
 	straightFlex.AddItem(straightFeedRateInputField, 1, 0, false)
 	straightFlex.AddItem(straightOvershootTextView, 1, 0, false)
 	straightFlex.AddItem(straightProbeButton, 3, 0, false)
+	straightFlex.AddItem(pp.statusTextView, 1, 0, false)
 	// TODO probe result
 	pp.straightFlex = straightFlex
+}
+
+func (pp *ProbePrimitive) processPushMessage(pushMessage grblMod.PushMessage) {
+	// TODO set last probing cycle status from g-code param message
+	// TODO reset last probing cycle status on welcome
+
+	pp.app.QueueUpdateDraw(func() {
+		if gcodeParamPushMessage, ok := pushMessage.(*grblMod.GcodeParamPushMessage); ok {
+			if gcodeParamPushMessage.GcodeParameters.Probe != nil {
+				if gcodeParamPushMessage.GcodeParameters.Probe.Successful {
+					fmt.Fprintf(
+						pp.statusTextView,
+						"[%s]Successful[-] X:%s Y:%s Z:%s",
+						tcell.ColorGreen,
+						iFmt.SprintFloat(gcodeParamPushMessage.GcodeParameters.Probe.Coordinates.X, 4),
+						iFmt.SprintFloat(gcodeParamPushMessage.GcodeParameters.Probe.Coordinates.Y, 4),
+						iFmt.SprintFloat(gcodeParamPushMessage.GcodeParameters.Probe.Coordinates.Z, 4),
+					)
+				} else {
+					fmt.Fprintf(pp.statusTextView, "[%s]Failed[-]", tcell.ColorRed)
+				}
+			} else {
+				pp.statusTextView.SetText("")
+			}
+		}
+	})
 }
 
 func (pp *ProbePrimitive) Worker(
@@ -178,12 +213,12 @@ func (pp *ProbePrimitive) Worker(
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case _, ok := <-pushMessageCh:
+		case pushMessage, ok := <-pushMessageCh:
 			if !ok {
 				return fmt.Errorf("push message channel closed")
 			}
-			// TODO set last probing cycle status from g-code param message
-			// TODO reset last probing cycle status on welcome
+			pp.processPushMessage(pushMessage)
+
 		case _, ok := <-trackedStateCh:
 			if !ok {
 				return fmt.Errorf("tracked state channel closed")
