@@ -1,4 +1,4 @@
-package control
+package tui
 
 import (
 	"context"
@@ -17,33 +17,33 @@ import (
 	"github.com/fornellas/cgs/worker_manager"
 )
 
-type ControlOptions struct {
+type TuiOptions struct {
 	DisplayStatusComms bool
 	AppLogger          *slog.Logger
 }
 
-type Control struct {
+type Tui struct {
 	grbl    *grblMod.Grbl
-	options *ControlOptions
+	options *TuiOptions
 }
 
-func NewControl(grbl *grblMod.Grbl, options *ControlOptions) *Control {
+func NewTui(grbl *grblMod.Grbl, options *TuiOptions) *Tui {
 	if options == nil {
-		options = &ControlOptions{}
+		options = &TuiOptions{}
 	}
-	return &Control{
+	return &Tui{
 		grbl:    grbl,
 		options: options,
 	}
 }
 
-func (c *Control) statusQueryWorker(ctx context.Context) error {
+func (t *Tui) statusQueryWorker(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(200 * time.Millisecond):
-			if err := c.grbl.SendRealTimeCommand(grblMod.RealTimeCommandStatusReportQuery); err != nil {
+			if err := t.grbl.SendRealTimeCommand(grblMod.RealTimeCommandStatusReportQuery); err != nil {
 				err := fmt.Errorf("failed to send periodic status query real-time command: %w", err)
 				return err
 			}
@@ -51,7 +51,7 @@ func (c *Control) statusQueryWorker(ctx context.Context) error {
 	}
 }
 
-func (c *Control) Run(ctx context.Context) (err error) {
+func (t *Tui) Run(ctx context.Context) (err error) {
 	// Application
 	app := tview.NewApplication()
 	app.EnableMouse(true)
@@ -73,14 +73,14 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	appHandlers := []slog.Handler{
 		appHandler,
 	}
-	if c.options.AppLogger != nil {
-		appHandlers = append(appHandlers, c.options.AppLogger.Handler())
+	if t.options.AppLogger != nil {
+		appHandlers = append(appHandlers, t.options.AppLogger.Handler())
 	}
 	appLogger := slog.New(log.NewMultiHandler(appHandlers...))
 	appCtx := log.WithLogger(consoleCtx, appLogger)
 
 	// Grbl
-	grblPushMessageCh, err := c.grbl.Connect(consoleCtx)
+	grblPushMessageCh, err := t.grbl.Connect(consoleCtx)
 	if err != nil {
 		return err
 	}
@@ -105,7 +105,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	})
 
 	// StatusPrimitive
-	statusPrimitive := NewStatusPrimitive(appCtx, c.grbl, app)
+	statusPrimitive := NewStatusPrimitive(appCtx, t.grbl, app)
 	workerManager.AddWorker("StatusPrimitive", func(ctx context.Context) error {
 		return statusPrimitive.Worker(
 			ctx,
@@ -116,8 +116,8 @@ func (c *Control) Run(ctx context.Context) (err error) {
 
 	// ControlPrimitive
 	controlPrimitive := NewControlPrimitive(
-		appCtx, c.grbl, app, stateTracker,
-		!c.options.DisplayStatusComms,
+		appCtx, t.grbl, app, stateTracker,
+		!t.options.DisplayStatusComms,
 	)
 	workerManager.AddWorker("ControlPrimitive.Worker", func(ctx context.Context) error {
 		return controlPrimitive.Worker(
@@ -204,7 +204,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 	app.SetRoot(rootPrimitive, true)
 
 	// Status Query
-	workerManager.AddWorker("Control.statusQueryWorker", c.statusQueryWorker)
+	workerManager.AddWorker("Control.statusQueryWorker", t.statusQueryWorker)
 
 	// Start
 	workerManager.Start(appCtx)
@@ -238,7 +238,7 @@ func (c *Control) Run(ctx context.Context) (err error) {
 			err = errors.Join(err, workerErr)
 		}
 		logger.Info("Disconnecting")
-		err = errors.Join(err, c.grbl.Disconnect(appCtx))
+		err = errors.Join(err, t.grbl.Disconnect(appCtx))
 		logger.Info("Stopping App")
 		app.Stop()
 		exitMu.Unlock()

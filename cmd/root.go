@@ -104,7 +104,7 @@ func ResetFlags() {
 func init() {
 	slogxtCobra.AddLoggerFlags(RootCmd)
 
-	ControlCmd.PersistentFlags().StringVarP(
+	TuiCmd.PersistentFlags().StringVarP(
 		&logDebugPath, "log-debug-path", "", defaultLogDebugPath,
 		"Truncate file and write debugging logging to it.",
 	)

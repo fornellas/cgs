@@ -4,16 +4,16 @@ import (
 	"github.com/fornellas/slogxt/log"
 	"github.com/spf13/cobra"
 
-	controlMod "github.com/fornellas/cgs/control"
 	grblMod "github.com/fornellas/cgs/grbl"
+	tuiMod "github.com/fornellas/cgs/tui"
 )
 
 var displayStatusComms bool
 var defaultDisplayStatusComms = false
 
-var ControlCmd = &cobra.Command{
-	Use:   "control",
-	Short: "Open Grbl serial connection and provide a terminal control interface.",
+var TuiCmd = &cobra.Command{
+	Use:   "tui",
+	Short: "Open Grbl serial connection and provide a terminal user interface.",
 	Args:  cobra.NoArgs,
 	Run: GetRunFn(func(cmd *cobra.Command, args []string) (err error) {
 		ctx, _ := log.MustWithAttrs(
@@ -32,26 +32,26 @@ var ControlCmd = &cobra.Command{
 
 		grbl := grblMod.NewGrbl(openPortFn)
 
-		control := controlMod.NewControl(grbl, &controlMod.ControlOptions{
+		tui := tuiMod.NewTui(grbl, &tuiMod.TuiOptions{
 			DisplayStatusComms: displayStatusComms,
 			AppLogger:          logDebugFileLogger,
 		})
 
-		return control.Run(ctx)
+		return tui.Run(ctx)
 	}),
 }
 
 func init() {
-	AddPortFlags(ControlCmd)
+	AddPortFlags(TuiCmd)
 
-	ControlCmd.Flags().BoolVar(
+	TuiCmd.Flags().BoolVar(
 		&displayStatusComms,
 		"display-status-comms",
 		defaultDisplayStatusComms,
 		"Various status commands ($#, $$, $N, $I, $G, ?) are polled automatically; this option enables showing such communication (very noisy)",
 	)
 
-	RootCmd.AddCommand(ControlCmd)
+	RootCmd.AddCommand(TuiCmd)
 
 	resetFlagsFns = append(resetFlagsFns, func() {
 		displayStatusComms = defaultDisplayStatusComms
