@@ -342,12 +342,12 @@ func (hm *HeightMapPrimitive) getProbeFunc(zProbePlane, maxZDeviation, probeFeed
 
 		probedZ = (gcodeParameters.Probe.Coordinates.Z - workCoordinatesOffset.Z) - zProbePlane
 
+		// TODO measure speed, this seems to take a long time, better to do at a goroutine
 		hm.app.QueueUpdateDraw(func() {
 			tableCell.SetText(iFmt.SprintFloat(probedZ, 4))
 			tableCell.Reference = probedZ
+			hm.updateTableCellColors()
 		})
-
-		hm.updateTableCellColors()
 
 		return probedZ, nil
 	}
