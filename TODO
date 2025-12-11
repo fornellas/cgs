@@ -75,5 +75,21 @@ Features
         https://github.com/gcla/gowid
         https://codeberg.org/tslocum/cview
         https://github.com/fyne-io/fyne
-            LPG, though no native 3D
-        https://github.com/gioui/gio
+            Wayland
+                Errors on boot
+                    PlatformError: Wayland: Standard cursor "crosshair" not found
+                    PlatformError: Wayland: Standard cursor "hand2" not found
+                    PlatformError: Wayland: Standard cursor "sb_h_double_arrow" not found
+                    PlatformError: Wayland: Standard cursor "sb_v_double_arrow" not found
+                    PlatformError: Wayland: Focusing a window requires user interaction
+                Resizing
+                    Slow, choppy
+                    Sometimes render outside the window
+                Cursor
+                    Tiny
+                Scaling
+                    Bigger than it should be by default
+                Fullscreen
+                    Always goes to first monitor
+                    When exit full screen, it sometimes offsets rendering (partially out of screen, mismatch with cursor position)
+            No 3D option
