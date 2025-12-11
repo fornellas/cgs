@@ -157,7 +157,7 @@ func (t *Tui) Run(ctx context.Context) (err error) {
 	})
 
 	// StreamPrimitive
-	heightMapPrimitive := NewHeightMapPrimitive(appCtx, app, controlPrimitive)
+	heightMapPrimitive := NewHeightMapPrimitive(appCtx, app, t.grbl, controlPrimitive)
 	workerManager.AddWorker("HeightMapPrimitive", func(ctx context.Context) error {
 		return heightMapPrimitive.Worker(
 			ctx,

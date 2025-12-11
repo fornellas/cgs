@@ -8,7 +8,6 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
-	"github.com/fornellas/cgs/grbl"
 	iFmt "github.com/fornellas/cgs/internal/fmt"
 
 	grblMod "github.com/fornellas/cgs/grbl"
@@ -18,6 +17,7 @@ type HeightMapPrimitive struct {
 	*tview.Flex
 	ctx              context.Context
 	app              *tview.Application
+	grbl             *grblMod.Grbl
 	controlPrimitive *ControlPrimitive
 
 	x0InputField            *tview.InputField
@@ -30,7 +30,8 @@ type HeightMapPrimitive struct {
 	probeFeedRateInputField *tview.InputField
 	probeButton             *tview.Button
 	statusTextView          *tview.TextView
-	mapTable                *tview.Table
+	heightMapTable          *tview.Table
+	heightMapTableCellMap   map[float64]map[float64]*tview.TableCell
 
 	heightMap *grblMod.HeightMap
 }
@@ -38,11 +39,13 @@ type HeightMapPrimitive struct {
 func NewHeightMapPrimitive(
 	ctx context.Context,
 	app *tview.Application,
+	grbl *grblMod.Grbl,
 	controlPrimitive *ControlPrimitive,
 ) *HeightMapPrimitive {
 	hm := &HeightMapPrimitive{
 		ctx:              ctx,
 		app:              app,
+		grbl:             grbl,
 		controlPrimitive: controlPrimitive,
 	}
 
@@ -94,15 +97,13 @@ func NewHeightMapPrimitive(
 
 	hm.probeButton = tview.NewButton("Probe")
 	hm.probeButton.SetSelectedFunc(func() {
-		hm.app.QueueUpdateDraw(func() {
-			go hm.probe()
-		})
+		go hm.probe()
 	})
 
 	hm.statusTextView = tview.NewTextView()
 	hm.statusTextView.SetDynamicColors(true)
 
-	hm.mapTable = tview.NewTable()
+	hm.heightMapTable = tview.NewTable()
 
 	rootFlex := tview.NewFlex()
 	rootFlex.SetBorder(true)
@@ -118,7 +119,7 @@ func NewHeightMapPrimitive(
 	rootFlex.AddItem(hm.probeFeedRateInputField, 1, 0, false)
 	rootFlex.AddItem(hm.probeButton, 3, 0, false)
 	rootFlex.AddItem(hm.statusTextView, 1, 0, false)
-	rootFlex.AddItem(hm.mapTable, 0, 1, false)
+	rootFlex.AddItem(hm.heightMapTable, 0, 1, false)
 
 	hm.Flex = rootFlex
 
@@ -128,7 +129,8 @@ func NewHeightMapPrimitive(
 }
 
 func (hm *HeightMapPrimitive) updateHeightMap() {
-	hm.mapTable.Clear()
+	hm.heightMapTable.Clear()
+	hm.heightMapTableCellMap = nil
 
 	var err error
 	var x0, y0, x1, y1, maxDistance float64
@@ -160,19 +162,39 @@ func (hm *HeightMapPrimitive) updateHeightMap() {
 		return
 	}
 
-	for i, x := range hm.heightMap.GetXSteps() {
-		hm.mapTable.SetCell(0, i+1, tview.NewTableCell(sprintColorCoordinate(x)))
+	xSteps := hm.heightMap.GetXSteps()
+	for i, x := range xSteps {
+		hm.heightMapTable.SetCell(0, i+1, tview.NewTableCell(sprintColorCoordinate(x)))
 	}
 
-	for j, y := range hm.heightMap.GetYSteps() {
-		hm.mapTable.SetCell(j+1, 0, tview.NewTableCell(sprintColorCoordinate(y)))
+	ySteps := hm.heightMap.GetYSteps()
+	for j, y := range ySteps {
+		hm.heightMapTable.SetCell(j+1, 0, tview.NewTableCell(sprintColorCoordinate(y)))
+	}
+
+	hm.heightMapTableCellMap = map[float64]map[float64]*tview.TableCell{}
+	for i, x := range xSteps {
+		for j, y := range ySteps {
+			yMap, ok := hm.heightMapTableCellMap[x]
+			if !ok {
+				yMap = map[float64]*tview.TableCell{}
+				hm.heightMapTableCellMap[x] = yMap
+			}
+			tableCell := tview.NewTableCell("N/A")
+			yMap[y] = tableCell
+			hm.heightMapTable.SetCell(j+1, i+1, tableCell)
+		}
 	}
 
 	hm.statusTextView.SetText("")
 }
 
 func (hm *HeightMapPrimitive) getProbeFunc(zProbePlane, maxZDeviation, probeFeedRate float64) func(ctx context.Context, x, y float64) (float64, error) {
-	return func(ctx context.Context, x, y float64) (float64, error) {
+	return func(ctx context.Context, x, y float64) (probedZ float64, err error) {
+		hm.app.QueueUpdateDraw(func() {
+			hm.statusTextView.SetText(fmt.Sprintf("Probing X%s Y%s", iFmt.SprintFloat(x, 4), iFmt.SprintFloat(y, 4)))
+		})
+
 		if err := hm.controlPrimitive.SendCommand(ctx,
 			fmt.Sprintf("G0 Z%s", iFmt.SprintFloat(zProbePlane+maxZDeviation, 4)),
 		); err != nil {
@@ -190,46 +212,87 @@ func (hm *HeightMapPrimitive) getProbeFunc(zProbePlane, maxZDeviation, probeFeed
 		); err != nil {
 			return 0, err
 		}
-		// FIXME read probe status
 
-		if err := hm.controlPrimitive.SendCommand(ctx, grbl.GrblCommandViewGcodeParameters); err != nil {
+		if err := hm.controlPrimitive.SendCommand(ctx, grblMod.GrblCommandViewGcodeParameters); err != nil {
 			return 0, err
 		}
 
-		return zProbePlane, nil
+		gcodeParameters := hm.controlPrimitive.grbl.GetLastGcodeParameters()
+		if gcodeParameters.Probe == nil {
+			return 0, fmt.Errorf("no probe result at G-Code Parameters push message")
+		}
+
+		if !gcodeParameters.Probe.Successful {
+			return 0, fmt.Errorf("probe failed")
+		}
+
+		workCoordinatesOffset := hm.grbl.GetLastWorkCoordinateOffset()
+		if workCoordinatesOffset == nil {
+			panic("bug: Grbl.GetLastWorkCoordinateOffset not expected to be nil")
+		}
+
+		probedZ = gcodeParameters.Probe.Coordinates.Z - workCoordinatesOffset.Z
+
+		yMap, ok := hm.heightMapTableCellMap[x]
+		if !ok {
+			panic(fmt.Errorf("bug: can't find table cell: X%f", x))
+		}
+		tableCell, ok := yMap[y]
+		if !ok {
+			panic(fmt.Errorf("bug: can't find table cell: Y%f", y))
+		}
+		hm.app.QueueUpdateDraw(func() {
+			tableCell.SetText(iFmt.SprintFloat(probedZ, 4))
+		})
+
+		return probedZ, nil
 	}
 }
 
 func (hm *HeightMapPrimitive) probe() {
-	hm.statusTextView.SetText("Probing...")
-
 	var err error
 	var zProbePlane, maxZDeviation, probeFeedRate float64
 
-	if zProbePlane, err = strconv.ParseFloat(hm.zProbePlaneInputField.GetText(), 64); err != nil {
-		hm.statusTextView.SetText(fmt.Sprintf("[%s]Invalid Z Probe Plane: %s[-]", tcell.ColorRed, tview.Escape(err.Error())))
-		return
-	}
+	hm.app.QueueUpdateDraw(func() {
+		if zProbePlane, err = strconv.ParseFloat(hm.zProbePlaneInputField.GetText(), 64); err != nil {
+			hm.statusTextView.SetText(fmt.Sprintf("[%s]Invalid Z Probe Plane: %s[-]", tcell.ColorRed, tview.Escape(err.Error())))
+			return
+		}
 
-	if maxZDeviation, err = strconv.ParseFloat(hm.maxZDeviationInputField.GetText(), 64); err != nil {
-		hm.statusTextView.SetText(fmt.Sprintf("[%s]Invalid Max Z Deviation: %s[-]", tcell.ColorRed, tview.Escape(err.Error())))
-		return
-	}
+		if maxZDeviation, err = strconv.ParseFloat(hm.maxZDeviationInputField.GetText(), 64); err != nil {
+			hm.statusTextView.SetText(fmt.Sprintf("[%s]Invalid Max Z Deviation: %s[-]", tcell.ColorRed, tview.Escape(err.Error())))
+			return
+		}
 
-	if probeFeedRate, err = strconv.ParseFloat(hm.probeFeedRateInputField.GetText(), 64); err != nil {
-		hm.statusTextView.SetText(fmt.Sprintf("[%s]Invalid Probe Feed Rate: %s[-]", tcell.ColorRed, tview.Escape(err.Error())))
-		return
+		if probeFeedRate, err = strconv.ParseFloat(hm.probeFeedRateInputField.GetText(), 64); err != nil {
+			hm.statusTextView.SetText(fmt.Sprintf("[%s]Invalid Probe Feed Rate: %s[-]", tcell.ColorRed, tview.Escape(err.Error())))
+			return
+		}
+
+		hm.statusTextView.SetText("Probing...")
+	})
+
+	// This primes data for Grbl.GetLastWorkCoordinateOffset() which we'll need
+	if err := hm.controlPrimitive.grbl.SendRealTimeCommand(grblMod.RealTimeCommandStatusReportQuery); err != nil {
+		hm.app.QueueUpdateDraw(func() {
+			hm.statusTextView.SetText(fmt.Sprintf("[%s]Failed to query Status Report: %s[-]", tcell.ColorRed, tview.Escape(err.Error())))
+		})
 	}
 
 	if err := hm.heightMap.Probe(hm.ctx, hm.getProbeFunc(zProbePlane, maxZDeviation, probeFeedRate)); err != nil {
-		hm.statusTextView.SetText(fmt.Sprintf("[%s]%s[-]", tcell.ColorRed, tview.Escape(err.Error())))
+		hm.app.QueueUpdateDraw(func() {
+			hm.statusTextView.SetText(fmt.Sprintf("[%s]%s[-]", tcell.ColorRed, tview.Escape(err.Error())))
+		})
 	}
 
-	hm.statusTextView.SetText(fmt.Sprintf("[%s]Success[-]", tcell.ColorGreen))
+	hm.app.QueueUpdateDraw(func() {
+		hm.statusTextView.SetText(fmt.Sprintf("[%s]Success[-]", tcell.ColorGreen))
+	})
 }
 
 func (hm *HeightMapPrimitive) Worker(
-	ctx context.Context, trackedStateCh <-chan *TrackedState,
+	ctx context.Context,
+	trackedStateCh <-chan *TrackedState,
 ) error {
 	for {
 		select {
