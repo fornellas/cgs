@@ -17,7 +17,21 @@ Features
             Straight
                 Probe button, enable / disable
                 Set
-                    G92, G54+
+                    Decide what to do after probing
+                        We can't just G92 to the position
+                        We must set $# after probing, and use the values from probe at gcode parameters
+                    Inputs
+                        Set
+                            Nothing
+                            Set Coordinate System [1-6]
+                            Set Coordinate Offset
+                        To
+                            X
+                            Y
+                            Z
+                Calculate Overshoot as function of feed rate and acceleration
+                    must do x, y and z independently, then add the vectors
+                    measured is 2-2000 times bigger than theoretical (depends on feed rate)
             Angle
             Edge Finder
                 Edge / Conrner
