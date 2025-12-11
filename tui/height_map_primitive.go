@@ -202,17 +202,31 @@ func (hm *HeightMapPrimitive) getTableCellColor(minValue, maxValue, value float6
 	t = max(0.0, min(1.0, t))
 
 	var r, g, b int32
-
 	const maxChannelValue = float64(255)
 
-	if t <= 0.5 {
-		tPrime := 2.0 * t
-		b = int32((1.0 - tPrime) * maxChannelValue)
-		g = int32(tPrime * maxChannelValue)
+	switch {
+	case t <= 0.25:
+		// blue -> cyan
+		tPrime := t / 0.25
 		r = 0
-	} else {
-		tPrime := 2.0*t - 1.0
+		g = int32(tPrime * maxChannelValue)
+		b = 255
+	case t <= 0.5:
+		// cyan -> green
+		tPrime := (t - 0.25) / 0.25
+		r = 0
+		g = 255
+		b = int32((1.0 - tPrime) * maxChannelValue)
+	case t <= 0.75:
+		// green -> yellow
+		tPrime := (t - 0.5) / 0.25
 		r = int32(tPrime * maxChannelValue)
+		g = 255
+		b = 0
+	default:
+		// yellow -> red
+		tPrime := (t - 0.75) / 0.25
+		r = 255
 		g = int32((1.0 - tPrime) * maxChannelValue)
 		b = 0
 	}
