@@ -29,39 +29,39 @@ func acceptUFloat(textToCheck string, lastChar rune) bool {
 	return err == nil
 }
 
-func sprintFloat(value float64, decimal uint) string {
+func sprintColorFloat(value float64, decimal uint) string {
 	return fmt.Sprintf("[%s]%s[-]", tcell.ColorOrange, iFmt.SprintFloat(value, decimal))
 }
 
-func sprintCoordinate(value float64) string {
-	return sprintFloat(value, 4)
+func sprintColorCoordinate(value float64) string {
+	return sprintColorFloat(value, 4)
 }
 
-func sprintBlocks(value int) string {
+func sprintColorBlocks(value int) string {
 	return fmt.Sprintf("[%s]%d[-]", tcell.ColorOrange, value)
 }
 
-func sprintBytes(value int) string {
+func sprintColorBytes(value int) string {
 	return fmt.Sprintf("[%s]%d[-]", tcell.ColorOrange, value)
 }
 
-func sprintSpindle(value float64) string {
-	return sprintFloat(value, 0)
+func sprintColorSpindle(value float64) string {
+	return sprintColorFloat(value, 0)
 }
 
-func sprintLine(value int) string {
+func sprintColorLine(value int) string {
 	return fmt.Sprintf("[%s]%d[-]", tcell.ColorOrange, value)
 }
 
-func sprintFeed(value float64) string {
-	return sprintFloat(value, 0)
+func sprintColorFeed(value float64) string {
+	return sprintColorFloat(value, 0)
 }
 
-func sprintSpeed(value float64) string {
-	return sprintFloat(value, 0)
+func sprintColorSpeed(value float64) string {
+	return sprintColorFloat(value, 0)
 }
 
-func sprintGcodeWord(word string) string {
+func sprintColorGcodeWord(word string) string {
 	return fmt.Sprintf("[%s]%s[-]", gcodeColor, word)
 }
 

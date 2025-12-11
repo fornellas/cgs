@@ -48,8 +48,8 @@ var gcodeParserModalGroupsSpindleWords = []string{
 	"M3", "M4", "M5",
 }
 var gcodeParamsCoordinateSystemModeOptions = []string{
-	fmt.Sprintf("Offset%s", sprintGcodeWord("G10L2")),
-	fmt.Sprintf("Work Coordinates%s", sprintGcodeWord("G10L20")),
+	fmt.Sprintf("Offset%s", sprintColorGcodeWord("G10L2")),
+	fmt.Sprintf("Work Coordinates%s", sprintColorGcodeWord("G10L20")),
 }
 var gcodeParamsCoordinateSystemModeOffsetIdx = 0
 var gcodeParamsCoordinateSystemModeWorkCoordinatesIdx = 1
@@ -233,7 +233,7 @@ func (cp *ControlPrimitive) newGcodeParser() {
 		dropDown.SetLabel(name + ":")
 		texts := []string{}
 		for _, word := range words {
-			texts = append(texts, fmt.Sprintf("%s%s", sprintGcodeWord(word), tview.Escape(gcode.ShortWordName(word))))
+			texts = append(texts, fmt.Sprintf("%s%s", sprintColorGcodeWord(word), tview.Escape(gcode.ShortWordName(word))))
 		}
 		dropDown.SetOptions(texts, func(text string, index int) {
 			if cp.skipQueueCommand {
@@ -289,7 +289,7 @@ func (cp *ControlPrimitive) newGcodeParser() {
 
 	// Tool Length Offset
 	cp.gcodeParserModalGroupsToolLengthOffsetInputField = tview.NewInputField()
-	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetLabel(fmt.Sprintf("Tool Length Offset%s:", sprintGcodeWord("G43.1")))
+	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetLabel(fmt.Sprintf("Tool Length Offset%s:", sprintColorGcodeWord("G43.1")))
 	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetAcceptanceFunc(acceptFloat)
 	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetFieldWidth(coordinateWidth)
 	cp.gcodeParserModalGroupsToolLengthOffsetInputField.SetDoneFunc(func(key tcell.Key) {
@@ -315,7 +315,7 @@ func (cp *ControlPrimitive) newGcodeParser() {
 
 	// Stopping
 	cp.gcodeParserModalGroupsStoppingCheckbox = tview.NewCheckbox()
-	cp.gcodeParserModalGroupsStoppingCheckbox.SetLabel(fmt.Sprintf("%s%s", tview.Escape(gcode.ShortWordName("M0")), sprintGcodeWord("M0")))
+	cp.gcodeParserModalGroupsStoppingCheckbox.SetLabel(fmt.Sprintf("%s%s", tview.Escape(gcode.ShortWordName("M0")), sprintColorGcodeWord("M0")))
 	cp.gcodeParserModalGroupsStoppingCheckbox.SetChangedFunc(func(checked bool) {
 		if cp.skipQueueCommand {
 			return
@@ -336,7 +336,7 @@ func (cp *ControlPrimitive) newGcodeParser() {
 	coolantTextView := tview.NewTextView()
 	coolantTextView.SetLabel("Coolant:")
 	cp.gcodeParserModalGroupsCoolantMistCheckbok = tview.NewCheckbox()
-	cp.gcodeParserModalGroupsCoolantMistCheckbok.SetLabel(fmt.Sprintf("Mist%s", sprintGcodeWord("M7")))
+	cp.gcodeParserModalGroupsCoolantMistCheckbok.SetLabel(fmt.Sprintf("Mist%s", sprintColorGcodeWord("M7")))
 	cp.gcodeParserModalGroupsCoolantMistCheckbok.SetChangedFunc(func(checked bool) {
 		if cp.skipQueueCommand {
 			return
@@ -344,14 +344,14 @@ func (cp *ControlPrimitive) newGcodeParser() {
 		cp.QueueCommand("M7")
 	})
 	cp.gcodeParserModalGroupsCoolantFloodCheckbok = tview.NewCheckbox()
-	cp.gcodeParserModalGroupsCoolantFloodCheckbok.SetLabel(fmt.Sprintf("Flood%s", sprintGcodeWord("M8")))
+	cp.gcodeParserModalGroupsCoolantFloodCheckbok.SetLabel(fmt.Sprintf("Flood%s", sprintColorGcodeWord("M8")))
 	cp.gcodeParserModalGroupsCoolantFloodCheckbok.SetChangedFunc(func(checked bool) {
 		if cp.skipQueueCommand {
 			return
 		}
 		cp.QueueCommand("M8")
 	})
-	cp.gcodeParserModalGroupsCoolantOff = tview.NewButton(fmt.Sprintf("Off%s", sprintGcodeWord("M9")))
+	cp.gcodeParserModalGroupsCoolantOff = tview.NewButton(fmt.Sprintf("Off%s", sprintColorGcodeWord("M9")))
 	cp.gcodeParserModalGroupsCoolantOff.SetSelectedFunc(func() {
 		cp.QueueCommand("M9")
 	})
@@ -683,7 +683,7 @@ func (cp *ControlPrimitive) newGcodeParams() {
 	})
 	newCoordinateSystemPrimitives := func(number, word string) (*tview.InputField, *tview.InputField, *tview.InputField, *tview.Flex) {
 		labelTextView := tview.NewTextView()
-		labelTextView.SetLabel(fmt.Sprintf("%s%s:", number, sprintGcodeWord(word)))
+		labelTextView.SetLabel(fmt.Sprintf("%s%s:", number, sprintColorGcodeWord(word)))
 
 		getChangedFunc := func(letter string, inputField *tview.InputField) func(tcell.Key) {
 			return func(tcell.Key) {
@@ -755,7 +755,7 @@ func (cp *ControlPrimitive) newGcodeParams() {
 		*tview.Flex,
 	) {
 		labelTextView := tview.NewTextView()
-		labelTextView.SetLabel(fmt.Sprintf("%s%s:", number, sprintGcodeWord(word)))
+		labelTextView.SetLabel(fmt.Sprintf("%s%s:", number, sprintColorGcodeWord(word)))
 
 		getDoneFunc := func(letter string, inputField *tview.InputField) func(tcell.Key) {
 			return func(tcell.Key) {
@@ -837,7 +837,7 @@ func (cp *ControlPrimitive) newGcodeParams() {
 		cp.updateGcodeParamsCoordinateOffset()
 	})
 	coordinateOffsetLabelTextView := tview.NewTextView()
-	coordinateOffsetLabelTextView.SetLabel(fmt.Sprintf("%s:", sprintGcodeWord("G92")))
+	coordinateOffsetLabelTextView.SetLabel(fmt.Sprintf("%s:", sprintColorGcodeWord("G92")))
 	getCoordinateOffsetCoordinateInputField := func(letter string) *tview.InputField {
 		coordinateInputField := tview.NewInputField()
 		coordinateInputField.SetLabel(fmt.Sprintf("%s:", letter))
@@ -1299,6 +1299,15 @@ func (cp *ControlPrimitive) QueueCommand(command string) <-chan error {
 		errCh:   errCh,
 	}
 	return errCh
+}
+
+func (cp *ControlPrimitive) SendCommand(ctx context.Context, command string) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-cp.QueueCommand(command):
+		return err
+	}
 }
 
 func (cp *ControlPrimitive) sendRealTimeCommand(

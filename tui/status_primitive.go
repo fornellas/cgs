@@ -102,11 +102,11 @@ func (sp *StatusPrimitive) writePositionStatus(w io.Writer, statusReportPushMess
 	if workCoordinates != nil {
 		fmt.Fprintf(w, "Work\n")
 		nl = true
-		fmt.Fprintf(w, "X:%s\n", sprintCoordinate(workCoordinates.X))
-		fmt.Fprintf(w, "Y:%s\n", sprintCoordinate(workCoordinates.Y))
-		fmt.Fprintf(w, "Z:%s\n", sprintCoordinate(workCoordinates.Z))
+		fmt.Fprintf(w, "X:%s\n", sprintColorCoordinate(workCoordinates.X))
+		fmt.Fprintf(w, "Y:%s\n", sprintColorCoordinate(workCoordinates.Y))
+		fmt.Fprintf(w, "Z:%s\n", sprintColorCoordinate(workCoordinates.Z))
 		if workCoordinates.A != nil {
-			fmt.Fprintf(w, "A:%s\n", sprintCoordinate(*workCoordinates.A))
+			fmt.Fprintf(w, "A:%s\n", sprintColorCoordinate(*workCoordinates.A))
 		}
 	}
 	if machineCoordinates != nil {
@@ -114,11 +114,11 @@ func (sp *StatusPrimitive) writePositionStatus(w io.Writer, statusReportPushMess
 			fmt.Fprintf(w, "\n")
 		}
 		fmt.Fprintf(w, "Machine\n")
-		fmt.Fprintf(w, "X:%s\n", sprintCoordinate(machineCoordinates.X))
-		fmt.Fprintf(w, "Y:%s\n", sprintCoordinate(machineCoordinates.Y))
-		fmt.Fprintf(w, "Z:%s\n", sprintCoordinate(machineCoordinates.Z))
+		fmt.Fprintf(w, "X:%s\n", sprintColorCoordinate(machineCoordinates.X))
+		fmt.Fprintf(w, "Y:%s\n", sprintColorCoordinate(machineCoordinates.Y))
+		fmt.Fprintf(w, "Z:%s\n", sprintColorCoordinate(machineCoordinates.Z))
 		if machineCoordinates.A != nil {
-			fmt.Fprintf(w, "A:%s\n", sprintCoordinate(*machineCoordinates.A))
+			fmt.Fprintf(w, "A:%s\n", sprintColorCoordinate(*machineCoordinates.A))
 		}
 	}
 }
@@ -131,24 +131,24 @@ func (sp *StatusPrimitive) updateStatusTextView(statusReportPushMessage *grblMod
 
 	if statusReportPushMessage.BufferState != nil {
 		fmt.Fprint(&buf, "\nBuffer\n")
-		fmt.Fprintf(&buf, "Blocks:%s\n", sprintBlocks(statusReportPushMessage.BufferState.AvailableBlocks))
-		fmt.Fprintf(&buf, "Bytes:%s\n", sprintBytes(statusReportPushMessage.BufferState.AvailableBytes))
+		fmt.Fprintf(&buf, "Blocks:%s\n", sprintColorBlocks(statusReportPushMessage.BufferState.AvailableBlocks))
+		fmt.Fprintf(&buf, "Bytes:%s\n", sprintColorBytes(statusReportPushMessage.BufferState.AvailableBytes))
 	}
 
 	if statusReportPushMessage.LineNumber != nil {
-		fmt.Fprintf(&buf, "\n\nLine:%s\n", sprintLine(int(*statusReportPushMessage.LineNumber)))
+		fmt.Fprintf(&buf, "\n\nLine:%s\n", sprintColorLine(int(*statusReportPushMessage.LineNumber)))
 	}
 
 	if statusReportPushMessage.Feed != nil {
-		fmt.Fprintf(&buf, "\nFeed:%s\n", sprintFeed(float64(*statusReportPushMessage.Feed)))
+		fmt.Fprintf(&buf, "\nFeed:%s\n", sprintColorFeed(float64(*statusReportPushMessage.Feed)))
 	}
 
 	if statusReportPushMessage.FeedSpindle != nil {
 		if statusReportPushMessage.FeedSpindle.Feed != 0 {
-			fmt.Fprintf(&buf, "\nFeed:%s\n", sprintFeed(statusReportPushMessage.FeedSpindle.Feed))
+			fmt.Fprintf(&buf, "\nFeed:%s\n", sprintColorFeed(statusReportPushMessage.FeedSpindle.Feed))
 		}
 		if statusReportPushMessage.FeedSpindle.Speed != 0 {
-			fmt.Fprintf(&buf, "\nSpeed:%s\n", sprintSpeed(statusReportPushMessage.FeedSpindle.Speed))
+			fmt.Fprintf(&buf, "\nSpeed:%s\n", sprintColorSpeed(statusReportPushMessage.FeedSpindle.Speed))
 		}
 	}
 
@@ -160,13 +160,13 @@ func (sp *StatusPrimitive) updateStatusTextView(statusReportPushMessage *grblMod
 	if overrideValues != nil && overrideValues.HasOverride() {
 		fmt.Fprint(&buf, "\nOverrides\n")
 		if overrideValues.Feed != 100.0 {
-			fmt.Fprintf(&buf, "Feed:%s%%\n", sprintFeed(overrideValues.Feed))
+			fmt.Fprintf(&buf, "Feed:%s%%\n", sprintColorFeed(overrideValues.Feed))
 		}
 		if overrideValues.Rapids != 100.0 {
-			fmt.Fprintf(&buf, "Rapids:%s%%\n", sprintFeed(overrideValues.Rapids))
+			fmt.Fprintf(&buf, "Rapids:%s%%\n", sprintColorFeed(overrideValues.Rapids))
 		}
 		if overrideValues.Spindle != 100.0 {
-			fmt.Fprintf(&buf, "Spindle:%s%%\n", sprintSpindle(overrideValues.Spindle))
+			fmt.Fprintf(&buf, "Spindle:%s%%\n", sprintColorSpindle(overrideValues.Spindle))
 		}
 	}
 
