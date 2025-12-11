@@ -163,13 +163,12 @@ func (hm *HeightMapPrimitive) updateHeightMap() {
 	}
 
 	xSteps := hm.heightMap.GetXSteps()
-	for i, x := range xSteps {
-		hm.heightMapTable.SetCell(0, i+1, tview.NewTableCell(sprintColorCoordinate(x)))
-	}
-
 	ySteps := hm.heightMap.GetYSteps()
+	for i, x := range xSteps {
+		hm.heightMapTable.SetCell(len(ySteps), i+1, tview.NewTableCell(sprintColorCoordinate(x)))
+	}
 	for j, y := range ySteps {
-		hm.heightMapTable.SetCell(j+1, 0, tview.NewTableCell(sprintColorCoordinate(y)))
+		hm.heightMapTable.SetCell(len(ySteps)-j-1, 0, tview.NewTableCell(sprintColorCoordinate(y)))
 	}
 
 	hm.heightMapTableCellMap = map[float64]map[float64]*tview.TableCell{}
@@ -182,7 +181,7 @@ func (hm *HeightMapPrimitive) updateHeightMap() {
 			}
 			tableCell := tview.NewTableCell("N/A")
 			yMap[y] = tableCell
-			hm.heightMapTable.SetCell(j+1, i+1, tableCell)
+			hm.heightMapTable.SetCell(len(ySteps)-j-1, i+1, tableCell)
 		}
 	}
 
@@ -191,8 +190,17 @@ func (hm *HeightMapPrimitive) updateHeightMap() {
 
 func (hm *HeightMapPrimitive) getProbeFunc(zProbePlane, maxZDeviation, probeFeedRate float64) func(ctx context.Context, x, y float64) (float64, error) {
 	return func(ctx context.Context, x, y float64) (probedZ float64, err error) {
+		yMap, ok := hm.heightMapTableCellMap[x]
+		if !ok {
+			panic(fmt.Errorf("bug: can't find table cell: X%f", x))
+		}
+		tableCell, ok := yMap[y]
+		if !ok {
+			panic(fmt.Errorf("bug: can't find table cell: Y%f", y))
+		}
+
 		hm.app.QueueUpdateDraw(func() {
-			hm.statusTextView.SetText(fmt.Sprintf("Probing X%s Y%s", iFmt.SprintFloat(x, 4), iFmt.SprintFloat(y, 4)))
+			tableCell.SetText("Probing")
 		})
 
 		if err := hm.controlPrimitive.SendCommand(ctx,
@@ -233,14 +241,6 @@ func (hm *HeightMapPrimitive) getProbeFunc(zProbePlane, maxZDeviation, probeFeed
 
 		probedZ = gcodeParameters.Probe.Coordinates.Z - workCoordinatesOffset.Z
 
-		yMap, ok := hm.heightMapTableCellMap[x]
-		if !ok {
-			panic(fmt.Errorf("bug: can't find table cell: X%f", x))
-		}
-		tableCell, ok := yMap[y]
-		if !ok {
-			panic(fmt.Errorf("bug: can't find table cell: Y%f", y))
-		}
 		hm.app.QueueUpdateDraw(func() {
 			tableCell.SetText(iFmt.SprintFloat(probedZ, 4))
 		})
@@ -267,6 +267,12 @@ func (hm *HeightMapPrimitive) probe() {
 		if probeFeedRate, err = strconv.ParseFloat(hm.probeFeedRateInputField.GetText(), 64); err != nil {
 			hm.statusTextView.SetText(fmt.Sprintf("[%s]Invalid Probe Feed Rate: %s[-]", tcell.ColorRed, tview.Escape(err.Error())))
 			return
+		}
+
+		for _, yMap := range hm.heightMapTableCellMap {
+			for _, tableCell := range yMap {
+				tableCell.SetText("N/A")
+			}
 		}
 
 		hm.statusTextView.SetText("Probing...")
