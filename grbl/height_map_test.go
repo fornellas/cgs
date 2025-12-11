@@ -77,7 +77,7 @@ func TestHeightMap(t *testing.T) {
 	step := maxDistance / 4
 	for x := x0 - step; x <= x1+step; x += step / 2 {
 		for y := y0 - step; y <= y1+step; y += step / 2 {
-			z := hm.GetCorrectedValue(x, y)
+			z := hm.GetInterpolatedValue(x, y)
 			if x < x0 || x > x1 || y < y0 || y > y1 {
 				require.Nilf(t, z, "%.2f,%.2f: z should have been nil: %#v", x, y, z)
 			} else {

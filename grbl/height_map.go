@@ -58,19 +58,38 @@ func NewHeightMap(
 	return h, nil
 }
 
+// Return X values for the probe grid.
+func (h *HeightMap) GetXSteps() []float64 {
+	var xSteps []float64
+	xStep := (h.x1 - h.x0) / float64(h.xSteps)
+	for i := range h.xSteps + 1 {
+		x := h.x0 + float64(i)*xStep
+		xSteps = append(xSteps, x)
+	}
+	return xSteps
+}
+
+// Return Y values for the probe grid.
+func (h *HeightMap) GetYSteps() []float64 {
+	var ySteps []float64
+
+	yStep := (h.y1 - h.y0) / float64(h.ySteps)
+	for j := range h.ySteps + 1 {
+		ySteps = append(ySteps, h.y0+float64(j)*yStep)
+	}
+	return ySteps
+}
+
 // Probe the height map, using the currently active coordinate system.
 // probeFn probes at given point, and return the measured z value.
 func (h *HeightMap) Probe(
 	ctx context.Context,
 	probeFn func(ctx context.Context, x, y float64) (float64, error),
 ) error {
-	xStep := (h.x1 - h.x0) / float64(h.xSteps)
-	yStep := (h.y1 - h.y0) / float64(h.ySteps)
-	for i := range h.xSteps + 1 {
-		x := h.x0 + float64(i)*xStep
+	ySteps := h.GetYSteps()
+	for i, x := range h.GetXSteps() {
 		if i%2 == 0 {
-			for j := range h.ySteps + 1 {
-				y := h.y0 + float64(j)*yStep
+			for j, y := range ySteps {
 				z, err := probeFn(ctx, x, y)
 				if err != nil {
 					return err
@@ -78,21 +97,21 @@ func (h *HeightMap) Probe(
 				h.z[i][j] = z
 			}
 		} else {
-			for j := h.ySteps; j >= 0; j-- {
-				y := h.y0 + float64(j)*yStep
+			for k := len(ySteps) - 1; k >= 0; k-- {
+				y := ySteps[k]
 				z, err := probeFn(ctx, x, y)
 				if err != nil {
 					return err
 				}
-				h.z[i][j] = z
+				h.z[i][k] = z
 			}
 		}
 	}
 	return nil
 }
 
-// Return a corrected value for given x, y.
-func (h *HeightMap) GetCorrectedValue(x, y float64) *float64 {
+// Return an interpolated value for given x, y, as a function of probed values.
+func (h *HeightMap) GetInterpolatedValue(x, y float64) *float64 {
 	if x < h.x0 || x > h.x1 || y < h.y0 || y > h.y1 {
 		return nil
 	}
