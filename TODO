@@ -1,4 +1,11 @@
 Bug
+    HeightMap
+        with input
+            x0=10 y0=10 x1=50 y1=110
+            Max probe point distance = 7
+        it has the x points
+            10 18 26 34
+        with steps of 8, which is bigger than 7
     ControlPrimitiveQueueCommand
         various use cases where the channel is not used
         refactor to
