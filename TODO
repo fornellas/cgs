@@ -1,4 +1,12 @@
 Bug
+    ControlPrimitiveQueueCommand
+        various use cases where the channel is not used
+        refactor to
+            SendCommand(ctx context.Context, command string) error
+    QueueRealTimeCommand
+        it can error out
+        refactor to
+            SendRealTimeCommand(ctx context.Context, command string) error
     If state is check, skip status commands (or they'll fail)
     InputFields
         When it looses focus, the entered value is not applied
