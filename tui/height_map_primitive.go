@@ -165,10 +165,14 @@ func (hm *HeightMapPrimitive) updateHeightMap() {
 	xSteps := hm.heightMap.GetXSteps()
 	ySteps := hm.heightMap.GetYSteps()
 	for i, x := range xSteps {
-		hm.heightMapTable.SetCell(len(ySteps), i+1, tview.NewTableCell(sprintColorCoordinate(x)))
+		tableCell := tview.NewTableCell(sprintColorCoordinate(x))
+		tableCell.SetAlign(tview.AlignCenter)
+		hm.heightMapTable.SetCell(len(ySteps), i+1, tableCell)
 	}
 	for j, y := range ySteps {
-		hm.heightMapTable.SetCell(len(ySteps)-j-1, 0, tview.NewTableCell(sprintColorCoordinate(y)))
+		tableCell := tview.NewTableCell(sprintColorCoordinate(y))
+		tableCell.SetAlign(tview.AlignCenter)
+		hm.heightMapTable.SetCell(len(ySteps)-j-1, 0, tableCell)
 	}
 
 	hm.heightMapTableCellMap = map[float64]map[float64]*tview.TableCell{}
@@ -180,12 +184,95 @@ func (hm *HeightMapPrimitive) updateHeightMap() {
 				hm.heightMapTableCellMap[x] = yMap
 			}
 			tableCell := tview.NewTableCell("N/A")
+			tableCell.SetAlign(tview.AlignCenter)
 			yMap[y] = tableCell
 			hm.heightMapTable.SetCell(len(ySteps)-j-1, i+1, tableCell)
 		}
 	}
 
 	hm.statusTextView.SetText("")
+}
+
+func (hm *HeightMapPrimitive) getTableCellColor(minValue, maxValue, value float64) tcell.Color {
+	if maxValue <= minValue {
+		return tcell.NewRGBColor(0, 255, 0)
+	}
+
+	t := (value - minValue) / (maxValue - minValue)
+	t = max(0.0, min(1.0, t))
+
+	var r, g, b int32
+
+	const maxChannelValue = float64(255)
+
+	if t <= 0.5 {
+		tPrime := 2.0 * t
+		b = int32((1.0 - tPrime) * maxChannelValue)
+		g = int32(tPrime * maxChannelValue)
+		r = 0
+	} else {
+		tPrime := 2.0*t - 1.0
+		r = int32(tPrime * maxChannelValue)
+		g = int32((1.0 - tPrime) * maxChannelValue)
+		b = 0
+	}
+
+	return tcell.NewRGBColor(r, g, b)
+}
+
+//gocyclo:ignore
+func (hm *HeightMapPrimitive) updateTableCellColors() {
+	var minZ, maxZ *float64
+	for _, yMap := range hm.heightMapTableCellMap {
+		for _, tableCell := range yMap {
+			if tableCell.Reference == nil {
+				continue
+			}
+			z := tableCell.Reference.(float64)
+			if minZ == nil {
+				if maxZ == nil {
+					minZ = &z
+					maxZ = &z
+				} else {
+					if z > *maxZ {
+						minZ = maxZ
+						maxZ = &z
+					} else {
+						minZ = &z
+					}
+				}
+			} else {
+				if maxZ == nil {
+					if z < *minZ {
+						maxZ = minZ
+						minZ = &z
+					} else {
+						maxZ = &z
+					}
+				} else {
+					if z < *minZ {
+						minZ = &z
+					}
+					if z > *maxZ {
+						maxZ = &z
+					}
+				}
+			}
+		}
+	}
+
+	if minZ == nil || maxZ == nil {
+		return
+	}
+	for _, yMap := range hm.heightMapTableCellMap {
+		for _, tableCell := range yMap {
+			if tableCell.Reference == nil {
+				continue
+			}
+			z := tableCell.Reference.(float64)
+			tableCell.SetBackgroundColor(hm.getTableCellColor(*minZ, *maxZ, z))
+		}
+	}
 }
 
 func (hm *HeightMapPrimitive) getProbeFunc(zProbePlane, maxZDeviation, probeFeedRate float64) func(ctx context.Context, x, y float64) (float64, error) {
@@ -243,7 +330,10 @@ func (hm *HeightMapPrimitive) getProbeFunc(zProbePlane, maxZDeviation, probeFeed
 
 		hm.app.QueueUpdateDraw(func() {
 			tableCell.SetText(iFmt.SprintFloat(probedZ, 4))
+			tableCell.Reference = probedZ
 		})
+
+		hm.updateTableCellColors()
 
 		return probedZ, nil
 	}
@@ -272,6 +362,8 @@ func (hm *HeightMapPrimitive) probe() {
 		for _, yMap := range hm.heightMapTableCellMap {
 			for _, tableCell := range yMap {
 				tableCell.SetText("N/A")
+				tableCell.SetBackgroundColor(tcell.ColorNone)
+				tableCell.Reference = nil
 			}
 		}
 
