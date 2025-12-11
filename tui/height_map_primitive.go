@@ -340,7 +340,7 @@ func (hm *HeightMapPrimitive) getProbeFunc(zProbePlane, maxZDeviation, probeFeed
 			panic("bug: Grbl.GetLastWorkCoordinateOffset not expected to be nil")
 		}
 
-		probedZ = gcodeParameters.Probe.Coordinates.Z - workCoordinatesOffset.Z
+		probedZ = (gcodeParameters.Probe.Coordinates.Z - workCoordinatesOffset.Z) - zProbePlane
 
 		hm.app.QueueUpdateDraw(func() {
 			tableCell.SetText(iFmt.SprintFloat(probedZ, 4))
