@@ -15,6 +15,8 @@ Features
     Panels
         Probe
             Straight
+                Cancel probe
+                    use new context that a Cancel button can cancel
                 Probe button, enable / disable
                 Set
                     Decide what to do after probing
